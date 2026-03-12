@@ -1,0 +1,235 @@
+import React from "react"
+import { motion } from "framer-motion"
+import { Brain, Heart, Clover, Sparkles, History, RotateCcw } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
+
+import { 
+  useGetProfile, 
+  useEarnEnergy, 
+  useEarnCompassion, 
+  useGetActivities,
+  useResetProfile,
+  getGetProfileQueryKey,
+  getGetActivitiesQueryKey
+} from "@workspace/api-client-react"
+
+import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/glass-card"
+import { LuxuryButton } from "@/components/ui/luxury-button"
+import { StatRing } from "@/components/dashboard/stat-ring"
+import { ActivityFeed } from "@/components/dashboard/activity-feed"
+import { useToast } from "@/hooks/use-toast"
+
+const ENERGY_ACTIONS = [
+  { label: "Deep Work (1 hr)", amount: 50 },
+  { label: "Meditation (15 min)", amount: 20 },
+  { label: "Read a Chapter", amount: 15 },
+]
+
+const COMPASSION_ACTIONS = [
+  { label: "Help a Colleague", amount: 30 },
+  { label: "Active Listening", amount: 20 },
+  { label: "Express Gratitude", amount: 10 },
+]
+
+export default function Dashboard() {
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+
+  const { data: profile, isLoading: isProfileLoading } = useGetProfile()
+  const { data: activities, isLoading: isActivitiesLoading } = useGetActivities()
+
+  const invalidateQueries = () => {
+    queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
+    queryClient.invalidateQueries({ queryKey: getGetActivitiesQueryKey() })
+  }
+
+  const { mutate: earnEnergy, isPending: isEnergyPending } = useEarnEnergy({
+    mutation: {
+      onSuccess: () => {
+        invalidateQueries()
+        toast({ title: "Neural Energy gained.", description: "Your mind sharpens." })
+      }
+    }
+  })
+
+  const { mutate: earnCompassion, isPending: isCompassionPending } = useEarnCompassion({
+    mutation: {
+      onSuccess: () => {
+        invalidateQueries()
+        toast({ title: "Compassion earned.", description: "Your spirit warms." })
+      }
+    }
+  })
+
+  const { mutate: resetProfile, isPending: isResetPending } = useResetProfile({
+    mutation: {
+      onSuccess: () => {
+        invalidateQueries()
+        toast({ title: "Path Reset", description: "You have returned to the beginning." })
+      }
+    }
+  })
+
+  const handleAction = (type: "energy" | "compassion", activity: string, amount: number) => {
+    if (type === "energy") {
+      earnEnergy({ data: { activity, amount } })
+    } else {
+      earnCompassion({ data: { activity, amount } })
+    }
+  }
+
+  const isPending = isEnergyPending || isCompassionPending
+
+  return (
+    <div className="min-h-screen relative overflow-hidden pb-20">
+      {/* Background Image Overlay */}
+      <div 
+        className="absolute inset-0 z-0 opacity-40 mix-blend-overlay pointer-events-none bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${import.meta.env.BASE_URL}images/zen-bg.png)` }}
+      />
+
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12">
+        {/* Header */}
+        <header className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3"
+          >
+            <div className="p-3 bg-primary/20 rounded-2xl backdrop-blur-md border border-primary/30">
+              {/* Fallback to Clover icon if image isn't purely decorative */}
+              <Clover className="w-8 h-8 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-serif font-bold text-gradient-gold">NeuroQuest</h1>
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest mt-1">
+                Mind & Spirit
+              </p>
+            </div>
+          </motion.div>
+
+          {profile && (
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex items-center gap-4 bg-white/5 px-6 py-3 rounded-full border border-white/10 backdrop-blur-sm"
+            >
+              <div className="flex flex-col items-end">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">Level {profile.level}</span>
+                <span className="font-serif font-semibold text-primary">{profile.title}</span>
+              </div>
+              <div className="w-px h-8 bg-white/20 mx-2" />
+              <LuxuryButton 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => resetProfile()}
+                disabled={isResetPending}
+                title="Reset Journey"
+              >
+                <RotateCcw className="w-5 h-5 opacity-70 hover:opacity-100 transition-opacity" />
+              </LuxuryButton>
+            </motion.div>
+          )}
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* Main Stats Column */}
+          <div className="lg:col-span-8 space-y-8">
+            <GlassCard glow>
+              <GlassCardHeader>
+                <GlassCardTitle className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" /> 
+                  Current Resonance
+                </GlassCardTitle>
+              </GlassCardHeader>
+              <GlassCardContent>
+                <div className="flex flex-col sm:flex-row justify-around items-center gap-8 py-4">
+                  <StatRing 
+                    value={profile?.neural_energy || 0} 
+                    label="Neural Energy" 
+                    icon={<Brain className="w-6 h-6" />}
+                    colorClass="text-primary"
+                  />
+                  <div className="hidden sm:block w-px h-32 bg-gradient-to-b from-transparent via-white/20 to-transparent" />
+                  <StatRing 
+                    value={profile?.compassion_points || 0} 
+                    label="Compassion" 
+                    icon={<Heart className="w-6 h-6" />}
+                    colorClass="text-rose-400"
+                  />
+                </div>
+              </GlassCardContent>
+            </GlassCard>
+
+            {/* Actions Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Focus Actions */}
+              <GlassCard>
+                <GlassCardHeader>
+                  <GlassCardTitle className="text-xl">Focus & Mind</GlassCardTitle>
+                  <p className="text-sm text-muted-foreground mt-2">Cultivate neural pathways and deepen your concentration.</p>
+                </GlassCardHeader>
+                <GlassCardContent className="space-y-3">
+                  {ENERGY_ACTIONS.map((action) => (
+                    <LuxuryButton
+                      key={action.label}
+                      variant="outline"
+                      className="w-full justify-between"
+                      onClick={() => handleAction("energy", action.label, action.amount)}
+                      disabled={isPending}
+                    >
+                      <span>{action.label}</span>
+                      <span className="text-primary font-serif font-bold">+{action.amount}</span>
+                    </LuxuryButton>
+                  ))}
+                </GlassCardContent>
+              </GlassCard>
+
+              {/* Heart Actions */}
+              <GlassCard>
+                <GlassCardHeader>
+                  <GlassCardTitle className="text-xl">Heart & Spirit</GlassCardTitle>
+                  <p className="text-sm text-muted-foreground mt-2">Extend your compassion and connect with others.</p>
+                </GlassCardHeader>
+                <GlassCardContent className="space-y-3">
+                  {COMPASSION_ACTIONS.map((action) => (
+                    <LuxuryButton
+                      key={action.label}
+                      variant="glass"
+                      className="w-full justify-between border-rose-400/30 hover:border-rose-400/60"
+                      onClick={() => handleAction("compassion", action.label, action.amount)}
+                      disabled={isPending}
+                    >
+                      <span className="text-rose-100">{action.label}</span>
+                      <span className="text-rose-400 font-serif font-bold">+{action.amount}</span>
+                    </LuxuryButton>
+                  ))}
+                </GlassCardContent>
+              </GlassCard>
+            </div>
+          </div>
+
+          {/* Sidebar / Activity Feed */}
+          <div className="lg:col-span-4">
+            <GlassCard className="h-full min-h-[500px]">
+              <GlassCardHeader>
+                <GlassCardTitle className="flex items-center gap-2 text-xl">
+                  <History className="w-5 h-5 text-primary" />
+                  Chronicle
+                </GlassCardTitle>
+              </GlassCardHeader>
+              <GlassCardContent>
+                <ActivityFeed 
+                  activities={activities || []} 
+                  isLoading={isActivitiesLoading} 
+                />
+              </GlassCardContent>
+            </GlassCard>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  )
+}

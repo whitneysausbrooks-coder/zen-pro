@@ -1,15 +1,16 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: NeuroQuest API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: quest
+    description: NeuroQuest operations
 paths:
   /healthz:
     get:
@@ -24,6 +25,91 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /quest/profile:
+    get:
+      operationId: getProfile
+      tags: [quest]
+      summary: Get user profile
+      description: Returns the current user's neural_energy and compassion_points
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /quest/earn-energy:
+    post:
+      operationId: earnEnergy
+      tags: [quest]
+      summary: Earn neural energy
+      description: Complete a focus task to earn neural energy points
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EarnEnergyRequest"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /quest/earn-compassion:
+    post:
+      operationId: earnCompassion
+      tags: [quest]
+      summary: Earn compassion points
+      description: Complete an act of kindness to earn compassion points
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EarnCompassionRequest"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /quest/activities:
+    get:
+      operationId: getActivities
+      tags: [quest]
+      summary: Get activity log
+      description: Returns recent activities/events for the user
+      responses:
+        "200":
+          description: Activity list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Activity"
+
+  /quest/reset:
+    post:
+      operationId: resetProfile
+      tags: [quest]
+      summary: Reset profile
+      description: Resets neural energy and compassion points to defaults
+      responses:
+        "200":
+          description: Reset profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +120,76 @@ components:
       required:
         - status
 
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        session_id:
+          type: string
+        neural_energy:
+          type: integer
+        compassion_points:
+          type: integer
+        level:
+          type: integer
+        title:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - session_id
+        - neural_energy
+        - compassion_points
+        - level
+        - title
+        - updated_at
+
+    EarnEnergyRequest:
+      type: object
+      properties:
+        activity:
+          type: string
+        amount:
+          type: integer
+      required:
+        - activity
+        - amount
+
+    EarnCompassionRequest:
+      type: object
+      properties:
+        activity:
+          type: string
+        amount:
+          type: integer
+      required:
+        - activity
+        - amount
+
+    Activity:
+      type: object
+      properties:
+        id:
+          type: integer
+        session_id:
+          type: string
+        type:
+          type: string
+          enum: [neural_energy, compassion_points]
+        activity:
+          type: string
+        amount:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - session_id
+        - type
+        - activity
+        - amount
+        - created_at

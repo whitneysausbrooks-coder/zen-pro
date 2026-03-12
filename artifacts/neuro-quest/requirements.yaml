@@ -1,0 +1,14 @@
+packages:
+  "framer-motion": "For smooth, luxurious animations and page transitions."
+  "date-fns": "For formatting activity timestamps gracefully."
+  "clsx": "Utility for constructing className strings conditionally."
+  "tailwind-merge": "Utility to merge tailwind classes safely."
+
+images:
+  - path: "artifacts/neuro-quest/public/images/zen-bg.png"
+    description: "Abstract luxury zen background, dark deep forest green with very subtle soft gold shimmering dust particles, moody meditative lighting, glassmorphism feel, highly detailed."
+    aspect_ratio: "16:9"
+
+notes:
+  - "Assuming React Query hooks are imported from @workspace/api-client-react as specified in the context."
+  - "Session is handled by backend cookies, frontend just calls endpoints directly."
