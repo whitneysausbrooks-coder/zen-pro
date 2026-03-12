@@ -1,12 +1,13 @@
 import React from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone } from "lucide-react"
+import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone, Globe } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
 import { MorningBloomModal } from "@/components/morning-bloom-modal"
 import { RaidModeBanner } from "@/components/raid-mode-banner"
 import { NotificationWidget } from "@/components/notification-widget"
 import { ReturnNudge } from "@/components/return-nudge"
+import { GrowthChart } from "@/components/growth-chart"
 
 import { 
   useGetProfile, 
@@ -97,6 +98,14 @@ export default function Dashboard() {
   } | null>(null)
 
   const [showGratitudeModal, setShowGratitudeModal] = React.useState(false)
+  const [livesImpacted, setLivesImpacted] = React.useState<number | null>(null)
+
+  React.useEffect(() => {
+    fetch(`${BASE}/api/quest/leaderboard`, { credentials: "include" })
+      .then(r => r.json())
+      .then(d => setLivesImpacted(d.lives_impacted ?? 0))
+      .catch(() => {})
+  }, [])
 
   React.useEffect(() => {
     fetch(`${BASE}/api/quest/streak`, { credentials: "include" })
@@ -317,6 +326,43 @@ export default function Dashboard() {
               </GlassCard>
             </motion.div>
 
+            {/* Global Leaderboard — Total Lives Impacted */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.18 }}
+            >
+              <GlassCard className="relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-rose-500/5 via-transparent to-rose-400/5 pointer-events-none" />
+                <GlassCardContent className="p-6 flex items-center gap-5">
+                  <div className="p-3 bg-rose-400/15 rounded-2xl border border-rose-400/30 shrink-0">
+                    <Globe className="w-7 h-7 text-rose-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-rose-400/70 mb-0.5">Global Leaderboard</p>
+                    <h3 className="font-serif font-semibold text-lg text-foreground flex items-baseline gap-2">
+                      Total Lives Impacted
+                    </h3>
+                    <p className="text-xs text-muted-foreground">Increases every time anyone hits a Heart Jackpot</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    {livesImpacted === null ? (
+                      <div className="w-12 h-8 bg-white/5 rounded-lg animate-pulse" />
+                    ) : (
+                      <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="font-serif font-bold text-3xl text-rose-400 drop-shadow-[0_0_12px_rgba(251,113,133,0.5)]"
+                      >
+                        {livesImpacted.toLocaleString()}
+                      </motion.div>
+                    )}
+                    <p className="text-[10px] text-muted-foreground mt-0.5">micro-donations</p>
+                  </div>
+                </GlassCardContent>
+              </GlassCard>
+            </motion.div>
+
             {/* Zen Pro Upgrade CTA */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -459,8 +505,11 @@ export default function Dashboard() {
           </div>
 
           {/* Sidebar / Activity Feed */}
-          <div className="lg:col-span-4">
-            <GlassCard className="h-full min-h-[500px]">
+          <div className="lg:col-span-4 space-y-6">
+            {/* 7-Day Growth Chart */}
+            <GrowthChart />
+
+            <GlassCard className="min-h-[400px]">
               <GlassCardHeader>
                 <GlassCardTitle className="flex items-center gap-2 text-xl">
                   <History className="w-5 h-5 text-primary" />

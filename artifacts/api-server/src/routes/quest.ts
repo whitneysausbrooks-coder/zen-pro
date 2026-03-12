@@ -11,7 +11,7 @@ import {
   GetProfileResponse,
   GetActivitiesResponse,
 } from "@workspace/api-zod";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, gte, count } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 async function getRaidMultiplier(): Promise<number> {
@@ -274,6 +274,48 @@ router.get("/activities", async (req, res) => {
     .limit(50);
 
   res.json(GetActivitiesResponse.parse(activities));
+});
+
+/* ── Growth Stats — last 7 days ──────────────────────────────────────────── */
+router.get("/growth-stats", async (req, res) => {
+  const sessionId = req.cookies?.["nq_session"];
+  if (!sessionId) return res.json({ days: [] });
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+  const activities = await db.select()
+    .from(activitiesTable)
+    .where(and(
+      eq(activitiesTable.session_id, sessionId),
+      gte(activitiesTable.created_at, sevenDaysAgo)
+    ));
+
+  // Build a map of the last 7 dates
+  const dayMap: Record<string, { neural_energy: number; compassion_points: number }> = {};
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86_400_000);
+    dayMap[d.toISOString().slice(0, 10)] = { neural_energy: 0, compassion_points: 0 };
+  }
+  for (const act of activities) {
+    const key = act.created_at.toISOString().slice(0, 10);
+    if (!(key in dayMap)) continue;
+    if (act.type === "neural_energy" && act.amount > 0) dayMap[key].neural_energy += act.amount;
+    if (act.type === "compassion_points" && act.amount > 0) dayMap[key].compassion_points += act.amount;
+  }
+  const days = Object.entries(dayMap).map(([date, vals]) => ({ date, ...vals }));
+  return res.json({ days });
+});
+
+/* ── Global Leaderboard ──────────────────────────────────────────────────── */
+router.get("/leaderboard", async (_req, res) => {
+  const JACKPOT_AMT = 500;
+  const [{ value: lives }] = await db
+    .select({ value: count() })
+    .from(activitiesTable)
+    .where(and(
+      eq(activitiesTable.type, "compassion_points"),
+      gte(activitiesTable.amount, JACKPOT_AMT)
+    ));
+  return res.json({ lives_impacted: Number(lives) });
 });
 
 router.post("/reset", async (req, res) => {

@@ -4,8 +4,10 @@ import { useLocation } from "wouter"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   Brain, Flame, Leaf, Moon, Sun, Star, Eye, Wind, Heart,
-  ArrowLeft, Zap, AlertCircle, Sparkles, Crown, X, Gift, Megaphone
+  ArrowLeft, Zap, AlertCircle, Sparkles, Crown, X, Gift, Megaphone,
+  Share2, Download
 } from "lucide-react"
+import { playReelStop, playWinChime, playJackpotFanfare } from "@/hooks/use-sound"
 import confetti from "canvas-confetti"
 import {
   useEarnEnergy,
@@ -46,6 +48,111 @@ const SYMBOLS = [
 const HEART_IDX  = 0
 const SPIN_COST  = 10
 const COMPASSION_JACKPOT = 500
+
+/* ── Impact Badge (Canvas API) ───────────────────────────────────────────── */
+function generateImpactBadge(levelTitle: string, compassionPoints: number): string {
+  const canvas = document.createElement("canvas")
+  canvas.width = 800
+  canvas.height = 800
+  const ctx = canvas.getContext("2d")!
+
+  // Background
+  const bg = ctx.createLinearGradient(0, 0, 800, 800)
+  bg.addColorStop(0, "#0D1A10")
+  bg.addColorStop(1, "#050A05")
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, 800, 800)
+
+  // Subtle radial glow
+  const glow = ctx.createRadialGradient(400, 330, 20, 400, 330, 260)
+  glow.addColorStop(0, "rgba(212,175,55,0.1)")
+  glow.addColorStop(1, "rgba(0,0,0,0)")
+  ctx.fillStyle = glow
+  ctx.fillRect(0, 0, 800, 800)
+
+  // Gold ring
+  ctx.beginPath()
+  ctx.arc(400, 310, 155, 0, Math.PI * 2)
+  ctx.strokeStyle = "#D4AF37"
+  ctx.lineWidth = 5
+  ctx.shadowColor = "#D4AF37"
+  ctx.shadowBlur = 28
+  ctx.stroke()
+
+  // Inner thin ring
+  ctx.beginPath()
+  ctx.arc(400, 310, 145, 0, Math.PI * 2)
+  ctx.strokeStyle = "rgba(212,175,55,0.25)"
+  ctx.lineWidth = 1.5
+  ctx.shadowBlur = 0
+  ctx.stroke()
+
+  // Heart emoji
+  ctx.shadowBlur = 24
+  ctx.shadowColor = "rgba(251,113,133,0.7)"
+  ctx.font = "bold 130px serif"
+  ctx.textAlign = "center"
+  ctx.fillStyle = "#fb7185"
+  ctx.fillText("♥", 400, 365)
+
+  // "IMPACT MADE"
+  ctx.shadowColor = "rgba(212,175,55,0.5)"
+  ctx.shadowBlur = 18
+  ctx.font = "bold 54px Georgia, serif"
+  ctx.fillStyle = "#D4AF37"
+  ctx.fillText("IMPACT MADE", 400, 530)
+
+  // Subtitle
+  ctx.shadowBlur = 0
+  ctx.font = "24px Georgia, serif"
+  ctx.fillStyle = "rgba(255,255,255,0.5)"
+  ctx.fillText("A micro-donation was made in your name", 400, 575)
+
+  // Compassion points
+  ctx.font = "bold 32px Georgia, serif"
+  ctx.fillStyle = "#fb7185"
+  ctx.fillText(`+${compassionPoints} Compassion Points`, 400, 630)
+
+  // Level title
+  ctx.font = "italic 22px Georgia, serif"
+  ctx.fillStyle = "rgba(212,175,55,0.7)"
+  ctx.fillText(levelTitle, 400, 672)
+
+  // Divider
+  ctx.beginPath()
+  ctx.moveTo(240, 700)
+  ctx.lineTo(560, 700)
+  ctx.strokeStyle = "rgba(212,175,55,0.2)"
+  ctx.lineWidth = 1
+  ctx.stroke()
+
+  // Branding
+  ctx.font = "bold 18px Arial, sans-serif"
+  ctx.fillStyle = "rgba(255,255,255,0.3)"
+  ctx.fillText("NeuroQuest  ·  #NeuroQuestImpact", 400, 735)
+
+  return canvas.toDataURL("image/png")
+}
+
+async function shareImpactBadge(dataUrl: string, levelTitle: string) {
+  try {
+    const blob = await (await fetch(dataUrl)).blob()
+    const file = new File([blob], "neuroquest-impact.png", { type: "image/png" })
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({
+        title: "I made an impact on NeuroQuest!",
+        text: `As a ${levelTitle}, I just funded a micro-donation. 💚 #NeuroQuestImpact`,
+        files: [file],
+      })
+      return
+    }
+  } catch {}
+  // Fallback: download
+  const a = document.createElement("a")
+  a.href = dataUrl
+  a.download = "neuroquest-impact-badge.png"
+  a.click()
+}
 
 type SpinPhase = "idle" | "spinning" | "result"
 type WinTier   = "compassion_jackpot" | "jackpot" | "three" | "two" | "none"
@@ -275,8 +382,28 @@ function PayTable() {
 interface CompassionJackpotOverlayProps {
   onClose: () => void
   sponsor: { brand: string; donationBlurb: string }
+  profile: { title?: string; compassion_points?: number } | null
 }
-function CompassionJackpotOverlay({ onClose, sponsor }: CompassionJackpotOverlayProps) {
+function CompassionJackpotOverlay({ onClose, sponsor, profile }: CompassionJackpotOverlayProps) {
+  const [sharing, setSharing] = React.useState(false)
+  const [badgeUrl, setBadgeUrl] = React.useState<string | null>(null)
+
+  // Generate badge once on mount
+  React.useEffect(() => {
+    const url = generateImpactBadge(
+      profile?.title ?? "Seeker",
+      profile?.compassion_points ?? COMPASSION_JACKPOT
+    )
+    setBadgeUrl(url)
+  }, [])
+
+  const handleShare = async () => {
+    if (!badgeUrl) return
+    setSharing(true)
+    await shareImpactBadge(badgeUrl, profile?.title ?? "Seeker")
+    setSharing(false)
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -367,14 +494,23 @@ function CompassionJackpotOverlay({ onClose, sponsor }: CompassionJackpotOverlay
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 1.05 }}
+              className="flex flex-col items-center gap-3 w-full"
             >
               <LuxuryButton
                 size="sm"
                 onClick={onClose}
-                className="gap-2 bg-rose-500/80 hover:bg-rose-500 border-rose-400/50 text-white shadow-[0_0_20px_rgba(251,113,133,0.4)]"
+                className="gap-2 bg-rose-500/80 hover:bg-rose-500 border-rose-400/50 text-white shadow-[0_0_20px_rgba(251,113,133,0.4)] w-full"
               >
                 Carry the Love Forward
               </LuxuryButton>
+              <button
+                onClick={handleShare}
+                disabled={sharing || !badgeUrl}
+                className="flex items-center gap-2 text-xs font-semibold text-rose-300/70 hover:text-rose-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                {sharing ? "Generating…" : "Share Your Impact Badge"}
+              </button>
             </motion.div>
           </GlassCardContent>
         </GlassCard>
@@ -440,12 +576,15 @@ export default function SlotMachine() {
 
       if (res.tier === "compassion_jackpot") {
         fireCompassionConfetti()
+        playJackpotFanfare()
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400])
         setTimeout(() => setShowJackpot(true), 400)
         earnCompassion({ data: { activity: "Compassion Jackpot – 3× Heart", amount: COMPASSION_JACKPOT } })
         toast({ title: "♡ Compassion Jackpot!", description: `+${COMPASSION_JACKPOT} Compassion Points` })
 
       } else if (res.tier === "jackpot" || res.tier === "three" || res.tier === "two") {
         if (res.payout > 0) {
+          playWinChime()
           const boostedPayout = streak.is_electric_blue
             ? Math.floor(res.payout * streak.multiplier)
             : res.payout
@@ -498,7 +637,7 @@ export default function SlotMachine() {
       {/* Compassion Jackpot full-screen overlay */}
       <AnimatePresence>
         {showJackpot && (
-          <CompassionJackpotOverlay sponsor={CURRENT_SPONSOR} onClose={() => {
+          <CompassionJackpotOverlay sponsor={CURRENT_SPONSOR} profile={profile ?? null} onClose={() => {
             setShowJackpot(false)
             setPhase("idle")
             setResult(null)
@@ -632,7 +771,7 @@ export default function SlotMachine() {
                     spinning={phase === "spinning"}
                     finalIdx={finalReels ? finalReels[i] : null}
                     stopDelay={i * 300}
-                    onStopped={() => {}}
+                    onStopped={() => playReelStop()}
                     glowHeart={isHeartResult}
                   />
                   {i < 2 && <div className="w-px bg-white/10 self-stretch mx-1" />}
@@ -710,10 +849,26 @@ export default function SlotMachine() {
               </LuxuryButton>
 
               {profile && profile.neural_energy < SPIN_COST && phase !== "spinning" && !showJackpot && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="flex items-center gap-1.5 text-rose-400 text-xs">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  Not enough neural energy to spin
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 w-full text-center px-5 py-5 rounded-2xl bg-rose-500/5 border border-rose-400/20 space-y-3"
+                >
+                  <Brain className="w-10 h-10 text-rose-400 mx-auto animate-pulse" />
+                  <div>
+                    <p className="font-serif text-base font-bold text-rose-300">Recharge Your Mind</p>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                      You need {SPIN_COST} Neural Energy to spin. Complete a Memory Challenge to earn +50 instantly.
+                    </p>
+                  </div>
+                  <LuxuryButton
+                    size="sm"
+                    onClick={() => navigate("/brain-game")}
+                    className="gap-2 bg-rose-500/15 border-rose-400/30 hover:bg-rose-500/25 text-rose-200 mx-auto"
+                  >
+                    <Brain className="w-3.5 h-3.5" />
+                    Play Memory Match → +50 Energy
+                  </LuxuryButton>
                 </motion.div>
               )}
             </div>
