@@ -38,6 +38,31 @@ function computeLevel(neuralEnergy: number, compassionPoints: number): { level: 
   return { level: 6, title: "Zenith Master" };
 }
 
+function todayUTC(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function yesterdayUTC(): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function computeStreakInfo(streakCount: number, lastGameDate: string | null) {
+  const today = todayUTC();
+  const yesterday = yesterdayUTC();
+  // Determine if streak is still alive
+  const isAlive = lastGameDate === today || lastGameDate === yesterday;
+  const active = isAlive ? streakCount : 0;
+  const multiplier = active > 0 ? Math.min(Math.pow(1.1, active), 2.0) : 1.0;
+  return {
+    streak_count: active,
+    multiplier: Math.round(multiplier * 100) / 100,
+    is_lucky_gold: active >= 1 && active < 3,
+    is_electric_blue: active >= 3,
+  };
+}
+
 async function getOrCreateProfile(sessionId: string) {
   const existing = await db
     .select()
@@ -58,6 +83,81 @@ router.get("/profile", async (req, res) => {
   const sessionId = getOrCreateSessionId(req, res);
   const profile = await getOrCreateProfile(sessionId);
   res.json(GetProfileResponse.parse(profile));
+});
+
+router.get("/streak", async (req, res) => {
+  const sessionId = req.cookies?.["nq_session"];
+  if (!sessionId) {
+    return res.json({ streak_count: 0, multiplier: 1, is_lucky_gold: false, is_electric_blue: false });
+  }
+  const [profile] = await db
+    .select({ streak_count: userProfilesTable.streak_count, last_game_date: userProfilesTable.last_game_date })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.session_id, sessionId))
+    .limit(1);
+
+  if (!profile) {
+    return res.json({ streak_count: 0, multiplier: 1, is_lucky_gold: false, is_electric_blue: false });
+  }
+  return res.json(computeStreakInfo(profile.streak_count, profile.last_game_date));
+});
+
+// Called when a brain game is completed — awards energy and updates streak
+router.post("/game-complete", async (req, res) => {
+  const sessionId = getOrCreateSessionId(req, res);
+  const profile = await getOrCreateProfile(sessionId);
+
+  const today = todayUTC();
+  const yesterday = yesterdayUTC();
+  const lastDate = profile.last_game_date;
+
+  let newStreak: number;
+  const alreadyPlayedToday = lastDate === today;
+
+  if (alreadyPlayedToday) {
+    // Played again today — keep streak, still award energy
+    newStreak = profile.streak_count;
+  } else if (lastDate === yesterday) {
+    // Consecutive day — extend streak!
+    newStreak = profile.streak_count + 1;
+  } else {
+    // First game or streak broken
+    newStreak = 1;
+  }
+
+  const energyReward = 50;
+  const newEnergy = profile.neural_energy + energyReward;
+  const { level, title } = computeLevel(newEnergy, profile.compassion_points);
+
+  const [updated] = await db
+    .update(userProfilesTable)
+    .set({
+      neural_energy: newEnergy,
+      streak_count: newStreak,
+      last_game_date: today,
+      level,
+      title,
+      updated_at: new Date(),
+    })
+    .where(eq(userProfilesTable.session_id, sessionId))
+    .returning();
+
+  await db.insert(activitiesTable).values({
+    session_id: sessionId,
+    type: "neural_energy",
+    activity: "Memory Match",
+    amount: energyReward,
+  });
+
+  const streakInfo = computeStreakInfo(newStreak, today);
+  const streakChanged = !alreadyPlayedToday;
+
+  return res.json({
+    profile: GetProfileResponse.parse(updated),
+    streak: streakInfo,
+    streak_changed: streakChanged,
+    streak_extended: !alreadyPlayedToday && lastDate === yesterday,
+  });
 });
 
 router.post("/earn-energy", async (req, res) => {
@@ -128,7 +228,7 @@ router.post("/reset", async (req, res) => {
 
   const [updated] = await db
     .update(userProfilesTable)
-    .set({ neural_energy: 100, compassion_points: 50, level, title, updated_at: new Date() })
+    .set({ neural_energy: 100, compassion_points: 50, level, title, streak_count: 0, last_game_date: null, updated_at: new Date() })
     .where(eq(userProfilesTable.session_id, sessionId))
     .returning();
 

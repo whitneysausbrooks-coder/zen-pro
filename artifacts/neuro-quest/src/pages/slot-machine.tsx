@@ -19,6 +19,8 @@ import { LuxuryButton } from "@/components/ui/luxury-button"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
+
 /* ── Symbols ─────────────────────────────────────────────────────────────── */
 const SYMBOLS = [
   { id: "heart", Icon: Heart,  label: "Heart",  color: "text-rose-400",    bg: "bg-rose-400/25",     prize3: 0,   prize2: 0,  special: true  },
@@ -64,8 +66,16 @@ function evalResult(reels: number[]): SpinResult {
   return { reels, tier: "none", symbolId: null, payout: -SPIN_COST }
 }
 
-function randomReels(): number[] {
-  return [0, 1, 2].map(() => Math.floor(Math.random() * SYMBOLS.length))
+function randomReels(isElectricBlue = false): number[] {
+  const base = [0, 1, 2].map(() => Math.floor(Math.random() * SYMBOLS.length))
+  if (!isElectricBlue) return base
+  // Electric Blue bonus: 10% chance of forcing a pair on the reels
+  if (Math.random() < 0.10) {
+    const matchSymbol = Math.floor(Math.random() * SYMBOLS.length)
+    const pairSlots = Math.random() < 0.33 ? [0, 1] : Math.random() < 0.5 ? [1, 2] : [0, 2]
+    return base.map((v, i) => pairSlots.includes(i) ? matchSymbol : v)
+  }
+  return base
 }
 
 /* ── Confetti burst ──────────────────────────────────────────────────────── */
@@ -360,6 +370,19 @@ export default function SlotMachine() {
   const [totalWon, setTotalWon]     = useState(0)
   const [showPay, setShowPay]       = useState(false)
   const [showJackpot, setShowJackpot] = useState(false)
+  const [streak, setStreak] = useState<{
+    streak_count: number
+    multiplier: number
+    is_lucky_gold: boolean
+    is_electric_blue: boolean
+  }>({ streak_count: 0, multiplier: 1, is_lucky_gold: false, is_electric_blue: false })
+
+  useEffect(() => {
+    fetch(`${BASE}/api/quest/streak`, { credentials: "include" })
+      .then(r => r.json())
+      .then(setStreak)
+      .catch(() => {})
+  }, [])
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
@@ -375,7 +398,7 @@ export default function SlotMachine() {
   const handleSpin = () => {
     if (!canSpin) return
 
-    const reels = randomReels()
+    const reels = randomReels(streak.is_electric_blue)
     const res   = evalResult(reels)
 
     setFinalReels(reels)
@@ -389,7 +412,6 @@ export default function SlotMachine() {
       setPhase("result")
 
       if (res.tier === "compassion_jackpot") {
-        // Fire confetti then show overlay
         fireCompassionConfetti()
         setTimeout(() => setShowJackpot(true), 400)
         earnCompassion({ data: { activity: "Compassion Jackpot – 3× Heart", amount: COMPASSION_JACKPOT } })
@@ -397,15 +419,20 @@ export default function SlotMachine() {
 
       } else if (res.tier === "jackpot" || res.tier === "three" || res.tier === "two") {
         if (res.payout > 0) {
+          const boostedPayout = streak.is_electric_blue
+            ? Math.floor(res.payout * streak.multiplier)
+            : res.payout
           const label =
             res.tier === "jackpot" ? "JACKPOT" :
             res.tier === "three"   ? `3× ${res.symbolId}` :
                                      `2× ${res.symbolId}`
-          earnEnergy({ data: { activity: `Slot Machine – ${label}`, amount: res.payout + SPIN_COST } })
-          setTotalWon(w => w + res.payout)
+          earnEnergy({ data: { activity: `Slot Machine – ${label}`, amount: boostedPayout + SPIN_COST } })
+          setTotalWon(w => w + boostedPayout)
           toast({
             title: res.tier === "jackpot" ? "⚡ JACKPOT!" : res.tier === "three" ? "Triple Match!" : "Double Match!",
-            description: `+${res.payout} Neural Energy`,
+            description: streak.is_electric_blue && boostedPayout !== res.payout
+              ? `+${boostedPayout} Neural Energy (${streak.multiplier.toFixed(2)}× streak boost!)`
+              : `+${boostedPayout} Neural Energy`,
           })
         } else {
           toast({ title: "No match", description: `–${SPIN_COST} Neural Energy` })
@@ -503,10 +530,32 @@ export default function SlotMachine() {
           )}
         </div>
 
+        {/* Streak indicator pill (Electric Blue / Lucky Gold) */}
+        {streak.streak_count > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex justify-center mb-4"
+          >
+            <div className={cn(
+              "flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-bold uppercase tracking-widest",
+              streak.is_electric_blue
+                ? "bg-blue-500/15 border-blue-400/50 text-blue-300"
+                : "bg-amber-400/15 border-amber-400/40 text-amber-300"
+            )}>
+              <Flame className={cn("w-3.5 h-3.5", streak.is_electric_blue ? "text-blue-400" : "text-amber-400")} />
+              {streak.streak_count}-Day Streak ·{" "}
+              {streak.is_electric_blue ? "⚡ Electric Blue" : "✦ Lucky Gold"} ·{" "}
+              {streak.multiplier.toFixed(2)}× Boost
+            </div>
+          </motion.div>
+        )}
+
         {/* Machine body */}
         <GlassCard
           className={cn(
-            "mb-6 slot-machine-glow transition-colors duration-700",
+            "mb-6 transition-colors duration-700",
+            streak.is_electric_blue && !isHeartResult ? "streak-blue-glow" : "slot-machine-glow",
             isHeartResult && "!border-rose-400/60 ![animation:none] shadow-[0_0_0_1px_rgba(251,113,133,0.6),0_0_40px_rgba(251,113,133,0.35)]"
           )}
         >

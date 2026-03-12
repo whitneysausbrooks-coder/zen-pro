@@ -176,8 +176,8 @@ export default function Enterprise() {
             <span className="text-foreground">Mind at Scale</span>
           </h1>
           <p className="text-muted-foreground text-xl leading-relaxed">
-            Corporate wellness licenses that transform how your workforce thinks, focuses, and thrives —
-            measured in real data, not feel-good perks.
+            Companies pay for employee access to reduce burnout, increase workplace empathy, and build
+            cognitively resilient teams — measured in real data, not feel-good perks.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
             <LuxuryButton className="text-base px-8 py-5" onClick={scrollToForm}>

@@ -6,11 +6,13 @@ import {
   Brain, Flame, Leaf, Moon, Sun, Star, Eye, Wind,
   ArrowLeft, Trophy, RefreshCw, Zap, CheckCircle2
 } from "lucide-react"
-import { useEarnEnergy, getGetProfileQueryKey, getGetActivitiesQueryKey } from "@workspace/api-client-react"
+import { getGetProfileQueryKey, getGetActivitiesQueryKey } from "@workspace/api-client-react"
 import { GlassCard, GlassCardContent } from "@/components/ui/glass-card"
 import { LuxuryButton } from "@/components/ui/luxury-button"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
 
 const SYMBOLS = [
   { id: "brain",  Icon: Brain,  color: "text-primary",     bg: "bg-primary/20"     },
@@ -67,15 +69,35 @@ export default function MemoryMatch() {
   const [rewarded, setRewarded] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const { mutate: earnEnergy } = useEarnEnergy({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
-        queryClient.invalidateQueries({ queryKey: getGetActivitiesQueryKey() })
+  const [streakResult, setStreakResult] = useState<{ streak_count: number; is_electric_blue: boolean; multiplier: number } | null>(null)
+
+  const completeGame = async () => {
+    try {
+      const res = await fetch(`${BASE}/api/quest/game-complete`, {
+        method: "POST",
+        credentials: "include",
+      })
+      const data = await res.json()
+      setStreakResult(data.streak)
+      queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
+      queryClient.invalidateQueries({ queryKey: getGetActivitiesQueryKey() })
+
+      if (data.streak_extended) {
+        toast({
+          title: `🔥 ${data.streak.streak_count}-Day Streak!`,
+          description: data.streak.is_electric_blue
+            ? `⚡ Electric Blue unlocked — ${data.streak.multiplier.toFixed(2)}× jackpot boost active!`
+            : `Lucky Gold active — ${data.streak.multiplier.toFixed(2)}× jackpot boost!`,
+        })
+      } else if (data.streak_changed) {
+        toast({ title: "+50 Neural Energy!", description: "Streak started! Come back tomorrow to grow it." })
+      } else {
         toast({ title: "+50 Neural Energy!", description: "Memory Match complete. Your mind expands." })
       }
+    } catch {
+      toast({ title: "+50 Neural Energy!", description: "Memory Match complete." })
     }
-  })
+  }
 
   const startGame = useCallback(() => {
     setCards(buildDeck())
@@ -107,11 +129,9 @@ export default function MemoryMatch() {
   useEffect(() => {
     if (phase === "complete" && !rewarded) {
       setRewarded(true)
-      setTimeout(() => {
-        earnEnergy({ data: { activity: "Memory Match", amount: 50 } })
-      }, 600)
+      setTimeout(() => { completeGame() }, 600)
     }
-  }, [phase, rewarded, earnEnergy])
+  }, [phase, rewarded])
 
   const handleFlip = (uid: number) => {
     if (locked || phase !== "playing") return

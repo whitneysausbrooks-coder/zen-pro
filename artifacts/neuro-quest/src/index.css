@@ -133,6 +133,29 @@
   animation: slot-gold-pulse 2.8s ease-in-out infinite;
 }
 
+/* ── Electric Blue streak glow (3+ day streak) ──────────────────────────── */
+@keyframes streak-blue-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(96, 165, 250, 0.55),
+      0 0 20px rgba(96, 165, 250, 0.30),
+      0 0 55px rgba(96, 165, 250, 0.15),
+      inset 0 0 20px rgba(96, 165, 250, 0.05);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(147, 197, 253, 0.85),
+      0 0 32px rgba(96, 165, 250, 0.55),
+      0 0 85px rgba(96, 165, 250, 0.25),
+      inset 0 0 28px rgba(147, 197, 253, 0.10);
+  }
+}
+
+.streak-blue-glow {
+  border: 1px solid rgba(96, 165, 250, 0.6) !important;
+  animation: streak-blue-pulse 2.2s ease-in-out infinite;
+}
+
 /* ── Gold text gradient ─────────────────────────────────────────────────── */
 .text-gradient-gold {
   background: linear-gradient(135deg, #F3E5AB 0%, #D4AF37 50%, #B5952F 100%);

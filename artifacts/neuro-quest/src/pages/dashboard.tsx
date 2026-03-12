@@ -1,6 +1,6 @@
 import React from "react"
 import { motion } from "framer-motion"
-import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2 } from "lucide-react"
+import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
 
@@ -19,6 +19,9 @@ import { LuxuryButton } from "@/components/ui/luxury-button"
 import { StatRing } from "@/components/dashboard/stat-ring"
 import { ActivityFeed } from "@/components/dashboard/activity-feed"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
 
 const ENERGY_ACTIONS = [
   { label: "Deep Work (1 hr)", amount: 50 },
@@ -82,6 +85,20 @@ export default function Dashboard() {
 
   const isPending = isEnergyPending || isCompassionPending
 
+  const [streak, setStreak] = React.useState<{
+    streak_count: number
+    multiplier: number
+    is_lucky_gold: boolean
+    is_electric_blue: boolean
+  } | null>(null)
+
+  React.useEffect(() => {
+    fetch(`${BASE}/api/quest/streak`, { credentials: "include" })
+      .then(r => r.json())
+      .then(setStreak)
+      .catch(() => {})
+  }, [])
+
   return (
     <div className="min-h-screen relative overflow-hidden pb-20">
       {/* Background Image Overlay */}
@@ -138,6 +155,52 @@ export default function Dashboard() {
           
           {/* Main Stats Column */}
           <div className="lg:col-span-8 space-y-8">
+
+            {/* ── Neural Streak Banner ──────────────────────────────── */}
+            {streak && streak.streak_count > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                className={cn(
+                  "flex items-center justify-between gap-4 px-5 py-4 rounded-2xl border backdrop-blur-md",
+                  streak.is_electric_blue
+                    ? "bg-blue-500/10 border-blue-400/40"
+                    : "bg-amber-400/10 border-amber-400/30"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <Flame className={cn("w-6 h-6 shrink-0", streak.is_electric_blue ? "text-blue-400" : "text-amber-400")} />
+                  <div>
+                    <p className={cn("font-serif font-bold text-lg leading-none", streak.is_electric_blue ? "text-blue-200" : "text-amber-200")}>
+                      {streak.streak_count}-Day Neural Streak
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {streak.is_electric_blue
+                        ? "Don't break it — Electric Blue jackpot boost active!"
+                        : "Keep going — one more day unlocks Electric Blue!"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className={cn(
+                    "flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border",
+                    streak.is_electric_blue
+                      ? "bg-blue-400/20 border-blue-400/40 text-blue-300"
+                      : "bg-amber-400/20 border-amber-400/30 text-amber-300"
+                  )}>
+                    {streak.is_electric_blue ? "⚡ Electric Blue" : "✦ Lucky Gold"}
+                  </div>
+                  <div className="text-right">
+                    <p className={cn("font-bold text-base leading-none", streak.is_electric_blue ? "text-blue-300" : "text-amber-300")}>
+                      {streak.multiplier.toFixed(2)}×
+                    </p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">Boost</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             <GlassCard glow>
               <GlassCardHeader>
                 <GlassCardTitle className="flex items-center gap-2">
