@@ -533,6 +533,11 @@ export default function SlotMachine() {
   const [totalWon, setTotalWon]     = useState(0)
   const [showPay, setShowPay]       = useState(false)
   const [showJackpot, setShowJackpot] = useState(false)
+  const [showBreathing, setShowBreathing] = useState(false)
+  const [breathingPhase, setBreathingPhase] = useState<"inhale" | "hold" | "exhale">("inhale")
+  const [breathingStep, setBreathingStep] = useState(0)
+
+  const isSleepMode = new Date().getHours() >= 22 || new Date().getHours() < 6
   const [streak, setStreak] = useState<{
     streak_count: number
     multiplier: number
@@ -557,6 +562,25 @@ export default function SlotMachine() {
 
   const isPending = isEnergyPending || isCompassionPending
   const canSpin   = profile && profile.neural_energy >= SPIN_COST && phase === "idle" && !isPending
+
+  const startBreathing = () => {
+    setBreathingPhase("inhale")
+    setShowBreathing(true)
+    setTimeout(() => setBreathingPhase("hold"), 4000)
+    setTimeout(() => setBreathingPhase("exhale"), 8000)
+    setTimeout(async () => {
+      await fetch(`${BASE}/api/quest/earn-energy`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activity: "Sleep Mode Meditation", amount: 10 }),
+      }).catch(() => {})
+      queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
+      queryClient.invalidateQueries({ queryKey: getGetActivitiesQueryKey() })
+      setShowBreathing(false)
+      toast({ title: "+10 Neural Energy", description: "Your mind is centered. Rest well." })
+    }, 14200)
+  }
 
   const handleSpin = () => {
     if (!canSpin) return
@@ -634,6 +658,46 @@ export default function SlotMachine() {
         style={{ backgroundImage: `url(${import.meta.env.BASE_URL}images/zen-bg.png)` }}
       />
 
+      {/* Breathing Modal Overlay */}
+      <AnimatePresence>
+        {showBreathing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.85, opacity: 0 }}
+              className="glass-panel rounded-3xl p-10 text-center max-w-xs mx-4 border border-indigo-400/25"
+            >
+              <motion.div
+                className="w-32 h-32 rounded-full bg-indigo-400/15 border-2 border-indigo-400/35 mx-auto mb-6 flex items-center justify-center"
+                animate={{ scale: breathingPhase === "inhale" ? 1.55 : breathingPhase === "hold" ? 1.55 : 1 }}
+                transition={{ duration: breathingPhase === "inhale" ? 4 : breathingPhase === "hold" ? 0.1 : 6, ease: "easeInOut" }}
+              >
+                <Wind className="w-10 h-10 text-indigo-300" />
+              </motion.div>
+              <h2 className="font-serif text-2xl font-bold text-indigo-200 mb-1">
+                {breathingPhase === "inhale" ? "Inhale…" : breathingPhase === "hold" ? "Hold…" : "Exhale…"}
+              </h2>
+              <p className="text-sm text-indigo-300/70 mb-4">
+                {breathingPhase === "inhale" ? "4 seconds" : breathingPhase === "hold" ? "4 seconds" : "6 seconds"}
+              </p>
+              <p className="text-xs text-muted-foreground">One full cycle earns +10 Neural Energy</p>
+              <button
+                onClick={() => setShowBreathing(false)}
+                className="mt-4 text-xs text-muted-foreground/50 hover:text-muted-foreground/80 transition-colors"
+              >
+                Skip
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Compassion Jackpot full-screen overlay */}
       <AnimatePresence>
         {showJackpot && (
@@ -657,6 +721,30 @@ export default function SlotMachine() {
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           <span className="text-sm font-medium">Back to Dashboard</span>
         </motion.button>
+
+        {/* Sleep Mode Banner */}
+        {isSleepMode && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 rounded-2xl bg-indigo-950/50 border border-indigo-400/20 px-5 py-4 flex items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-3">
+              <Moon className="w-5 h-5 text-indigo-300 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-indigo-200">Meditation Lounge is open</p>
+                <p className="text-xs text-indigo-300/60">It's late. Center your mind before you spin.</p>
+              </div>
+            </div>
+            <button
+              onClick={startBreathing}
+              disabled={showBreathing}
+              className="shrink-0 text-xs font-bold bg-indigo-400/15 border border-indigo-400/25 px-4 py-2 rounded-full text-indigo-300 hover:bg-indigo-400/25 transition-colors disabled:opacity-50"
+            >
+              Breathe +10
+            </button>
+          </motion.div>
+        )}
 
         {/* Header */}
         <motion.div

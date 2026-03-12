@@ -4,7 +4,8 @@ import { useLocation } from "wouter"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   Brain, Flame, Leaf, Moon, Sun, Star, Eye, Wind,
-  ArrowLeft, Trophy, RefreshCw, Zap, CheckCircle2
+  ArrowLeft, Trophy, RefreshCw, Zap, CheckCircle2,
+  Droplets, Cloud, Diamond, Clover
 } from "lucide-react"
 import { getGetProfileQueryKey, getGetActivitiesQueryKey } from "@workspace/api-client-react"
 import { GlassCard, GlassCardContent } from "@/components/ui/glass-card"
@@ -15,16 +16,27 @@ import { cn } from "@/lib/utils"
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
 
 const SYMBOLS = [
-  { id: "brain",  Icon: Brain,  color: "text-primary",     bg: "bg-primary/20"     },
-  { id: "flame",  Icon: Flame,  color: "text-orange-400",  bg: "bg-orange-400/20"  },
-  { id: "leaf",   Icon: Leaf,   color: "text-emerald-400", bg: "bg-emerald-400/20" },
-  { id: "moon",   Icon: Moon,   color: "text-indigo-300",  bg: "bg-indigo-300/20"  },
-  { id: "sun",    Icon: Sun,    color: "text-yellow-300",  bg: "bg-yellow-300/20"  },
-  { id: "star",   Icon: Star,   color: "text-primary",     bg: "bg-primary/20"     },
-  { id: "eye",    Icon: Eye,    color: "text-sky-400",     bg: "bg-sky-400/20"     },
-  { id: "wind",   Icon: Wind,   color: "text-teal-300",    bg: "bg-teal-300/20"    },
+  { id: "brain",   Icon: Brain,    color: "text-primary",     bg: "bg-primary/20"     },
+  { id: "flame",   Icon: Flame,    color: "text-orange-400",  bg: "bg-orange-400/20"  },
+  { id: "leaf",    Icon: Leaf,     color: "text-emerald-400", bg: "bg-emerald-400/20" },
+  { id: "moon",    Icon: Moon,     color: "text-indigo-300",  bg: "bg-indigo-300/20"  },
+  { id: "sun",     Icon: Sun,      color: "text-yellow-300",  bg: "bg-yellow-300/20"  },
+  { id: "star",    Icon: Star,     color: "text-primary",     bg: "bg-primary/20"     },
+  { id: "eye",     Icon: Eye,      color: "text-sky-400",     bg: "bg-sky-400/20"     },
+  { id: "wind",    Icon: Wind,     color: "text-teal-300",    bg: "bg-teal-300/20"    },
+  { id: "drop",    Icon: Droplets, color: "text-cyan-400",    bg: "bg-cyan-400/20"    },
+  { id: "cloud",   Icon: Cloud,    color: "text-slate-300",   bg: "bg-slate-300/20"   },
+  { id: "diamond", Icon: Diamond,  color: "text-purple-400",  bg: "bg-purple-400/20"  },
+  { id: "clover",  Icon: Clover,   color: "text-green-400",   bg: "bg-green-400/20"   },
 ]
 
+const DIFFICULTIES = [
+  { id: "easy",   label: "Easy",   pairs: 8,  cols: 4, energy: 50,  bonusEnergy: 0,  desc: "16 cards · 8 pairs",  color: "text-emerald-400", border: "border-emerald-400/30", bg: "bg-emerald-400/10" },
+  { id: "medium", label: "Medium", pairs: 10, cols: 5, energy: 75,  bonusEnergy: 25, desc: "20 cards · 10 pairs", color: "text-primary",     border: "border-primary/30",     bg: "bg-primary/10"     },
+  { id: "hard",   label: "Hard",   pairs: 12, cols: 4, energy: 100, bonusEnergy: 50, desc: "24 cards · 12 pairs", color: "text-rose-400",    border: "border-rose-400/30",    bg: "bg-rose-400/10"    },
+] as const
+
+type Difficulty = "easy" | "medium" | "hard"
 type CardState = "hidden" | "flipped" | "matched"
 
 interface Card {
@@ -43,9 +55,9 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
-function buildDeck(): Card[] {
+function buildDeck(pairCount: number = 8): Card[] {
   const pairs: Card[] = []
-  SYMBOLS.forEach((sym, idx) => {
+  SYMBOLS.slice(0, pairCount).forEach((sym, idx) => {
     pairs.push({ uid: idx * 2,     symbolId: sym.id, symbolIdx: idx, state: "hidden" })
     pairs.push({ uid: idx * 2 + 1, symbolId: sym.id, symbolIdx: idx, state: "hidden" })
   })
@@ -60,6 +72,8 @@ export default function MemoryMatch() {
   const queryClient = useQueryClient()
 
   const [phase, setPhase]     = useState<GamePhase>("idle")
+  const [difficulty, setDifficulty] = useState<Difficulty>("easy")
+  const [totalPairs, setTotalPairs] = useState(8)
   const [cards, setCards]     = useState<Card[]>([])
   const [flipped, setFlipped] = useState<number[]>([])
   const [moves, setMoves]     = useState(0)
@@ -71,7 +85,10 @@ export default function MemoryMatch() {
 
   const [streakResult, setStreakResult] = useState<{ streak_count: number; is_electric_blue: boolean; multiplier: number } | null>(null)
 
+  const getDiffConfig = () => DIFFICULTIES.find(d => d.id === difficulty) ?? DIFFICULTIES[0]
+
   const completeGame = async () => {
+    const diff = getDiffConfig()
     try {
       const res = await fetch(`${BASE}/api/quest/game-complete`, {
         method: "POST",
@@ -79,9 +96,21 @@ export default function MemoryMatch() {
       })
       const data = await res.json()
       setStreakResult(data.streak)
+
+      // Award bonus energy for medium/hard
+      if (diff.bonusEnergy > 0) {
+        await fetch(`${BASE}/api/quest/earn-energy`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ activity: `Memory Matrix ${diff.label} Bonus`, amount: diff.bonusEnergy }),
+        })
+      }
+
       queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
       queryClient.invalidateQueries({ queryKey: getGetActivitiesQueryKey() })
 
+      const energyLabel = `+${diff.energy} Neural Energy!`
       if (data.streak_extended) {
         toast({
           title: `🔥 ${data.streak.streak_count}-Day Streak!`,
@@ -90,17 +119,19 @@ export default function MemoryMatch() {
             : `Lucky Gold active — ${data.streak.multiplier.toFixed(2)}× jackpot boost!`,
         })
       } else if (data.streak_changed) {
-        toast({ title: "+50 Neural Energy!", description: "Streak started! Come back tomorrow to grow it." })
+        toast({ title: energyLabel, description: "Streak started! Come back tomorrow to grow it." })
       } else {
-        toast({ title: "+50 Neural Energy!", description: "Memory Match complete. Your mind expands." })
+        toast({ title: energyLabel, description: `${diff.label} Memory Matrix complete.` })
       }
     } catch {
-      toast({ title: "+50 Neural Energy!", description: "Memory Match complete." })
+      toast({ title: `+${diff.energy} Neural Energy!`, description: "Memory Matrix complete." })
     }
   }
 
   const startGame = useCallback(() => {
-    setCards(buildDeck())
+    const diff = DIFFICULTIES.find(d => d.id === difficulty) ?? DIFFICULTIES[0]
+    setTotalPairs(diff.pairs)
+    setCards(buildDeck(diff.pairs))
     setFlipped([])
     setMoves(0)
     setMatches(0)
@@ -108,7 +139,7 @@ export default function MemoryMatch() {
     setElapsed(0)
     setRewarded(false)
     setPhase("playing")
-  }, [])
+  }, [difficulty])
 
   useEffect(() => {
     if (phase === "playing") {
@@ -120,7 +151,7 @@ export default function MemoryMatch() {
   }, [phase])
 
   useEffect(() => {
-    if (matches === 8 && phase === "playing") {
+    if (matches === totalPairs && matches > 0 && phase === "playing") {
       if (timerRef.current) clearInterval(timerRef.current)
       setPhase("complete")
     }
@@ -205,7 +236,8 @@ export default function MemoryMatch() {
             <h1 className="text-3xl font-serif font-bold text-gradient-gold">Neural Stake</h1>
           </div>
           <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-            Match all 8 pairs to earn <span className="text-primary font-bold">+50 Neural Energy</span>. Train your pattern recognition.
+            Match all pairs to earn up to{" "}
+            <span className="text-primary font-bold">+100 Neural Energy</span>. Choose your difficulty.
           </p>
         </motion.div>
 
@@ -214,7 +246,7 @@ export default function MemoryMatch() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex justify-center gap-6 mb-6"
+            className="flex justify-center gap-4 mb-6 flex-wrap"
           >
             <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2">
               <Zap className="w-4 h-4 text-primary" />
@@ -222,7 +254,7 @@ export default function MemoryMatch() {
             </div>
             <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span className="text-sm font-medium">{matches}/8 matched</span>
+              <span className="text-sm font-medium">{matches}/{totalPairs} matched</span>
             </div>
             <div className="glass-panel px-4 py-2 rounded-full text-sm font-medium tabular-nums">
               {formatTime(elapsed)}
@@ -235,21 +267,52 @@ export default function MemoryMatch() {
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center gap-8 py-16"
+            className="flex flex-col items-center gap-6 py-8"
           >
+            {/* Difficulty selector */}
+            <div className="w-full max-w-sm">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground text-center mb-3">Select Difficulty</p>
+              <div className="grid grid-cols-3 gap-3">
+                {DIFFICULTIES.map(d => (
+                  <button
+                    key={d.id}
+                    onClick={() => setDifficulty(d.id as Difficulty)}
+                    className={cn(
+                      "py-4 px-2 rounded-2xl border text-center transition-all duration-200",
+                      difficulty === d.id
+                        ? `${d.bg} ${d.border} shadow-[0_0_12px_rgba(0,0,0,0.2)]`
+                        : "bg-white/3 border-white/10 hover:bg-white/7"
+                    )}
+                  >
+                    <p className={cn("font-bold text-sm", difficulty === d.id ? d.color : "text-muted-foreground")}>{d.label}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{d.desc}</p>
+                    <p className={cn("text-xs font-semibold mt-1", difficulty === d.id ? d.color : "text-muted-foreground/60")}>+{d.energy} NE</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <GlassCard glow className="w-full max-w-sm">
-              <GlassCardContent className="p-8 text-center space-y-4">
-                <div className="grid grid-cols-4 gap-2 mb-2">
-                  {SYMBOLS.map(({ id, Icon, color, bg }) => (
-                    <div key={id} className={cn("rounded-xl p-3 flex items-center justify-center", bg)}>
-                      <Icon className={cn("w-6 h-6", color)} />
-                    </div>
-                  ))}
-                </div>
-                <p className="text-sm text-muted-foreground">16 cards · 8 symbol pairs</p>
-                <p className="text-xs text-muted-foreground/70">Flip two cards at a time. Find all matching pairs to win.</p>
+              <GlassCardContent className="p-6 text-center space-y-3">
+                {(() => {
+                  const d = getDiffConfig()
+                  return (
+                    <>
+                      <div className="grid grid-cols-4 gap-2 mb-2">
+                        {SYMBOLS.slice(0, d.pairs).map(({ id, Icon, color, bg }) => (
+                          <div key={id} className={cn("rounded-xl p-2.5 flex items-center justify-center", bg)}>
+                            <Icon className={cn("w-5 h-5", color)} />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{d.desc}</p>
+                      <p className="text-xs text-muted-foreground/70">Flip two at a time. Match all pairs to win.</p>
+                    </>
+                  )
+                })()}
               </GlassCardContent>
             </GlassCard>
+
             <LuxuryButton size="lg" onClick={startGame} className="gap-3 px-10">
               <Brain className="w-5 h-5" />
               Begin Neural Stake
@@ -259,7 +322,7 @@ export default function MemoryMatch() {
 
         {/* Game grid */}
         {phase !== "idle" && (
-          <div className="grid grid-cols-4 gap-3 sm:gap-4">
+          <div className={cn("grid gap-3 sm:gap-4", cards.length === 20 ? "grid-cols-5" : "grid-cols-4")}>
             {cards.map((card) => {
               const sym = SYMBOLS[card.symbolIdx]
               const isVisible = card.state === "flipped" || card.state === "matched"

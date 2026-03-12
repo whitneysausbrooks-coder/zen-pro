@@ -298,6 +298,34 @@ export default function Dashboard() {
               </GlassCard>
             </motion.div>
 
+            {/* Emotional EQ Game */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.13 }}
+            >
+              <GlassCard
+                className="cursor-pointer group hover:border-cyan-400/40 transition-all duration-300"
+                onClick={() => navigate("/eq-game")}
+              >
+                <GlassCardContent className="p-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-cyan-400/15 rounded-2xl border border-cyan-400/25 group-hover:bg-cyan-400/25 transition-colors">
+                      <Brain className="w-7 h-7 text-cyan-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-serif font-semibold text-lg text-foreground">Emotional EQ</h3>
+                      <p className="text-sm text-muted-foreground">10 faces · 1.5s each · Train emotional intelligence</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-cyan-400/10 border border-cyan-400/25 rounded-full px-4 py-2 shrink-0 group-hover:bg-cyan-400/20 transition-colors">
+                    <Zap className="w-4 h-4 text-cyan-400" />
+                    <span className="text-sm font-bold text-cyan-400">+60</span>
+                  </div>
+                </GlassCardContent>
+              </GlassCard>
+            </motion.div>
+
             {/* Casino — Slot Machine */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -321,6 +349,34 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1.5 bg-rose-400/10 border border-rose-400/30 rounded-full px-4 py-2 shrink-0 group-hover:bg-rose-400/20 transition-colors">
                     <Zap className="w-4 h-4 text-rose-400" />
                     <span className="text-sm font-bold text-rose-400">−10</span>
+                  </div>
+                </GlassCardContent>
+              </GlassCard>
+            </motion.div>
+
+            {/* Mind-Reader Blackjack */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.17 }}
+            >
+              <GlassCard
+                className="cursor-pointer group hover:border-indigo-400/40 transition-all duration-300"
+                onClick={() => navigate("/blackjack")}
+              >
+                <GlassCardContent className="p-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-indigo-400/15 rounded-2xl border border-indigo-400/25 group-hover:bg-indigo-400/25 transition-colors">
+                      <Crown className="w-7 h-7 text-indigo-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-serif font-semibold text-lg text-foreground">Mind-Reader Blackjack</h3>
+                      <p className="text-sm text-muted-foreground">Predict dealer's card · +60% bonus win</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-indigo-400/10 border border-indigo-400/25 rounded-full px-4 py-2 shrink-0 group-hover:bg-indigo-400/20 transition-colors">
+                    <Zap className="w-4 h-4 text-indigo-400" />
+                    <span className="text-sm font-bold text-indigo-400">×1.6</span>
                   </div>
                 </GlassCardContent>
               </GlassCard>

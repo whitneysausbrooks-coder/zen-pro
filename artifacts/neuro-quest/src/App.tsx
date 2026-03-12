@@ -3,14 +3,18 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useEffect } from "react";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import MemoryMatch from "@/pages/memory-match";
 import SlotMachine from "@/pages/slot-machine";
-import Subscribe from "@/pages/subscribe"
+import Subscribe from "@/pages/subscribe";
 import Enterprise from "@/pages/enterprise";
 import Sponsor from "@/pages/sponsor";
 import AdminPanel from "@/pages/admin";
+import Onboarding from "@/pages/onboarding";
+import Blackjack from "@/pages/blackjack";
+import EQGame from "@/pages/eq-game";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,7 +33,14 @@ const pageTransition = {
 };
 
 function Router() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+
+  // Redirect first-time visitors to onboarding
+  useEffect(() => {
+    if (!localStorage.getItem("nq_onboarding_done") && location === "/") {
+      navigate("/onboarding");
+    }
+  }, []);
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -42,14 +53,17 @@ function Router() {
         transition={pageTransition.transition}
       >
         <Switch location={location}>
-          <Route path="/"           component={Dashboard}   />
-          <Route path="/brain-game" component={MemoryMatch} />
-          <Route path="/casino"     component={SlotMachine} />
-          <Route path="/subscribe"  component={Subscribe}   />
-          <Route path="/enterprise" component={Enterprise}  />
-          <Route path="/sponsor"   component={Sponsor}    />
-          <Route path="/admin"     component={AdminPanel}  />
-          <Route                    component={NotFound}    />
+          <Route path="/"            component={Dashboard}   />
+          <Route path="/onboarding"  component={Onboarding}  />
+          <Route path="/brain-game"  component={MemoryMatch} />
+          <Route path="/blackjack"   component={Blackjack}   />
+          <Route path="/eq-game"     component={EQGame}      />
+          <Route path="/casino"      component={SlotMachine} />
+          <Route path="/subscribe"   component={Subscribe}   />
+          <Route path="/enterprise"  component={Enterprise}  />
+          <Route path="/sponsor"     component={Sponsor}     />
+          <Route path="/admin"       component={AdminPanel}  />
+          <Route                     component={NotFound}    />
         </Switch>
       </motion.div>
     </AnimatePresence>

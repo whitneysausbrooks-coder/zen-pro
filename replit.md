@@ -102,7 +102,13 @@ Utility scripts package. Each script is a `.ts` file in `src/` with a correspond
 - Tier 2 — B2B Corporate Wellness ($50/seat/year). Route: `/enterprise`. `enterprise_leads` table. `CONTRACTS_SIGNED` constant controls ARR progress bar.
 - Tier 3 — Sponsored Jackpots ($500–$10,000/mo). Route: `/sponsor`. `sponsor_leads` table. API: `POST /api/sponsor/contact`, `GET /api/sponsor/leads`. Casino shows cyan banner with current sponsor prize. Dashboard shows Tier 3 CTA card.
 
-**Games:** Neural Stake (memory match), The Casino (slot machine), [Brain Game].
+**Games:**
+- **Neural Stake** (`/brain-game`): Memory match with 3 difficulty tiers — Easy (8 pairs, +50 NE), Medium (10 pairs, +75 NE), Hard (12 pairs, +100 NE). Grid adapts from 4×4 to 5×4 for medium. 12 symbols total (Brain, Flame, Leaf, Moon, Sun, Star, Eye, Wind, Droplets, Cloud, Diamond, Clover).
+- **The Casino** (`/casino`): 3-reel slot machine. Sleep Mode (10 PM–6 AM): Meditation Lounge banner appears with breathing exercise (+10 NE for one 14s inhale/hold/exhale cycle). Breathing modal shows inhale 4s → hold 4s → exhale 6s animated circle.
+- **Emotional EQ** (`/eq-game`): 10-round reaction game. Large emoji face appears; player has 1.5s to identify the emotion from 4 choices. +4 NE per correct, +2 bonus for < 600ms responses. Max +60 NE per session.
+- **Mind-Reader Blackjack** (`/blackjack`): Standard blackjack + "Mind Read" mechanic. After deal, player predicts dealer's hole card: High (8+) or Low (2–7). Correct prediction = +60% payout bonus on any win. Bets: 10/25/50 Neural Energy.
+
+**Onboarding:** First-time visitors (no `nq_onboarding_done` localStorage key) are redirected to `/onboarding` — 3-step flow: (1) Splash screen with gold pulse ring + "Your mind is the stake. The world is the winner." (2) 30s Focus Test — moving gold dot, user taps it, dot speeds up over time, score = hits in 30s. (3) Results screen with focus score, reaction time, rating tier, and "Welcome Gift" of +50 Neural Energy via `POST /api/quest/earn-energy`.
 
 **Streak System:** `streak_count` + `last_game_date` in `user_profiles`. Consecutive-day wins increment streak. Multiplier = min(1.1^streak, 2.0). Streak ≥ 3 → electric-blue glow + 10% casino win boost.
 
