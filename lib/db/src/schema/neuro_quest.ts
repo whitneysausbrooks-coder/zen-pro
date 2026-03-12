@@ -23,10 +23,24 @@ export const activitiesTable = pgTable("activities", {
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const enterpriseLeadsTable = pgTable("enterprise_leads", {
+  id: serial("id").primaryKey(),
+  contact_name: text("contact_name").notNull(),
+  company: text("company").notNull(),
+  work_email: text("work_email").notNull(),
+  team_size: text("team_size").notNull(),
+  tier: text("tier").notNull().default("team"),
+  message: text("message"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserProfileSchema = createInsertSchema(userProfilesTable).omit({ id: true, updated_at: true });
 export const insertActivitySchema = createInsertSchema(activitiesTable).omit({ id: true, created_at: true });
+export const insertEnterpriseLeadSchema = createInsertSchema(enterpriseLeadsTable).omit({ id: true, created_at: true });
 
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type UserProfile = typeof userProfilesTable.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type Activity = typeof activitiesTable.$inferSelect;
+export type InsertEnterpriseLead = z.infer<typeof insertEnterpriseLeadSchema>;
+export type EnterpriseLead = typeof enterpriseLeadsTable.$inferSelect;
