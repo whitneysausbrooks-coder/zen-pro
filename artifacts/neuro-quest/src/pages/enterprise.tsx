@@ -18,9 +18,11 @@ const TIERS = [
   {
     id: "team" as Tier,
     name: "Team",
-    price: "$299",
-    period: "/month",
+    price: "$1,250",
+    period: "/year",
+    annual: "$1,250/yr",
     seats: "Up to 25 seats",
+    perSeat: "25 seats × $50",
     desc: "Ideal for small teams and departments piloting cognitive wellness.",
     color: "border-primary/40",
     accent: "text-primary",
@@ -37,9 +39,11 @@ const TIERS = [
   {
     id: "business" as Tier,
     name: "Business",
-    price: "$799",
-    period: "/month",
+    price: "$5,000",
+    period: "/year",
+    annual: "$5,000/yr",
     seats: "Up to 100 seats",
+    perSeat: "100 seats × $50",
     desc: "Built for scaling teams that take cognitive performance seriously.",
     color: "border-amber-400/50 slot-machine-glow",
     accent: "text-amber-400",
@@ -57,14 +61,16 @@ const TIERS = [
   {
     id: "enterprise" as Tier,
     name: "Enterprise",
-    price: "Custom",
-    period: "",
-    seats: "Unlimited seats",
-    desc: "Tailored licensing with SSO, SLAs, and a dedicated success manager.",
+    price: "$100,000",
+    period: "/year",
+    annual: "$100k/yr",
+    seats: "2,000 seats",
+    perSeat: "2,000 seats × $50",
+    desc: "Full-scale deployment with SSO, SLAs, and a dedicated success manager.",
     color: "border-violet-400/40",
     accent: "text-violet-400",
     bg: "bg-violet-400/8",
-    badge: null,
+    badge: "Revenue Driver",
     perks: [
       "Everything in Business",
       "SSO / SAML / SCIM provisioning",
@@ -76,6 +82,11 @@ const TIERS = [
     ],
   },
 ]
+
+const CONTRACTS_GOAL = 5
+const CONTRACTS_SIGNED = 0
+const ARR_GOAL = 500_000
+const ARR_CURRENT = CONTRACTS_SIGNED * 100_000
 
 const STATS = [
   { value: "37%", label: "reduction in reported burnout", icon: <Brain className="w-5 h-5" /> },
@@ -216,11 +227,68 @@ export default function Enterprise() {
           ))}
         </motion.div>
 
+        {/* Revenue Goal Tracker */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+        >
+          <GlassCard className="border-violet-400/30 bg-violet-400/5">
+            <GlassCardContent className="p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-violet-400 mb-1">ARR Revenue Goal</p>
+                  <h3 className="font-serif text-2xl text-foreground">
+                    5 Enterprise Contracts = <span className="text-gradient-gold">$500k/year</span>
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    $50/employee × 2,000 seats = $100,000 per contract
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-serif text-4xl font-bold text-violet-300">
+                    {CONTRACTS_SIGNED}<span className="text-muted-foreground text-xl font-normal">/{CONTRACTS_GOAL}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest mt-0.5">Contracts Signed</p>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>${(ARR_CURRENT).toLocaleString()} ARR</span>
+                  <span>Goal: ${(ARR_GOAL).toLocaleString()} ARR</span>
+                </div>
+                <div className="h-3 rounded-full bg-white/8 border border-violet-400/20 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.max((ARR_CURRENT / ARR_GOAL) * 100, ARR_CURRENT > 0 ? 2 : 0)}%` }}
+                    transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
+                    className="h-full rounded-full bg-gradient-to-r from-violet-500 to-violet-300"
+                  />
+                </div>
+                <div className="flex gap-6 pt-1">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <div key={n} className="flex items-center gap-1.5 text-xs">
+                      <div className={`w-2.5 h-2.5 rounded-full border ${n <= CONTRACTS_SIGNED ? "bg-violet-400 border-violet-400" : "bg-transparent border-white/20"}`} />
+                      <span className={n <= CONTRACTS_SIGNED ? "text-violet-300" : "text-muted-foreground"}>
+                        ${(n * 100).toLocaleString()}k
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </GlassCardContent>
+          </GlassCard>
+        </motion.div>
+
         {/* Pricing tiers */}
         <div className="space-y-6">
           <div className="text-center space-y-2">
             <h2 className="font-serif text-3xl text-foreground">Corporate Licensing Tiers</h2>
-            <p className="text-muted-foreground">Seat-based pricing. Volume discounts available for annual contracts.</p>
+            <p className="text-muted-foreground">
+              <span className="text-primary font-semibold">$50 per employee, per year</span> — billed annually. Volume discounts available.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -234,7 +302,7 @@ export default function Enterprise() {
               >
                 {tier.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                    <span className="px-3 py-1 text-xs font-bold bg-amber-400 text-background rounded-full">
+                    <span className={`px-3 py-1 text-xs font-bold rounded-full ${tier.id === "enterprise" ? "bg-violet-400 text-background" : "bg-amber-400 text-background"}`}>
                       {tier.badge}
                     </span>
                   </div>
@@ -253,9 +321,12 @@ export default function Enterprise() {
                       <p className="text-muted-foreground text-sm mt-1 leading-snug">{tier.desc}</p>
                     </div>
 
-                    <div className="flex items-baseline gap-1">
-                      <span className={`font-serif text-4xl font-bold ${tier.accent}`}>{tier.price}</span>
-                      {tier.period && <span className="text-muted-foreground text-sm">{tier.period}</span>}
+                    <div>
+                      <div className="flex items-baseline gap-1">
+                        <span className={`font-serif text-4xl font-bold ${tier.accent}`}>{tier.price}</span>
+                        {tier.period && <span className="text-muted-foreground text-sm">{tier.period}</span>}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{tier.perSeat} · $50/seat</p>
                     </div>
 
                     <ul className="space-y-2.5 flex-1">
