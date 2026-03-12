@@ -1,8 +1,10 @@
 import React from "react"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
+import { MorningBloomModal } from "@/components/morning-bloom-modal"
+import { RaidModeBanner } from "@/components/raid-mode-banner"
 
 import { 
   useGetProfile, 
@@ -92,6 +94,8 @@ export default function Dashboard() {
     is_electric_blue: boolean
   } | null>(null)
 
+  const [showGratitudeModal, setShowGratitudeModal] = React.useState(false)
+
   React.useEffect(() => {
     fetch(`${BASE}/api/quest/streak`, { credentials: "include" })
       .then(r => r.json())
@@ -99,8 +103,26 @@ export default function Dashboard() {
       .catch(() => {})
   }, [])
 
+  // Check if gratitude has been completed today
+  React.useEffect(() => {
+    fetch(`${BASE}/api/quest/gratitude-status`, { credentials: "include" })
+      .then(r => r.json())
+      .then(data => { if (!data.done_today) setShowGratitudeModal(true) })
+      .catch(() => {})
+  }, [])
+
   return (
     <div className="min-h-screen relative overflow-hidden pb-20">
+      {/* Morning Bloom Modal */}
+      <AnimatePresence>
+        {showGratitudeModal && (
+          <MorningBloomModal onComplete={() => {
+            setShowGratitudeModal(false)
+            invalidateQueries()
+          }} />
+        )}
+      </AnimatePresence>
+
       {/* Background Image Overlay */}
       <div 
         className="absolute inset-0 z-0 opacity-40 mix-blend-overlay pointer-events-none bg-cover bg-center bg-no-repeat"
@@ -200,6 +222,9 @@ export default function Dashboard() {
                 </div>
               </motion.div>
             )}
+
+            {/* Raid Mode Live Event Banner */}
+            <RaidModeBanner />
 
             <GlassCard glow>
               <GlassCardHeader>

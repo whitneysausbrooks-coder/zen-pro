@@ -10,6 +10,7 @@ import SlotMachine from "@/pages/slot-machine";
 import Subscribe from "@/pages/subscribe"
 import Enterprise from "@/pages/enterprise";
 import Sponsor from "@/pages/sponsor";
+import AdminPanel from "@/pages/admin";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +48,7 @@ function Router() {
           <Route path="/subscribe"  component={Subscribe}   />
           <Route path="/enterprise" component={Enterprise}  />
           <Route path="/sponsor"   component={Sponsor}    />
+          <Route path="/admin"     component={AdminPanel}  />
           <Route                    component={NotFound}    />
         </Switch>
       </motion.div>

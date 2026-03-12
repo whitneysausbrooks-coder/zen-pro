@@ -112,4 +112,8 @@ Utility scripts package. Each script is a `.ts` file in `src/` with a correspond
 
 **API Routes:** `src/routes/quest.ts` (streak, game-complete, energy, compassion), `src/routes/enterprise.ts`, `src/routes/sponsor.ts`, `src/routes/stripe.ts`.
 
+**Morning Bloom Modal:** Daily gratitude gate. `GET /api/quest/gratitude-status` checks if done today. `POST /api/quest/gratitude` saves entry + awards 20 Neural Energy, sets `last_gratitude_date` on `user_profiles`. Modal shows on dashboard load if not done; requires ≥ 3 words; dismisses and refreshes profile on submit. Component: `src/components/morning-bloom-modal.tsx`.
+
+**Raid Mode:** Admin-toggled live global event. `global_settings` table (single row) holds `raid_mode_active`, `raid_mode_target`. `POST /api/admin/raid-mode` toggles it. `GET /api/admin/status` returns current state + community wins count. `GET /api/quest/event` is the public endpoint. When active, `earn-compassion` doubles all points automatically. Dashboard shows animated violet `RaidModeBanner` (component: `src/components/raid-mode-banner.tsx`) that polls every 15s with a live community progress bar. Admin panel accessible at `/admin`.
+
 **Note:** api-server does NOT have `zod` as a direct dependency — use plain JS validation or import from `@workspace/api-zod`.

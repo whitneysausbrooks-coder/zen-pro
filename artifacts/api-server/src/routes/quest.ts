@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import {
   userProfilesTable,
   activitiesTable,
+  globalSettingsTable,
 } from "@workspace/db/schema";
 import {
   EarnEnergyBody,
@@ -12,6 +13,16 @@ import {
 } from "@workspace/api-zod";
 import { eq, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
+
+async function getRaidMultiplier(): Promise<number> {
+  try {
+    const rows = await db.select({ raid_mode_active: globalSettingsTable.raid_mode_active })
+      .from(globalSettingsTable).limit(1);
+    return rows[0]?.raid_mode_active ? 2 : 1;
+  } catch {
+    return 1;
+  }
+}
 
 const router: IRouter = Router();
 
@@ -189,7 +200,9 @@ router.post("/earn-compassion", async (req, res) => {
   const body = EarnCompassionBody.parse(req.body);
   const profile = await getOrCreateProfile(sessionId);
 
-  const newCompassion = profile.compassion_points + body.amount;
+  const raidMultiplier = await getRaidMultiplier();
+  const effectiveAmount = body.amount * raidMultiplier;
+  const newCompassion = profile.compassion_points + effectiveAmount;
   const { level, title } = computeLevel(profile.neural_energy, newCompassion);
 
   const [updated] = await db
@@ -202,10 +215,53 @@ router.post("/earn-compassion", async (req, res) => {
     session_id: sessionId,
     type: "compassion_points",
     activity: body.activity,
-    amount: body.amount,
+    amount: effectiveAmount,
   });
 
-  res.json(GetProfileResponse.parse(updated));
+  res.json({ ...(GetProfileResponse.parse(updated)), raid_multiplier: raidMultiplier });
+});
+
+router.post("/gratitude", async (req, res) => {
+  const sessionId = getOrCreateSessionId(req, res);
+  const { text } = req.body;
+  if (!text || String(text).trim().split(/\s+/).filter(Boolean).length < 3) {
+    return res.status(400).json({ error: "At least 3 words required" });
+  }
+  const profile = await getOrCreateProfile(sessionId);
+  const today = todayUTC();
+
+  if (profile.last_gratitude_date === today) {
+    return res.json({ already_done: true, bonus: 0 });
+  }
+
+  const bonus = 20;
+  const newEnergy = profile.neural_energy + bonus;
+  const { level, title } = computeLevel(newEnergy, profile.compassion_points);
+
+  await db.update(userProfilesTable)
+    .set({ neural_energy: newEnergy, last_gratitude_date: today, level, title, updated_at: new Date() })
+    .where(eq(userProfilesTable.session_id, sessionId));
+
+  await db.insert(activitiesTable).values({
+    session_id: sessionId,
+    type: "neural_energy",
+    activity: "Morning Bloom Gratitude",
+    amount: bonus,
+  });
+
+  return res.json({ already_done: false, bonus });
+});
+
+router.get("/gratitude-status", async (req, res) => {
+  const sessionId = req.cookies?.["nq_session"];
+  if (!sessionId) return res.json({ done_today: false });
+  const [profile] = await db
+    .select({ last_gratitude_date: userProfilesTable.last_gratitude_date })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.session_id, sessionId))
+    .limit(1);
+  const done_today = profile?.last_gratitude_date === todayUTC();
+  return res.json({ done_today });
 });
 
 router.get("/activities", async (req, res) => {

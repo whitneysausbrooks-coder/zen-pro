@@ -13,6 +13,15 @@ export const userProfilesTable = pgTable("user_profiles", {
   is_pro: boolean("is_pro").notNull().default(false),
   streak_count: integer("streak_count").notNull().default(0),
   last_game_date: text("last_game_date"),
+  last_gratitude_date: text("last_gratitude_date"),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const globalSettingsTable = pgTable("global_settings", {
+  id: serial("id").primaryKey(),
+  raid_mode_active: boolean("raid_mode_active").notNull().default(false),
+  raid_mode_target: integer("raid_mode_target").notNull().default(100),
+  raid_started_at: timestamp("raid_started_at"),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
