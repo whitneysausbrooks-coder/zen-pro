@@ -26,6 +26,8 @@ const CURRENT_SPONSOR = {
   brand: "MindFuel Coffee Co.",
   prize: "$50 Gift Card",
   tagline: "Fuel your focus. Spin to win.",
+  /** Shown on the Compassion Jackpot win screen — brand pays the micro-donation */
+  donationBlurb: "MindFuel Coffee Co. is funding this micro-donation as part of their wellness mission.",
 }
 
 /* ── Symbols ─────────────────────────────────────────────────────────────── */
@@ -270,7 +272,11 @@ function PayTable() {
 }
 
 /* ── Compassion Jackpot Overlay ──────────────────────────────────────────── */
-function CompassionJackpotOverlay({ onClose }: { onClose: () => void }) {
+interface CompassionJackpotOverlayProps {
+  onClose: () => void
+  sponsor: { brand: string; donationBlurb: string }
+}
+function CompassionJackpotOverlay({ onClose, sponsor }: CompassionJackpotOverlayProps) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -328,7 +334,7 @@ function CompassionJackpotOverlay({ onClose }: { onClose: () => void }) {
                 transition={{ delay: 0.5 }}
                 className="text-base font-medium text-rose-200 tracking-wide"
               >
-                Impact Verified.
+                A micro-donation has been made in your name.
               </motion.p>
             </div>
 
@@ -343,10 +349,24 @@ function CompassionJackpotOverlay({ onClose }: { onClose: () => void }) {
               <span className="font-bold text-rose-300 text-lg">+{COMPASSION_JACKPOT} Compassion Points</span>
             </motion.div>
 
+            {/* Sponsor shoutout */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.85 }}
+              className="rounded-2xl bg-white/5 border border-white/10 px-5 py-4 space-y-1.5 text-left"
+            >
+              <p className="text-[10px] font-bold uppercase tracking-widest text-rose-300/70 flex items-center gap-1.5">
+                <Megaphone className="w-3 h-3" /> Sponsored by
+              </p>
+              <p className="text-sm font-bold text-white">{sponsor.brand}</p>
+              <p className="text-xs text-white/50 leading-relaxed">{sponsor.donationBlurb}</p>
+            </motion.div>
+
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.9 }}
+              transition={{ delay: 1.05 }}
             >
               <LuxuryButton
                 size="sm"
@@ -478,7 +498,7 @@ export default function SlotMachine() {
       {/* Compassion Jackpot full-screen overlay */}
       <AnimatePresence>
         {showJackpot && (
-          <CompassionJackpotOverlay onClose={() => {
+          <CompassionJackpotOverlay sponsor={CURRENT_SPONSOR} onClose={() => {
             setShowJackpot(false)
             setPhase("idle")
             setResult(null)
@@ -555,9 +575,9 @@ export default function SlotMachine() {
                   <Gift className="w-4 h-4 text-cyan-400" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">Sponsored Jackpot</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">Compassion Jackpot — Sponsored</p>
                   <p className="text-sm font-semibold text-foreground">
-                    Win a <span className="text-cyan-300">{CURRENT_SPONSOR.prize}</span> from {CURRENT_SPONSOR.brand}
+                    <span className="text-rose-300">3× ♡</span> → micro-donation funded by <span className="text-cyan-300">{CURRENT_SPONSOR.brand}</span>
                   </p>
                 </div>
               </div>

@@ -83,20 +83,20 @@ const HOW_IT_WORKS = [
   {
     step: "01",
     icon: <Gift className="w-6 h-6" />,
-    title: "Set Your Prize Pool",
-    desc: "Choose what you offer — gift cards, discount codes, exclusive products. We handle fulfilment and distribution to winners.",
+    title: "Fund the Compassion Jackpot",
+    desc: "Commit a monthly micro-donation budget. When players hit 3× Hearts, your brand pays for a micro-donation made in the player's name — no fulfilment overhead.",
   },
   {
     step: "02",
     icon: <Sparkles className="w-6 h-6" />,
-    title: "Players Spin to Win",
-    desc: "Your brand appears in The Casino's jackpot banner every session. Landing the Sponsored Jackpot awards your real prize instantly.",
+    title: "Player Wins, Brand Shines",
+    desc: "The winning screen reads \"A micro-donation has been made in your name\" followed by a full-screen \"Sponsored by {Your Brand}\" attribution. Heartfelt, unskippable, zero ad-blockers.",
   },
   {
     step: "03",
     icon: <BarChart3 className="w-6 h-6" />,
-    title: "Measure Everything",
-    desc: "Track impressions, prize claims, click-throughs, and brand recall scores in your live sponsor dashboard. Pay only for results.",
+    title: "Measure Brand Impact",
+    desc: "Track jackpot impressions, donation count, banner clicks, and brand recall in your live sponsor dashboard. You pay per Compassion Jackpot won — pure performance marketing.",
   },
 ]
 
@@ -187,9 +187,10 @@ export default function Sponsor() {
             <span className="text-foreground">the Jackpot</span>
           </h1>
           <p className="text-muted-foreground text-xl leading-relaxed">
-            Sponsor real prizes inside NeuroQuest's Casino. Players spin to win your gift cards
-            and products — you earn high-intent impressions from an audience actively exercising
-            their mind. Zero banner blindness. No ad-blockers. Pure engagement.
+            Sponsor the <strong className="text-rose-300 font-semibold">Compassion Jackpot</strong>.
+            When a player hits 3× Hearts, your brand funds the micro-donation — and earns a
+            heartfelt "Sponsored by {"{"}your brand{"}"}" shoutout on the winning screen.
+            Zero banner blindness. No ad-blockers. Pure goodwill.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
             <LuxuryButton
