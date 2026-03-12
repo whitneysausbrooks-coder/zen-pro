@@ -4,7 +4,7 @@ import { useLocation } from "wouter"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   Brain, Flame, Leaf, Moon, Sun, Star, Eye, Wind, Heart,
-  ArrowLeft, Zap, AlertCircle, Sparkles, Crown, X
+  ArrowLeft, Zap, AlertCircle, Sparkles, Crown, X, Gift, Megaphone
 } from "lucide-react"
 import confetti from "canvas-confetti"
 import {
@@ -20,6 +20,13 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
+
+/* ── Current Sponsor (demo — replace with API data when live) ────────────── */
+const CURRENT_SPONSOR = {
+  brand: "MindFuel Coffee Co.",
+  prize: "$50 Gift Card",
+  tagline: "Fuel your focus. Spin to win.",
+}
 
 /* ── Symbols ─────────────────────────────────────────────────────────────── */
 const SYMBOLS = [
@@ -529,6 +536,38 @@ export default function SlotMachine() {
             </div>
           )}
         </div>
+
+        {/* Sponsored Jackpot Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mb-4"
+        >
+          <a
+            href={`${BASE}/sponsor`}
+            onClick={e => { e.preventDefault(); navigate("/sponsor") }}
+            className="block group"
+          >
+            <div className="flex items-center justify-between gap-3 px-5 py-3 rounded-2xl bg-cyan-500/10 border border-cyan-400/30 hover:border-cyan-400/55 hover:bg-cyan-500/15 transition-all duration-300 cursor-pointer">
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-cyan-400/20 rounded-lg shrink-0">
+                  <Gift className="w-4 h-4 text-cyan-400" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">Sponsored Jackpot</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    Win a <span className="text-cyan-300">{CURRENT_SPONSOR.prize}</span> from {CURRENT_SPONSOR.brand}
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0 text-right hidden sm:block">
+                <p className="text-xs text-muted-foreground italic">{CURRENT_SPONSOR.tagline}</p>
+                <p className="text-[10px] text-cyan-400/70 uppercase tracking-widest mt-0.5 group-hover:text-cyan-400 transition-colors">Your brand here →</p>
+              </div>
+            </div>
+          </a>
+        </motion.div>
 
         {/* Streak indicator pill (Electric Blue / Lucky Gold) */}
         {streak.streak_count > 0 && (

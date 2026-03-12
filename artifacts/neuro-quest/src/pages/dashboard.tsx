@@ -1,6 +1,6 @@
 import React from "react"
 import { motion } from "framer-motion"
-import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame } from "lucide-react"
+import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
 
@@ -341,6 +341,37 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center gap-1.5 bg-violet-400/10 border border-violet-400/25 rounded-full px-4 py-2 shrink-0 group-hover:bg-violet-400/15 transition-colors">
                     <span className="text-sm font-bold text-violet-400 font-serif">From $299/mo</span>
+                  </div>
+                </GlassCardContent>
+              </GlassCard>
+            </motion.div>
+
+            {/* Sponsored Jackpots CTA */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <GlassCard
+                className="cursor-pointer group hover:border-cyan-400/50 transition-all duration-300 relative overflow-hidden"
+                onClick={() => navigate("/sponsor")}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-teal-400/5 pointer-events-none" />
+                <GlassCardContent className="p-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-cyan-400/15 rounded-2xl border border-cyan-400/30 group-hover:bg-cyan-400/25 transition-colors">
+                      <Megaphone className="w-7 h-7 text-cyan-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-serif font-semibold text-lg text-foreground">Sponsored Jackpots</h3>
+                        <span className="text-[10px] font-bold uppercase tracking-widest bg-cyan-400/15 text-cyan-400 border border-cyan-400/30 rounded-full px-2 py-0.5">Tier 3</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Brands sponsor prizes · Players win real rewards</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-cyan-400/10 border border-cyan-400/25 rounded-full px-4 py-2 shrink-0 group-hover:bg-cyan-400/15 transition-colors">
+                    <span className="text-sm font-bold text-cyan-400 font-serif">From $500/mo</span>
                   </div>
                 </GlassCardContent>
               </GlassCard>

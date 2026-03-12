@@ -9,6 +9,7 @@ import MemoryMatch from "@/pages/memory-match";
 import SlotMachine from "@/pages/slot-machine";
 import Subscribe from "@/pages/subscribe"
 import Enterprise from "@/pages/enterprise";
+import Sponsor from "@/pages/sponsor";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,7 @@ function Router() {
           <Route path="/casino"     component={SlotMachine} />
           <Route path="/subscribe"  component={Subscribe}   />
           <Route path="/enterprise" component={Enterprise}  />
+          <Route path="/sponsor"   component={Sponsor}    />
           <Route                    component={NotFound}    />
         </Switch>
       </motion.div>

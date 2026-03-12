@@ -94,3 +94,22 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+
+## NeuroQuest Features
+
+**Monetization Tiers:**
+- Tier 1 — Zen Pro subscription ($9.99/mo via Stripe). Route: `/subscribe`.
+- Tier 2 — B2B Corporate Wellness ($50/seat/year). Route: `/enterprise`. `enterprise_leads` table. `CONTRACTS_SIGNED` constant controls ARR progress bar.
+- Tier 3 — Sponsored Jackpots ($500–$10,000/mo). Route: `/sponsor`. `sponsor_leads` table. API: `POST /api/sponsor/contact`, `GET /api/sponsor/leads`. Casino shows cyan banner with current sponsor prize. Dashboard shows Tier 3 CTA card.
+
+**Games:** Neural Stake (memory match), The Casino (slot machine), [Brain Game].
+
+**Streak System:** `streak_count` + `last_game_date` in `user_profiles`. Consecutive-day wins increment streak. Multiplier = min(1.1^streak, 2.0). Streak ≥ 3 → electric-blue glow + 10% casino win boost.
+
+**Session:** Cookie-based (`nq_session`, httpOnly). No login required — each browser = its own profile.
+
+**DB Tables:** `user_profiles`, `activities`, `enterprise_leads`, `sponsor_leads` in `lib/db/src/schema/neuro_quest.ts`.
+
+**API Routes:** `src/routes/quest.ts` (streak, game-complete, energy, compassion), `src/routes/enterprise.ts`, `src/routes/sponsor.ts`, `src/routes/stripe.ts`.
+
+**Note:** api-server does NOT have `zod` as a direct dependency — use plain JS validation or import from `@workspace/api-zod`.

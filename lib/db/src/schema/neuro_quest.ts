@@ -36,6 +36,17 @@ export const enterpriseLeadsTable = pgTable("enterprise_leads", {
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const sponsorLeadsTable = pgTable("sponsor_leads", {
+  id: serial("id").primaryKey(),
+  brand_name: text("brand_name").notNull(),
+  contact_name: text("contact_name").notNull(),
+  work_email: text("work_email").notNull(),
+  prize_idea: text("prize_idea"),
+  monthly_budget: text("monthly_budget").notNull(),
+  tier: text("tier").notNull().default("featured"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertUserProfileSchema = createInsertSchema(userProfilesTable).omit({ id: true, updated_at: true });
 export const insertActivitySchema = createInsertSchema(activitiesTable).omit({ id: true, created_at: true });
 export const insertEnterpriseLeadSchema = createInsertSchema(enterpriseLeadsTable).omit({ id: true, created_at: true });
