@@ -1,6 +1,6 @@
 import React from "react"
 import { motion } from "framer-motion"
-import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap } from "lucide-react"
+import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
 
@@ -188,6 +188,34 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/30 rounded-full px-4 py-2 shrink-0 group-hover:bg-primary/20 transition-colors">
                     <Zap className="w-4 h-4 text-primary" />
                     <span className="text-sm font-bold text-primary">+50</span>
+                  </div>
+                </GlassCardContent>
+              </GlassCard>
+            </motion.div>
+
+            {/* Casino — Slot Machine */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+            >
+              <GlassCard
+                className="cursor-pointer group hover:border-orange-400/40 transition-all duration-300"
+                onClick={() => navigate("/casino")}
+              >
+                <GlassCardContent className="p-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-orange-400/20 rounded-2xl border border-orange-400/30 group-hover:bg-orange-400/30 transition-colors">
+                      <Dices className="w-7 h-7 text-orange-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-serif font-semibold text-lg text-foreground">The Casino</h3>
+                      <p className="text-sm text-muted-foreground">3-Reel Slot Machine · Press your luck</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-rose-400/10 border border-rose-400/30 rounded-full px-4 py-2 shrink-0 group-hover:bg-rose-400/20 transition-colors">
+                    <Zap className="w-4 h-4 text-rose-400" />
+                    <span className="text-sm font-bold text-rose-400">−10</span>
                   </div>
                 </GlassCardContent>
               </GlassCard>

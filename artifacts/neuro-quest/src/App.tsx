@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import MemoryMatch from "@/pages/memory-match";
+import SlotMachine from "@/pages/slot-machine";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,6 +21,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/brain-game" component={MemoryMatch} />
+      <Route path="/casino" component={SlotMachine} />
       <Route component={NotFound} />
     </Switch>
   );
