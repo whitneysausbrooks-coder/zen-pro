@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react"
 import { motion } from "framer-motion"
 import { useLocation } from "wouter"
-import { Zap, Users, BarChart3, ArrowLeft, Power, RefreshCw, Heart, Target } from "lucide-react"
+import { Zap, Users, BarChart3, ArrowLeft, Power, RefreshCw, Heart, Target, Bell, Send } from "lucide-react"
 import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/glass-card"
 import { LuxuryButton } from "@/components/ui/luxury-button"
 import { useToast } from "@/hooks/use-toast"
@@ -22,6 +22,8 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState(false)
   const [targetInput, setTargetInput] = useState("")
+  const [sending, setSending] = useState(false)
+  const [nudgeResult, setNudgeResult] = useState<{ sent: number; failed: number; total_subs: number } | null>(null)
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -40,6 +42,30 @@ export default function AdminPanel() {
     const id = setInterval(fetchStatus, 10_000)
     return () => clearInterval(id)
   }, [fetchStatus])
+
+  async function sendNudgeCampaign() {
+    setSending(true)
+    setNudgeResult(null)
+    try {
+      const r = await fetch(`${BASE}/api/admin/send-nudge`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ app_url: window.location.origin }),
+      })
+      if (r.ok) {
+        const data = await r.json()
+        setNudgeResult(data)
+        toast({
+          title: `Nudge campaign sent`,
+          description: `${data.sent} delivered · ${data.failed} failed`,
+        })
+      }
+    } catch (_) {
+      toast({ title: "Error", description: "Failed to send nudge campaign.", variant: "destructive" })
+    }
+    setSending(false)
+  }
 
   async function toggleRaidMode(activate: boolean) {
     setToggling(true)
@@ -205,6 +231,49 @@ export default function AdminPanel() {
                 Started: {new Date(status.raid_started_at).toLocaleString()}
               </p>
             )}
+          </GlassCardContent>
+        </GlassCard>
+        {/* Nudge Campaign */}
+        <GlassCard>
+          <GlassCardHeader>
+            <GlassCardTitle className="text-lg flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" /> Nudge Campaign
+            </GlassCardTitle>
+          </GlassCardHeader>
+          <GlassCardContent className="pt-0 pb-6 px-5 space-y-4">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Sends a personalized push notification to every subscribed player who hasn't played in the last 24 hours. Messages mention their Brain Health Level and progress toward the next rank.
+            </p>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              {[
+                { label: "Progress-based", desc: "% to next level" },
+                { label: "Level-aware", desc: "Uses their title" },
+                { label: "Anti-spam", desc: "24h inactive only" },
+              ].map(({ label, desc }) => (
+                <div key={label} className="bg-white/3 rounded-xl p-3 border border-white/8">
+                  <p className="text-xs font-bold text-foreground">{label}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{desc}</p>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-xl bg-primary/5 border border-primary/15 px-4 py-3 text-xs text-muted-foreground italic leading-relaxed">
+              Example: "Your focus score is 5% away from Luminary. Ready to hit the floor?"
+            </div>
+            {nudgeResult && (
+              <div className="flex gap-4 text-sm">
+                <span className="text-emerald-400 font-semibold">✓ {nudgeResult.sent} delivered</span>
+                {nudgeResult.failed > 0 && <span className="text-rose-400">{nudgeResult.failed} failed</span>}
+                <span className="text-muted-foreground">({nudgeResult.total_subs} total subscribers)</span>
+              </div>
+            )}
+            <LuxuryButton
+              className="w-full gap-2 bg-primary/15 border-primary/35 hover:bg-primary/25 text-primary"
+              disabled={sending}
+              onClick={sendNudgeCampaign}
+            >
+              <Send className="w-4 h-4" />
+              {sending ? "Sending nudges…" : "Send Nudge Campaign"}
+            </LuxuryButton>
           </GlassCardContent>
         </GlassCard>
       </div>

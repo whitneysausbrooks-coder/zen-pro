@@ -22,7 +22,18 @@ export const globalSettingsTable = pgTable("global_settings", {
   raid_mode_active: boolean("raid_mode_active").notNull().default(false),
   raid_mode_target: integer("raid_mode_target").notNull().default(100),
   raid_started_at: timestamp("raid_started_at"),
+  vapid_public_key: text("vapid_public_key"),
+  vapid_private_key: text("vapid_private_key"),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const pushSubscriptionsTable = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  session_id: text("session_id").notNull(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  created_at: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const activitiesTable = pgTable("activities", {

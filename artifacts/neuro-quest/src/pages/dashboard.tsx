@@ -5,6 +5,8 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
 import { MorningBloomModal } from "@/components/morning-bloom-modal"
 import { RaidModeBanner } from "@/components/raid-mode-banner"
+import { NotificationWidget } from "@/components/notification-widget"
+import { ReturnNudge } from "@/components/return-nudge"
 
 import { 
   useGetProfile, 
@@ -222,6 +224,12 @@ export default function Dashboard() {
                 </div>
               </motion.div>
             )}
+
+            {/* Return Nudge — shows after 24h+ absence */}
+            <ReturnNudge />
+
+            {/* Notification opt-in widget */}
+            <NotificationWidget />
 
             {/* Raid Mode Live Event Banner */}
             <RaidModeBanner />

@@ -5,6 +5,7 @@ import stripeRouter from "./stripe";
 import enterpriseRouter from "./enterprise";
 import sponsorRouter from "./sponsor";
 import adminRouter from "./admin";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(stripeRouter);
 router.use(enterpriseRouter);
 router.use("/", sponsorRouter);
 router.use("/", adminRouter);
+router.use("/", notificationsRouter);
 
 export default router;
