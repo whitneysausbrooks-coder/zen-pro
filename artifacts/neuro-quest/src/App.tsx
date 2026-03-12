@@ -1,5 +1,6 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
@@ -16,14 +17,34 @@ const queryClient = new QueryClient({
   },
 });
 
+const pageTransition = {
+  initial:  { opacity: 0, y: 8 },
+  animate:  { opacity: 1, y: 0 },
+  exit:     { opacity: 0, y: -8 },
+  transition: { duration: 0.38, ease: [0.4, 0, 0.2, 1] },
+};
+
 function Router() {
+  const [location] = useLocation();
+
   return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/brain-game" component={MemoryMatch} />
-      <Route path="/casino" component={SlotMachine} />
-      <Route component={NotFound} />
-    </Switch>
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location}
+        className="page-fade"
+        initial={pageTransition.initial}
+        animate={pageTransition.animate}
+        exit={pageTransition.exit}
+        transition={pageTransition.transition}
+      >
+        <Switch location={location}>
+          <Route path="/"           component={Dashboard}   />
+          <Route path="/brain-game" component={MemoryMatch} />
+          <Route path="/casino"     component={SlotMachine} />
+          <Route                    component={NotFound}    />
+        </Switch>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 

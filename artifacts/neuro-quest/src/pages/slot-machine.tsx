@@ -505,8 +505,10 @@ export default function SlotMachine() {
 
         {/* Machine body */}
         <GlassCard
-          glow
-          className={cn("mb-6 transition-all duration-700", isHeartResult && "ring-2 ring-rose-400/50 shadow-[0_0_40px_rgba(251,113,133,0.3)]")}
+          className={cn(
+            "mb-6 slot-machine-glow transition-colors duration-700",
+            isHeartResult && "!border-rose-400/60 ![animation:none] shadow-[0_0_0_1px_rgba(251,113,133,0.6),0_0_40px_rgba(251,113,133,0.35)]"
+          )}
         >
           <GlassCardContent className="p-6 sm:p-8">
             {/* Reels */}
