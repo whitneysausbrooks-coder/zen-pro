@@ -1,7 +1,8 @@
 import React from "react"
 import { motion } from "framer-motion"
-import { Brain, Heart, Clover, Sparkles, History, RotateCcw } from "lucide-react"
+import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
+import { useLocation } from "wouter"
 
 import { 
   useGetProfile, 
@@ -34,6 +35,7 @@ const COMPASSION_ACTIONS = [
 export default function Dashboard() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const [, navigate] = useLocation()
 
   const { data: profile, isLoading: isProfileLoading } = useGetProfile()
   const { data: activities, isLoading: isActivitiesLoading } = useGetActivities()
@@ -161,6 +163,35 @@ export default function Dashboard() {
                 </div>
               </GlassCardContent>
             </GlassCard>
+
+            {/* Neural Stake — Brain Game */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <GlassCard
+                className="cursor-pointer group hover:border-primary/40 transition-all duration-300"
+                glow
+                onClick={() => navigate("/brain-game")}
+              >
+                <GlassCardContent className="p-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-primary/20 rounded-2xl border border-primary/30 group-hover:bg-primary/30 transition-colors">
+                      <Gamepad2 className="w-7 h-7 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-serif font-semibold text-lg text-foreground">Neural Stake</h3>
+                      <p className="text-sm text-muted-foreground">4×4 Memory Match · Train pattern recognition</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/30 rounded-full px-4 py-2 shrink-0 group-hover:bg-primary/20 transition-colors">
+                    <Zap className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-bold text-primary">+50</span>
+                  </div>
+                </GlassCardContent>
+              </GlassCard>
+            </motion.div>
 
             {/* Actions Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
