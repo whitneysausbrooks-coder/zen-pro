@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import MemoryMatch from "@/pages/memory-match";
 import SlotMachine from "@/pages/slot-machine";
+import Subscribe from "@/pages/subscribe";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +42,7 @@ function Router() {
           <Route path="/"           component={Dashboard}   />
           <Route path="/brain-game" component={MemoryMatch} />
           <Route path="/casino"     component={SlotMachine} />
+          <Route path="/subscribe"  component={Subscribe}   />
           <Route                    component={NotFound}    />
         </Switch>
       </motion.div>

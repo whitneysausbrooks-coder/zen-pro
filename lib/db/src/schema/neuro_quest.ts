@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -9,6 +9,8 @@ export const userProfilesTable = pgTable("user_profiles", {
   compassion_points: integer("compassion_points").notNull().default(50),
   level: integer("level").notNull().default(1),
   title: text("title").notNull().default("Seeker"),
+  stripe_customer_id: text("stripe_customer_id"),
+  is_pro: boolean("is_pro").notNull().default(false),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 

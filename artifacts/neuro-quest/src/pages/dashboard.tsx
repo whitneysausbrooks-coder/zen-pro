@@ -1,6 +1,6 @@
 import React from "react"
 import { motion } from "framer-motion"
-import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices } from "lucide-react"
+import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
 
@@ -216,6 +216,37 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1.5 bg-rose-400/10 border border-rose-400/30 rounded-full px-4 py-2 shrink-0 group-hover:bg-rose-400/20 transition-colors">
                     <Zap className="w-4 h-4 text-rose-400" />
                     <span className="text-sm font-bold text-rose-400">−10</span>
+                  </div>
+                </GlassCardContent>
+              </GlassCard>
+            </motion.div>
+
+            {/* Zen Pro Upgrade CTA */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <GlassCard
+                className="cursor-pointer group slot-machine-glow hover:!border-primary/70 transition-all duration-300 relative overflow-hidden"
+                onClick={() => navigate("/subscribe")}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-amber-400/5 pointer-events-none" />
+                <GlassCardContent className="p-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-primary/20 rounded-2xl border border-primary/40 group-hover:bg-primary/30 transition-colors">
+                      <Crown className="w-7 h-7 text-primary" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-serif font-semibold text-lg text-gradient-gold">Zen Pro</h3>
+                        <span className="text-[10px] font-bold uppercase tracking-widest bg-primary/20 text-primary border border-primary/30 rounded-full px-2 py-0.5">Tier 1</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">2× Energy · Gold skins · Unlimited games</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/30 rounded-full px-4 py-2 shrink-0 group-hover:bg-primary/20 transition-colors">
+                    <span className="text-sm font-bold text-primary font-serif">$9.99/mo</span>
                   </div>
                 </GlassCardContent>
               </GlassCard>
