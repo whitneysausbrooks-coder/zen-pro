@@ -15,6 +15,8 @@ import AdminPanel from "@/pages/admin";
 import Onboarding from "@/pages/onboarding";
 import Blackjack from "@/pages/blackjack";
 import EQGame from "@/pages/eq-game";
+import { MobileNav } from "@/components/mobile-nav";
+import { InstallPrompt } from "@/components/install-prompt";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,7 +48,7 @@ function Router() {
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location}
-        className="page-fade"
+        className="page-fade page-content"
         initial={pageTransition.initial}
         animate={pageTransition.animate}
         exit={pageTransition.exit}
@@ -76,7 +78,9 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Router />
+          <MobileNav />
         </WouterRouter>
+        <InstallPrompt />
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

@@ -1,0 +1,45 @@
+{
+  "name": "NeuroQuest",
+  "short_name": "NeuroQuest",
+  "description": "Compassion Casino — Gamify your neuroplasticity. Train your brain, fund the world.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "background_color": "#0f1f14",
+  "theme_color": "#D4AF37",
+  "orientation": "portrait-primary",
+  "categories": ["games", "health", "entertainment"],
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "The Casino",
+      "short_name": "Casino",
+      "description": "Spin the Compassion Jackpot",
+      "url": "/casino",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Brain Game",
+      "short_name": "Brain",
+      "description": "Train your memory",
+      "url": "/brain-game",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
