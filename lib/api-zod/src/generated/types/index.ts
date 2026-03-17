@@ -8,7 +8,16 @@
 
 export * from "./activity";
 export * from "./activityType";
+export * from "./authorizationSessionHeaderParameter";
+export * from "./authUser";
+export * from "./authUserEnvelope";
+export * from "./beginBrowserLoginParams";
 export * from "./earnCompassionRequest";
 export * from "./earnEnergyRequest";
+export * from "./errorEnvelope";
+export * from "./handleBrowserLoginCallbackParams";
 export * from "./healthStatus";
+export * from "./logoutSuccess";
+export * from "./mobileTokenExchangeRequest";
+export * from "./mobileTokenExchangeSuccess";
 export * from "./userProfile";

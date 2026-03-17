@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { authMiddleware } from "./middlewares/authMiddleware";
 import router from "./routes";
 import { WebhookHandlers } from "./webhookHandlers";
 
@@ -28,6 +29,7 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(authMiddleware);
 
 app.use("/api", router);
 

@@ -5,6 +5,7 @@ import {
   Crown, Zap, Dices, Infinity, Star, CheckCircle2,
   ArrowLeft, Sparkles, TrendingUp, Users, Shield, Loader2
 } from "lucide-react"
+import { UserAuthButton } from "@/components/user-auth-button"
 import { GlassCard, GlassCardContent } from "@/components/ui/glass-card"
 import { LuxuryButton } from "@/components/ui/luxury-button"
 import { useToast } from "@/hooks/use-toast"
@@ -166,13 +167,14 @@ export default function Subscribe() {
       </div>
 
       {/* Back nav */}
-      <div className="w-full max-w-2xl mb-10">
+      <div className="w-full max-w-2xl mb-10 flex items-center justify-between">
         <Link href="/">
           <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
           </button>
         </Link>
+        <UserAuthButton />
       </div>
 
       {/* Success banner */}

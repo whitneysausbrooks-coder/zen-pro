@@ -1,6 +1,7 @@
 import React from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone, Globe } from "lucide-react"
+import { UserAuthButton } from "@/components/user-auth-button"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
 import { MorningBloomModal } from "@/components/morning-bloom-modal"
@@ -150,7 +151,6 @@ export default function Dashboard() {
             className="flex items-center gap-3"
           >
             <div className="p-3 bg-primary/20 rounded-2xl backdrop-blur-md border border-primary/30">
-              {/* Fallback to Clover icon if image isn't purely decorative */}
               <Clover className="w-8 h-8 text-primary" />
             </div>
             <div>
@@ -161,28 +161,32 @@ export default function Dashboard() {
             </div>
           </motion.div>
 
-          {profile && (
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-4 bg-white/5 px-6 py-3 rounded-full border border-white/10 backdrop-blur-sm"
-            >
-              <div className="flex flex-col items-end">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider">Level {profile.level}</span>
-                <span className="font-serif font-semibold text-primary">{profile.title}</span>
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3"
+          >
+            <UserAuthButton />
+
+            {profile && (
+              <div className="flex items-center gap-4 bg-white/5 px-6 py-3 rounded-full border border-white/10 backdrop-blur-sm">
+                <div className="flex flex-col items-end">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider">Level {profile.level}</span>
+                  <span className="font-serif font-semibold text-primary">{profile.title}</span>
+                </div>
+                <div className="w-px h-8 bg-white/20 mx-2" />
+                <LuxuryButton 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => resetProfile()}
+                  disabled={isResetPending}
+                  title="Reset Journey"
+                >
+                  <RotateCcw className="w-5 h-5 opacity-70 hover:opacity-100 transition-opacity" />
+                </LuxuryButton>
               </div>
-              <div className="w-px h-8 bg-white/20 mx-2" />
-              <LuxuryButton 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => resetProfile()}
-                disabled={isResetPending}
-                title="Reset Journey"
-              >
-                <RotateCcw className="w-5 h-5 opacity-70 hover:opacity-100 transition-opacity" />
-              </LuxuryButton>
-            </motion.div>
-          )}
+            )}
+          </motion.div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
