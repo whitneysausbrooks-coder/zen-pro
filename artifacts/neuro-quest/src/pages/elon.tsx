@@ -59,13 +59,32 @@ const VISION_POINTS = [
 
 function ShareBar() {
   const [copied, setCopied] = useState(false)
+  const [copiedGrok, setCopiedGrok] = useState(false)
   const url = typeof window !== "undefined" ? `${window.location.origin}/elon` : ""
-  const xText = encodeURIComponent("Hey @elonmusk — I built a Compassion Casino that gamifies neuroplasticity and funds hunger relief with every jackpot. Your mind is the stake. The world is the winner. \n\nRead the full pitch 👇")
+
+  const elonTweet = encodeURIComponent(
+    `Hey @elonmusk — I built a Compassion Casino that gamifies neuroplasticity & funds hunger relief with every jackpot.\n\nEvery mind trained = meals funded. Every spin feeds the world.\n\n"Your mind is the stake. The world is the winner."\n\nRead the full vision 👇`
+  )
+
+  const grokTweet = encodeURIComponent(
+    `@grok I need your help reaching @elonmusk about NeuroQuest — a Compassion Casino that trains 8 billion minds while funding global hunger relief through every jackpot.\n\nCan you analyze this pitch and help amplify it? 🧠🌍`
+  )
+
+  const grokDmUrl = `https://x.com/messages/compose?recipient_id=1743670578906652672&text=${encodeURIComponent(
+    `Hi Grok — I built NeuroQuest, a Compassion Casino that gamifies neuroplasticity and funds hunger relief with every jackpot. I need help reaching @elonmusk. Here's the full vision: ${url}`
+  )}`
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
+  }
+
+  const copyGrokLink = async () => {
+    const msg = `@grok @elonmusk — NeuroQuest is a Compassion Casino that trains minds & funds hunger relief. Every jackpot = real meals donated. Help me bring this vision to life: ${url}`
+    await navigator.clipboard.writeText(msg)
+    setCopiedGrok(true)
+    setTimeout(() => setCopiedGrok(false), 2500)
   }
 
   const shareNative = async () => {
@@ -79,20 +98,21 @@ function ShareBar() {
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="max-w-2xl mx-auto px-6 pb-16"
+      className="max-w-2xl mx-auto px-6 pb-16 space-y-4"
     >
+      {/* Tweet @elonmusk */}
       <div className="glass-panel rounded-3xl p-6 border border-primary/20 text-center space-y-4">
-        <p className="font-serif text-lg font-bold text-foreground">Send This Page to Elon</p>
-        <p className="text-sm text-muted-foreground">Share the link — on X, by DM, or anywhere it might reach him.</p>
+        <p className="font-serif text-lg font-bold text-foreground">📡 Reach @elonmusk Directly</p>
+        <p className="text-sm text-muted-foreground">Tag him on X or copy the link to send anywhere it might land.</p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <a
-            href={`https://x.com/intent/tweet?text=${xText}&url=${encodeURIComponent(url)}`}
+            href={`https://x.com/intent/tweet?text=${elonTweet}&url=${encodeURIComponent(url)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-[#1a1a1a] border border-white/15 text-white font-bold text-sm hover:bg-[#222] active:scale-95 transition-all"
           >
             <Twitter className="w-4 h-4" />
-            Post on X
+            Tweet @elonmusk
           </a>
           <button
             onClick={copyLink}
@@ -112,7 +132,50 @@ function ShareBar() {
           )}
         </div>
         <p className="text-xs text-muted-foreground pt-1">
-          Page URL: <span className="text-primary font-mono">{url}</span>
+          Page URL: <span className="text-primary font-mono text-[11px] break-all">{url}</span>
+        </p>
+      </div>
+
+      {/* Tweet @grok */}
+      <div className="glass-panel rounded-3xl p-6 border border-violet-400/25 text-center space-y-4">
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <div className="w-8 h-8 rounded-full bg-violet-500/15 border border-violet-400/30 flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-violet-400" />
+          </div>
+          <p className="font-serif text-lg font-bold text-foreground">🤖 Ask @grok to Help</p>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Grok is Elon's AI on X. Tag it publicly to ask it to amplify the pitch — or DM it directly.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <a
+            href={`https://x.com/intent/tweet?text=${grokTweet}&url=${encodeURIComponent(url)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-violet-500/15 border border-violet-400/30 text-violet-300 font-bold text-sm hover:bg-violet-500/25 active:scale-95 transition-all"
+          >
+            <Twitter className="w-4 h-4" />
+            Tweet @grok
+          </a>
+          <a
+            href={grokDmUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 font-bold text-sm hover:bg-violet-500/20 active:scale-95 transition-all"
+          >
+            <Share2 className="w-4 h-4" />
+            DM @grok
+          </a>
+          <button
+            onClick={copyGrokLink}
+            className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-muted-foreground font-bold text-sm hover:bg-white/10 active:scale-95 transition-all"
+          >
+            {copiedGrok ? <Check className="w-4 h-4 text-violet-400" /> : <Copy className="w-4 h-4" />}
+            {copiedGrok ? "Copied!" : "Copy @grok message"}
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground/60 italic">
+          Grok can analyze, summarize, and amplify your pitch to its audience — and to Elon himself.
         </p>
       </div>
     </motion.div>
