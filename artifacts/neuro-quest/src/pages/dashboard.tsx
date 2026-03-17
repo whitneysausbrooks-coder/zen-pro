@@ -8,6 +8,7 @@ import { RaidModeBanner } from "@/components/raid-mode-banner"
 import { NotificationWidget } from "@/components/notification-widget"
 import { ReturnNudge } from "@/components/return-nudge"
 import { GrowthChart } from "@/components/growth-chart"
+import { GlobalImpactBanner } from "@/components/global-impact-banner"
 
 import { 
   useGetProfile, 
@@ -242,6 +243,9 @@ export default function Dashboard() {
 
             {/* Raid Mode Live Event Banner */}
             <RaidModeBanner />
+
+            {/* Global Abundance Mission */}
+            <GlobalImpactBanner compassionPoints={profile?.compassion_points} />
 
             <GlassCard glow>
               <GlassCardHeader>

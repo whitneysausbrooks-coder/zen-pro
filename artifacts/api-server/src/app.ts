@@ -16,10 +16,10 @@ app.post(
     const sig = Array.isArray(signature) ? signature[0] : signature;
     try {
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
-      res.json({ received: true });
+      return res.json({ received: true });
     } catch (err: any) {
       console.error("Webhook error:", err.message);
-      res.status(400).json({ error: "Webhook error" });
+      return res.status(400).json({ error: "Webhook error" });
     }
   }
 );

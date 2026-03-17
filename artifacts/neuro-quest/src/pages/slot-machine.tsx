@@ -25,11 +25,10 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
 
 /* ── Current Sponsor (demo — replace with API data when live) ────────────── */
 const CURRENT_SPONSOR = {
-  brand: "MindFuel Coffee Co.",
-  prize: "$50 Gift Card",
-  tagline: "Fuel your focus. Spin to win.",
-  /** Shown on the Compassion Jackpot win screen — brand pays the micro-donation */
-  donationBlurb: "MindFuel Coffee Co. is funding this micro-donation as part of their wellness mission.",
+  brand: "World Hunger Relief Fund",
+  prize: "10 Meals Donated",
+  tagline: "Every spin feeds a mind. Every jackpot feeds the world.",
+  donationBlurb: "Your jackpot just funded 10 real meals for families in need — powered by NeuroQuest's Global Abundance Mission.",
 }
 
 /* ── Symbols ─────────────────────────────────────────────────────────────── */
@@ -268,6 +267,7 @@ function Reel({ spinning, finalIdx, stopDelay = 0, onStopped, glowHeart }: ReelP
       }, 60)
       return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
     }
+    return undefined
   }, [spinning])
 
   useEffect(() => {

@@ -2,7 +2,13 @@ import React from "react"
 import { format } from "date-fns"
 import { motion } from "framer-motion"
 import { Brain, Heart, Sparkles } from "lucide-react"
-import { Activity } from "@workspace/api-client-react/src/generated/api.schemas"
+interface Activity {
+  id: number | string;
+  type: string;
+  activity: string;
+  amount: number;
+  created_at: string;
+}
 
 interface ActivityFeedProps {
   activities: Activity[]
