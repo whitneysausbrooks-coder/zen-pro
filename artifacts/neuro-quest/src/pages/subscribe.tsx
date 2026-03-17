@@ -3,7 +3,8 @@ import { useLocation, Link } from "wouter"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Crown, Zap, Dices, Infinity, Star, CheckCircle2,
-  ArrowLeft, Sparkles, TrendingUp, Users, Shield, Loader2
+  ArrowLeft, Sparkles, TrendingUp, Users, Shield, Loader2,
+  Smartphone, Bitcoin, CreditCard
 } from "lucide-react"
 import { UserAuthButton } from "@/components/user-auth-button"
 import { GlassCard, GlassCardContent } from "@/components/ui/glass-card"
@@ -288,21 +289,52 @@ export default function Subscribe() {
                     ))}
                   </div>
 
-                  <LuxuryButton
-                    className="w-full text-lg py-6"
-                    onClick={handleActivate}
-                    disabled={checkingOut}
-                  >
-                    {checkingOut ? (
-                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                    ) : (
-                      <Sparkles className="w-5 h-5 mr-2" />
-                    )}
-                    {checkingOut ? "Redirecting…" : "Activate Zen Pro"}
-                  </LuxuryButton>
+                  {/* Direct payment options */}
+                  <div className="space-y-3">
+                    <p className="text-xs text-center text-muted-foreground uppercase tracking-wider">Choose how to pay</p>
+
+                    <Link href="/payment">
+                      <button className="flex items-center justify-between w-full px-5 py-4 rounded-2xl bg-[#00D64F]/10 border border-[#00D64F]/30 hover:bg-[#00D64F]/18 active:scale-98 transition-all group">
+                        <div className="flex items-center gap-3">
+                          <Smartphone className="w-5 h-5 text-[#00D64F]" />
+                          <div className="text-left">
+                            <p className="text-sm font-bold text-foreground">CashApp</p>
+                            <p className="text-xs text-muted-foreground">$whitneyshauntaye · instant</p>
+                          </div>
+                        </div>
+                        <span className="text-xs text-[#00D64F] font-semibold">$9.99 →</span>
+                      </button>
+                    </Link>
+
+                    <Link href="/payment?tab=bitcoin">
+                      <button className="flex items-center justify-between w-full px-5 py-4 rounded-2xl bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500/18 active:scale-98 transition-all group">
+                        <div className="flex items-center gap-3">
+                          <Bitcoin className="w-5 h-5 text-orange-400" />
+                          <div className="text-left">
+                            <p className="text-sm font-bold text-foreground">Bitcoin</p>
+                            <p className="text-xs text-muted-foreground">bc1q8q0…72l0ns · private</p>
+                          </div>
+                        </div>
+                        <span className="text-xs text-orange-400 font-semibold">≈ 0.000095 BTC →</span>
+                      </button>
+                    </Link>
+
+                    <LuxuryButton
+                      className="w-full text-base py-4"
+                      onClick={handleActivate}
+                      disabled={checkingOut}
+                    >
+                      {checkingOut ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <CreditCard className="w-4 h-4 mr-2" />
+                      )}
+                      {checkingOut ? "Redirecting…" : "Pay by Card (Stripe)"}
+                    </LuxuryButton>
+                  </div>
 
                   <p className="text-center text-xs text-muted-foreground">
-                    Secured by Stripe. Your payment is encrypted end-to-end.
+                    All payment methods accepted · Cancel any time
                     <Shield className="inline w-3 h-3 ml-1 opacity-50" />
                   </p>
                 </div>

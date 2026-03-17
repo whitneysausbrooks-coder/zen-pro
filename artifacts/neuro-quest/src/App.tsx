@@ -18,6 +18,7 @@ import EQGame from "@/pages/eq-game";
 import { MobileNav } from "@/components/mobile-nav";
 import { InstallPrompt } from "@/components/install-prompt";
 import ElonPage from "@/pages/elon";
+import PaymentPage from "@/pages/payment";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,6 +68,7 @@ function Router() {
           <Route path="/sponsor"     component={Sponsor}     />
           <Route path="/admin"       component={AdminPanel}  />
           <Route path="/elon"        component={ElonPage}    />
+          <Route path="/payment"     component={PaymentPage} />
           <Route                     component={NotFound}    />
         </Switch>
       </motion.div>
