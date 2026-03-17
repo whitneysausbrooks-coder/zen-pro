@@ -17,6 +17,7 @@ import Blackjack from "@/pages/blackjack";
 import EQGame from "@/pages/eq-game";
 import { MobileNav } from "@/components/mobile-nav";
 import { InstallPrompt } from "@/components/install-prompt";
+import ElonPage from "@/pages/elon";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +66,7 @@ function Router() {
           <Route path="/enterprise"  component={Enterprise}  />
           <Route path="/sponsor"     component={Sponsor}     />
           <Route path="/admin"       component={AdminPanel}  />
+          <Route path="/elon"        component={ElonPage}    />
           <Route                     component={NotFound}    />
         </Switch>
       </motion.div>
