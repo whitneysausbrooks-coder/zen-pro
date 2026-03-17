@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Brain, Globe, Zap, Heart, Rocket, Star, ArrowRight, Sparkles, DollarSign, Users, Target } from "lucide-react"
+import { Brain, Globe, Zap, Heart, Rocket, Star, ArrowRight, Sparkles, DollarSign, Users, Target, Share2, Copy, Check, Twitter } from "lucide-react"
 
 const PARTICLES = Array.from({ length: 40 }, (_, i) => ({
   id: i,
@@ -56,6 +56,68 @@ const VISION_POINTS = [
     body: "You've funded electric vehicles, reusable rockets, and neural interfaces. NeuroQuest is the missing layer — the consumer software that trains 8 billion minds to think bigger, feel deeper, and act kinder. The hardware changes what we build. This changes who we are.",
   },
 ]
+
+function ShareBar() {
+  const [copied, setCopied] = useState(false)
+  const url = typeof window !== "undefined" ? `${window.location.origin}/elon` : ""
+  const xText = encodeURIComponent("Hey @elonmusk — I built a Compassion Casino that gamifies neuroplasticity and funds hunger relief with every jackpot. Your mind is the stake. The world is the winner. \n\nRead the full pitch 👇")
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  const shareNative = async () => {
+    if (navigator.share) {
+      await navigator.share({ title: "NeuroQuest — A Message for Elon Musk", text: "Every jackpot feeds a mind and the world.", url })
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="max-w-2xl mx-auto px-6 pb-16"
+    >
+      <div className="glass-panel rounded-3xl p-6 border border-primary/20 text-center space-y-4">
+        <p className="font-serif text-lg font-bold text-foreground">Send This Page to Elon</p>
+        <p className="text-sm text-muted-foreground">Share the link — on X, by DM, or anywhere it might reach him.</p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <a
+            href={`https://x.com/intent/tweet?text=${xText}&url=${encodeURIComponent(url)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-[#1a1a1a] border border-white/15 text-white font-bold text-sm hover:bg-[#222] active:scale-95 transition-all"
+          >
+            <Twitter className="w-4 h-4" />
+            Post on X
+          </a>
+          <button
+            onClick={copyLink}
+            className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-primary/10 border border-primary/30 text-primary font-bold text-sm hover:bg-primary/20 active:scale-95 transition-all"
+          >
+            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {copied ? "Copied!" : "Copy Link"}
+          </button>
+          {"share" in navigator && (
+            <button
+              onClick={shareNative}
+              className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-foreground font-bold text-sm hover:bg-white/10 active:scale-95 transition-all"
+            >
+              <Share2 className="w-4 h-4" />
+              Share
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground pt-1">
+          Page URL: <span className="text-primary font-mono">{url}</span>
+        </p>
+      </div>
+    </motion.div>
+  )
+}
 
 export default function ElonPage() {
   const [revealed, setRevealed] = useState(false)
@@ -312,6 +374,9 @@ export default function ElonPage() {
           </p>
         </motion.div>
       </section>
+
+      {/* ── Share bar ───────────────────────────────────────────────────── */}
+      <ShareBar />
 
       {/* ── Footer signature ────────────────────────────────────────────── */}
       <div className="pb-24 sm:pb-8 text-center px-6">
