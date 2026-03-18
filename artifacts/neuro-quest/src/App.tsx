@@ -17,10 +17,22 @@ import Blackjack from "@/pages/blackjack";
 import EQGame from "@/pages/eq-game";
 import { MobileNav } from "@/components/mobile-nav";
 import { InstallPrompt } from "@/components/install-prompt";
+import { AuthGate } from "@/components/auth-gate";
+import { PaywallGate } from "@/components/paywall-modal";
 import ElonPage from "@/pages/elon";
 import PaymentPage from "@/pages/payment";
 import SharePage from "@/pages/share";
 import CopyrightPage from "@/pages/copyright";
+
+function ProtectedGame({ component: Component, name }: { component: React.ComponentType; name: string }) {
+  return (
+    <AuthGate>
+      <PaywallGate gameName={name}>
+        <Component />
+      </PaywallGate>
+    </AuthGate>
+  )
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,10 +73,10 @@ function Router() {
         <Switch location={location}>
           <Route path="/"            component={Dashboard}   />
           <Route path="/onboarding"  component={Onboarding}  />
-          <Route path="/brain-game"  component={MemoryMatch} />
-          <Route path="/blackjack"   component={Blackjack}   />
-          <Route path="/eq-game"     component={EQGame}      />
-          <Route path="/casino"      component={SlotMachine} />
+          <Route path="/brain-game"  component={() => <ProtectedGame component={MemoryMatch}  name="Neural Stake" />} />
+          <Route path="/blackjack"   component={() => <ProtectedGame component={Blackjack}    name="Mind-Reader Blackjack" />} />
+          <Route path="/eq-game"     component={() => <ProtectedGame component={EQGame}       name="Emotional EQ" />} />
+          <Route path="/casino"      component={() => <ProtectedGame component={SlotMachine}  name="Compassion Jackpot" />} />
           <Route path="/subscribe"   component={Subscribe}   />
           <Route path="/enterprise"  component={Enterprise}  />
           <Route path="/sponsor"     component={Sponsor}     />

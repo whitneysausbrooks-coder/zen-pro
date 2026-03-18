@@ -11,6 +11,7 @@ export const userProfilesTable = pgTable("user_profiles", {
   title: text("title").notNull().default("Seeker"),
   stripe_customer_id: text("stripe_customer_id"),
   is_pro: boolean("is_pro").notNull().default(false),
+  daily_pass_expires: timestamp("daily_pass_expires"),
   streak_count: integer("streak_count").notNull().default(0),
   last_game_date: text("last_game_date"),
   last_gratitude_date: text("last_gratitude_date"),

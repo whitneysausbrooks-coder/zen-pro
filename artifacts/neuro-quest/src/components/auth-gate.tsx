@@ -1,0 +1,108 @@
+import React from "react"
+import { motion } from "framer-motion"
+import { Brain, Shield, Sparkles, LogIn } from "lucide-react"
+import { useAuth } from "@workspace/replit-auth-web"
+import { LuxuryButton } from "@/components/ui/luxury-button"
+
+interface AuthGateProps {
+  children: React.ReactNode
+}
+
+export function AuthGate({ children }: AuthGateProps) {
+  const { isLoading, isAuthenticated, login } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary"
+          />
+          <p className="text-sm text-muted-foreground">Checking access…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+        {/* Background glow */}
+        <div className="absolute inset-0 bg-gradient-radial from-primary/8 via-transparent to-transparent pointer-events-none" />
+
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-sm"
+        >
+          <div className="rounded-3xl border border-white/12 bg-[#0D1A10]/90 backdrop-blur-2xl shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="relative px-8 pt-10 pb-6 text-center">
+              <div className="absolute inset-0 bg-gradient-to-b from-primary/6 to-transparent pointer-events-none" />
+              <motion.div
+                animate={{ scale: [1, 1.07, 1] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/15 border border-primary/30 mb-4"
+              >
+                <Brain className="w-8 h-8 text-primary" />
+              </motion.div>
+              <h1 className="font-serif text-2xl font-bold text-gradient-gold mb-2">
+                NeuroQuest™
+              </h1>
+              <p className="text-sm text-white/50 leading-relaxed">
+                Sign in to train your mind, spin the Compassion Jackpot, and change lives worldwide.
+              </p>
+            </div>
+
+            {/* Features preview */}
+            <div className="px-6 pb-5">
+              <div className="space-y-2.5 mb-6">
+                {[
+                  { icon: "🧠", text: "Neuroplasticity games that rewire your brain" },
+                  { icon: "♡", text: "Compassion Jackpot™ — wins fund real hunger relief" },
+                  { icon: "⚡", text: "Build Neural Energy & unlock higher levels" },
+                  { icon: "🌍", text: "Every session creates global impact" },
+                ].map((item, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 + i * 0.07 }}
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl bg-white/3 border border-white/6"
+                  >
+                    <span className="text-base shrink-0">{item.icon}</span>
+                    <span className="text-xs text-white/60 leading-relaxed">{item.text}</span>
+                  </motion.div>
+                ))}
+              </div>
+
+              <LuxuryButton onClick={login} className="w-full gap-3 py-4 text-base">
+                <LogIn className="w-5 h-5" />
+                Sign In to Play Free
+              </LuxuryButton>
+
+              <div className="flex items-center gap-2 mt-4 justify-center">
+                <Shield className="w-3.5 h-3.5 text-white/25" />
+                <p className="text-[11px] text-white/30 text-center">
+                  Secure sign-in powered by Replit. No password needed.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3 border-t border-white/6 bg-black/20">
+              <p className="text-[10px] text-white/20 text-center">
+                © {new Date().getFullYear()} NeuroQuest™ by Whitney Shauntaye — All Rights Reserved
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    )
+  }
+
+  return <>{children}</>
+}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react"
 import { motion } from "framer-motion"
 import { useLocation } from "wouter"
-import { Zap, Users, BarChart3, ArrowLeft, Power, RefreshCw, Heart, Target, Bell, Send } from "lucide-react"
+import { Zap, Users, BarChart3, ArrowLeft, Power, RefreshCw, Heart, Target, Bell, Send, Key, Clock, Crown } from "lucide-react"
 import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/glass-card"
 import { LuxuryButton } from "@/components/ui/luxury-button"
 import { useToast } from "@/hooks/use-toast"
@@ -24,6 +24,10 @@ export default function AdminPanel() {
   const [targetInput, setTargetInput] = useState("")
   const [sending, setSending] = useState(false)
   const [nudgeResult, setNudgeResult] = useState<{ sent: number; failed: number; total_subs: number } | null>(null)
+  const [grantSessionId, setGrantSessionId] = useState("")
+  const [grantHours, setGrantHours] = useState("24")
+  const [granting, setGranting] = useState(false)
+  const [grantResult, setGrantResult] = useState<string | null>(null)
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -65,6 +69,64 @@ export default function AdminPanel() {
       toast({ title: "Error", description: "Failed to send nudge campaign.", variant: "destructive" })
     }
     setSending(false)
+  }
+
+  async function grantDailyPass() {
+    if (!grantSessionId.trim()) {
+      toast({ title: "Session ID required", variant: "destructive" })
+      return
+    }
+    setGranting(true)
+    setGrantResult(null)
+    try {
+      const r = await fetch(`${BASE}/api/admin/grant-daily-pass`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: grantSessionId.trim(), hours: Number(grantHours) || 24 }),
+      })
+      const data = await r.json()
+      if (r.ok) {
+        setGrantResult(`✓ Daily Pass granted — expires ${new Date(data.daily_pass_expires).toLocaleString()}`)
+        toast({ title: "Daily Pass granted!", description: `Session ${grantSessionId.slice(0, 8)}… now has ${grantHours}h access` })
+        setGrantSessionId("")
+      } else {
+        setGrantResult(`✗ Error: ${data.error}`)
+        toast({ title: "Error", description: data.error, variant: "destructive" })
+      }
+    } catch (_) {
+      toast({ title: "Error", description: "Request failed.", variant: "destructive" })
+    }
+    setGranting(false)
+  }
+
+  async function grantPro() {
+    if (!grantSessionId.trim()) {
+      toast({ title: "Session ID required", variant: "destructive" })
+      return
+    }
+    setGranting(true)
+    setGrantResult(null)
+    try {
+      const r = await fetch(`${BASE}/api/admin/grant-pro`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: grantSessionId.trim() }),
+      })
+      const data = await r.json()
+      if (r.ok) {
+        setGrantResult(`✓ Zen Pro granted to session ${grantSessionId.slice(0, 8)}…`)
+        toast({ title: "Zen Pro granted!" })
+        setGrantSessionId("")
+      } else {
+        setGrantResult(`✗ Error: ${data.error}`)
+        toast({ title: "Error", description: data.error, variant: "destructive" })
+      }
+    } catch (_) {
+      toast({ title: "Error", description: "Request failed.", variant: "destructive" })
+    }
+    setGranting(false)
   }
 
   async function toggleRaidMode(activate: boolean) {
@@ -276,6 +338,73 @@ export default function AdminPanel() {
             </LuxuryButton>
           </GlassCardContent>
         </GlassCard>
+
+        {/* Grant Access Panel */}
+        <GlassCard>
+          <GlassCardHeader>
+            <GlassCardTitle className="flex items-center gap-2 text-base">
+              <Key className="w-5 h-5 text-primary" /> Grant Access
+            </GlassCardTitle>
+          </GlassCardHeader>
+          <GlassCardContent className="pt-0 pb-6 px-5 space-y-4">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              After a player pays via CashApp or Bitcoin, paste their <code className="text-xs bg-white/8 px-1 py-0.5 rounded text-primary">nq_session</code> cookie value here to activate their access. They can find it in browser DevTools → Application → Cookies.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Session ID</label>
+              <input
+                type="text"
+                value={grantSessionId}
+                onChange={e => setGrantSessionId(e.target.value)}
+                placeholder="Paste session ID from player's nq_session cookie"
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/12 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/40 focus:bg-white/8 transition-all font-mono"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Daily Pass Duration (hours)</label>
+              <input
+                type="number"
+                value={grantHours}
+                onChange={e => setGrantHours(e.target.value)}
+                min="1"
+                max="720"
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/12 text-sm text-foreground focus:outline-none focus:border-primary/40 transition-all"
+              />
+            </div>
+
+            {grantResult && (
+              <div className={`px-4 py-3 rounded-xl text-sm font-semibold border ${
+                grantResult.startsWith("✓")
+                  ? "bg-emerald-500/10 border-emerald-400/25 text-emerald-300"
+                  : "bg-rose-500/10 border-rose-400/25 text-rose-300"
+              }`}>
+                {grantResult}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <LuxuryButton
+                className="gap-2 bg-amber-400/12 border-amber-400/30 hover:bg-amber-400/22 text-amber-300"
+                disabled={granting}
+                onClick={grantDailyPass}
+              >
+                <Clock className="w-4 h-4" />
+                {granting ? "Granting…" : "Grant Daily Pass"}
+              </LuxuryButton>
+              <LuxuryButton
+                className="gap-2 bg-primary/12 border-primary/30 hover:bg-primary/22 text-primary"
+                disabled={granting}
+                onClick={grantPro}
+              >
+                <Crown className="w-4 h-4" />
+                {granting ? "Granting…" : "Grant Zen Pro"}
+              </LuxuryButton>
+            </div>
+          </GlassCardContent>
+        </GlassCard>
+
       </div>
     </div>
   )

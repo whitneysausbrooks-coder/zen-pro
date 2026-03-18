@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { globalSettingsTable, activitiesTable } from "@workspace/db/schema";
+import { globalSettingsTable, activitiesTable, userProfilesTable } from "@workspace/db/schema";
 import { count, eq } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -59,6 +59,37 @@ router.get("/quest/event", async (_req, res) => {
     raid_started_at: settings.raid_started_at,
     community_wins: Number(communityWins),
   });
+});
+
+router.post("/admin/grant-daily-pass", async (req, res) => {
+  const { session_id, hours = 24 } = req.body ?? {};
+  if (!session_id) return res.status(400).json({ error: "session_id required" });
+
+  const expires = new Date();
+  expires.setHours(expires.getHours() + Number(hours));
+
+  const [updated] = await db
+    .update(userProfilesTable)
+    .set({ daily_pass_expires: expires, updated_at: new Date() })
+    .where(eq(userProfilesTable.session_id, session_id))
+    .returning({ session_id: userProfilesTable.session_id, daily_pass_expires: userProfilesTable.daily_pass_expires });
+
+  if (!updated) return res.status(404).json({ error: "Profile not found for that session_id" });
+  return res.json({ success: true, daily_pass_expires: updated.daily_pass_expires });
+});
+
+router.post("/admin/grant-pro", async (req, res) => {
+  const { session_id } = req.body ?? {};
+  if (!session_id) return res.status(400).json({ error: "session_id required" });
+
+  const [updated] = await db
+    .update(userProfilesTable)
+    .set({ is_pro: true, updated_at: new Date() })
+    .where(eq(userProfilesTable.session_id, session_id))
+    .returning({ session_id: userProfilesTable.session_id, is_pro: userProfilesTable.is_pro });
+
+  if (!updated) return res.status(404).json({ error: "Profile not found" });
+  return res.json({ success: true, is_pro: updated.is_pro });
 });
 
 export default router;

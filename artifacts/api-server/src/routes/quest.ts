@@ -318,6 +318,29 @@ router.get("/leaderboard", async (_req, res) => {
   return res.json({ lives_impacted: Number(lives) });
 });
 
+router.get("/access-status", async (req, res) => {
+  const sessionId = req.cookies?.["nq_session"];
+  if (!sessionId) {
+    return res.json({ has_access: false, access_type: null, daily_pass_expires: null });
+  }
+  const [profile] = await db
+    .select({ is_pro: userProfilesTable.is_pro, daily_pass_expires: userProfilesTable.daily_pass_expires })
+    .from(userProfilesTable)
+    .where(eq(userProfilesTable.session_id, sessionId))
+    .limit(1);
+
+  if (!profile) {
+    return res.json({ has_access: false, access_type: null, daily_pass_expires: null });
+  }
+  if (profile.is_pro) {
+    return res.json({ has_access: true, access_type: "pro", daily_pass_expires: null });
+  }
+  if (profile.daily_pass_expires && new Date(profile.daily_pass_expires) > new Date()) {
+    return res.json({ has_access: true, access_type: "daily_pass", daily_pass_expires: profile.daily_pass_expires });
+  }
+  return res.json({ has_access: false, access_type: null, daily_pass_expires: null });
+});
+
 router.post("/reset", async (req, res) => {
   const sessionId = getOrCreateSessionId(req, res);
   await getOrCreateProfile(sessionId);

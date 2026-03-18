@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   Crown, Zap, Dices, Infinity, Star, CheckCircle2,
   ArrowLeft, Sparkles, TrendingUp, Users, Shield, Loader2,
-  Smartphone, Bitcoin, CreditCard
+  Smartphone, Bitcoin, CreditCard, Clock, Copy, Check, ExternalLink
 } from "lucide-react"
 import { UserAuthButton } from "@/components/user-auth-button"
 import { GlassCard, GlassCardContent } from "@/components/ui/glass-card"
@@ -82,6 +82,122 @@ const PERKS = [
 const MRR_GOAL = 100_000
 const MRR_CURRENT = 12_480
 const MRR_PCT = Math.min((MRR_CURRENT / MRR_GOAL) * 100, 100)
+
+const CASHAPP = "$whitneyshauntaye"
+const BITCOIN = "bc1q8q0nguhkdl8t7searxdfuaew8x64afa772l0ns"
+
+function CopyField({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    await navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+  return (
+    <button
+      onClick={copy}
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+        copied ? "bg-emerald-500/20 border border-emerald-400/40 text-emerald-300" : "bg-white/8 border border-white/12 text-white/60 hover:bg-white/14"
+      }`}
+    >
+      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      {copied ? "Copied!" : label}
+    </button>
+  )
+}
+
+function DailyPassCard() {
+  const [method, setMethod] = useState<"cashapp" | "bitcoin">("cashapp")
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+      <GlassCard className="relative overflow-hidden border-amber-500/20">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+        <div className="p-6 sm:p-8">
+          {/* Badge */}
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-400/12 border border-amber-400/30 text-amber-300 text-xs font-bold uppercase tracking-widest">
+              <Clock className="w-3.5 h-3.5" />
+              Daily Pass — 24 Hours
+            </div>
+            <div className="text-right">
+              <span className="font-serif text-4xl font-bold text-gradient-gold">$5</span>
+              <p className="text-[11px] text-white/30 mt-0.5">One-time · 24 hrs access</p>
+            </div>
+          </div>
+
+          <p className="text-sm text-white/55 leading-relaxed mb-5">
+            Try everything before committing. 24 hours of full, unlimited play across all 4 games, Compassion Jackpot™ spins, and Neural Energy rewards.
+          </p>
+
+          {/* What's included */}
+          <div className="grid grid-cols-2 gap-2 mb-5">
+            {[
+              { icon: "🎰", text: "Compassion Jackpot™" },
+              { icon: "🧠", text: "All 4 brain games" },
+              { icon: "⚡", text: "Full Neural Energy" },
+              { icon: "🌍", text: "Global impact tracking" },
+            ].map((item) => (
+              <div key={item.text} className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/3 border border-white/6 text-xs text-white/55">
+                <span>{item.icon}</span>
+                {item.text}
+              </div>
+            ))}
+          </div>
+
+          {/* Payment method toggle */}
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            {(["cashapp", "bitcoin"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMethod(m)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-xs font-semibold transition-all ${
+                  method === m
+                    ? m === "cashapp" ? "bg-[#00D64F]/18 border-[#00D64F]/40 text-[#00D64F]" : "bg-amber-400/18 border-amber-400/40 text-amber-400"
+                    : "bg-white/3 border-white/8 text-white/40"
+                }`}
+              >
+                {m === "cashapp" ? <Smartphone className="w-3.5 h-3.5" /> : <Bitcoin className="w-3.5 h-3.5" />}
+                {m === "cashapp" ? "CashApp" : "Bitcoin"}
+              </button>
+            ))}
+          </div>
+
+          {method === "cashapp" && (
+            <div className="rounded-xl bg-[#00D64F]/8 border border-[#00D64F]/20 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-white font-bold">{CASHAPP}</span>
+                <CopyField value={CASHAPP} label="Copy" />
+              </div>
+              <a href={`https://cash.app/${CASHAPP}`} target="_blank" rel="noopener noreferrer">
+                <LuxuryButton className="w-full gap-2 bg-[#00D64F]/20 border-[#00D64F]/40 hover:bg-[#00D64F]/30 text-[#00D64F]">
+                  <ExternalLink className="w-4 h-4" />
+                  Send $5 on CashApp
+                </LuxuryButton>
+              </a>
+            </div>
+          )}
+
+          {method === "bitcoin" && (
+            <div className="rounded-xl bg-amber-500/8 border border-amber-500/20 p-4 space-y-3">
+              <p className="font-mono text-[11px] text-white/60 break-all">{BITCOIN}</p>
+              <CopyField value={BITCOIN} label="Copy BTC address" />
+            </div>
+          )}
+
+          <div className="mt-4 rounded-xl bg-white/4 border border-white/8 px-4 py-3">
+            <p className="text-xs text-white/45 leading-relaxed">
+              <span className="text-white/70 font-semibold">After paying:</span> DM{" "}
+              <a href="https://x.com/whitneyshauntaye" target="_blank" rel="noopener noreferrer" className="text-primary underline font-semibold">
+                @whitneyshauntaye
+              </a>{" "}
+              on X with your payment screenshot + "Daily Pass" — activated within 1 hour.
+            </p>
+          </div>
+        </div>
+      </GlassCard>
+    </motion.div>
+  )
+}
 
 export default function Subscribe() {
   const [, navigate] = useLocation()
@@ -199,6 +315,16 @@ export default function Subscribe() {
       </AnimatePresence>
 
       <div className="w-full max-w-2xl space-y-6">
+
+        {/* Daily Pass card */}
+        <DailyPassCard />
+
+        {/* Divider */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px bg-white/8" />
+          <span className="text-xs text-white/25 font-semibold uppercase tracking-widest">Or go unlimited</span>
+          <div className="flex-1 h-px bg-white/8" />
+        </div>
 
         {/* Hero header */}
         <motion.div
