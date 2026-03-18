@@ -101,6 +101,65 @@ router.post("/stripe/checkout", async (req: any, res) => {
   }
 });
 
+router.post("/stripe/daily-pass-checkout", async (req: any, res) => {
+  if (!isStripeConfigured()) {
+    return res.status(503).json({ error: "Stripe is not configured." });
+  }
+
+  const sessionId = req.cookies?.["nq_session"];
+  if (!sessionId) return res.status(401).json({ error: "No session found" });
+
+  const hours = Number(req.body?.hours) || 24;
+
+  try {
+    const stripe = getStripeClient();
+
+    const [profile] = await db
+      .select({ stripe_customer_id: userProfilesTable.stripe_customer_id })
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.session_id, sessionId));
+
+    let customerId = profile?.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        metadata: { nq_session: sessionId },
+      });
+      customerId = customer.id;
+      await db
+        .update(userProfilesTable)
+        .set({ stripe_customer_id: customerId })
+        .where(eq(userProfilesTable.session_id, sessionId));
+    }
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const checkoutSession = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ["card"],
+      line_items: [{
+        price_data: {
+          currency: "usd",
+          unit_amount: 500,
+          product_data: {
+            name: "NeuroQuest Daily Pass",
+            description: `${hours} hours of unlimited access to all games & Compassion Jackpot™`,
+            images: [],
+          },
+        },
+        quantity: 1,
+      }],
+      mode: "payment",
+      metadata: { nq_session: sessionId, hours: String(hours), type: "daily_pass" },
+      success_url: `${baseUrl}/subscribe?daily_success=1`,
+      cancel_url: `${baseUrl}/subscribe?canceled=1`,
+    });
+
+    return res.json({ url: checkoutSession.url });
+  } catch (err: any) {
+    console.error("Daily pass checkout error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 router.post("/stripe/portal", async (req: any, res) => {
   if (!isStripeConfigured()) {
     return res.status(503).json({ error: "Stripe not configured" });

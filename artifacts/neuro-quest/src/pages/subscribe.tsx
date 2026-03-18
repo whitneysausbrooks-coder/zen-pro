@@ -106,8 +106,32 @@ function CopyField({ value, label }: { value: string; label: string }) {
   )
 }
 
+async function startDailyPassCheckout(): Promise<string | null> {
+  try {
+    const r = await fetch(`${BASE}/api/stripe/daily-pass-checkout`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hours: 24 }),
+    })
+    const d = await r.json()
+    return d.url ?? null
+  } catch {
+    return null
+  }
+}
+
 function DailyPassCard() {
-  const [method, setMethod] = useState<"cashapp" | "bitcoin">("cashapp")
+  const [method, setMethod] = useState<"cashapp" | "bitcoin" | "card">("cashapp")
+  const [cardLoading, setCardLoading] = useState(false)
+
+  const handleCardCheckout = async () => {
+    setCardLoading(true)
+    const url = await startDailyPassCheckout()
+    if (url) window.location.href = url
+    else setCardLoading(false)
+  }
+
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
       <GlassCard className="relative overflow-hidden border-amber-500/20">
@@ -145,19 +169,21 @@ function DailyPassCard() {
           </div>
 
           {/* Payment method toggle */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            {(["cashapp", "bitcoin"] as const).map((m) => (
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {([
+              { id: "cashapp", icon: <Smartphone className="w-3.5 h-3.5" />, label: "CashApp", active: "bg-[#00D64F]/18 border-[#00D64F]/40 text-[#00D64F]" },
+              { id: "bitcoin", icon: <Bitcoin className="w-3.5 h-3.5" />, label: "Bitcoin", active: "bg-amber-400/18 border-amber-400/40 text-amber-400" },
+              { id: "card", icon: <CreditCard className="w-3.5 h-3.5" />, label: "Card", active: "bg-violet-400/18 border-violet-400/40 text-violet-300" },
+            ] as const).map((m) => (
               <button
-                key={m}
-                onClick={() => setMethod(m)}
+                key={m.id}
+                onClick={() => setMethod(m.id)}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-xs font-semibold transition-all ${
-                  method === m
-                    ? m === "cashapp" ? "bg-[#00D64F]/18 border-[#00D64F]/40 text-[#00D64F]" : "bg-amber-400/18 border-amber-400/40 text-amber-400"
-                    : "bg-white/3 border-white/8 text-white/40"
+                  method === m.id ? m.active : "bg-white/3 border-white/8 text-white/40"
                 }`}
               >
-                {m === "cashapp" ? <Smartphone className="w-3.5 h-3.5" /> : <Bitcoin className="w-3.5 h-3.5" />}
-                {m === "cashapp" ? "CashApp" : "Bitcoin"}
+                {m.icon}
+                {m.label}
               </button>
             ))}
           </div>
@@ -184,15 +210,32 @@ function DailyPassCard() {
             </div>
           )}
 
-          <div className="mt-4 rounded-xl bg-white/4 border border-white/8 px-4 py-3">
-            <p className="text-xs text-white/45 leading-relaxed">
-              <span className="text-white/70 font-semibold">After paying:</span> DM{" "}
-              <a href="https://x.com/whitneyshauntaye" target="_blank" rel="noopener noreferrer" className="text-primary underline font-semibold">
-                @whitneyshauntaye
-              </a>{" "}
-              on X with your payment screenshot + "Daily Pass" — activated within 1 hour.
-            </p>
-          </div>
+          {method === "card" && (
+            <div className="rounded-xl bg-violet-500/10 border border-violet-500/25 p-4 space-y-3 text-center">
+              <CreditCard className="w-6 h-6 text-violet-300 mx-auto" />
+              <p className="text-sm text-white/70">Pay $5 instantly with any card — access granted automatically.</p>
+              <LuxuryButton
+                className="w-full gap-2"
+                onClick={handleCardCheckout}
+                disabled={cardLoading}
+              >
+                {cardLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                {cardLoading ? "Redirecting to Stripe…" : "Pay $5 with Card"}
+              </LuxuryButton>
+            </div>
+          )}
+
+          {method !== "card" && (
+            <div className="mt-4 rounded-xl bg-white/4 border border-white/8 px-4 py-3">
+              <p className="text-xs text-white/45 leading-relaxed">
+                <span className="text-white/70 font-semibold">After paying:</span> DM{" "}
+                <a href="https://x.com/whitneyshauntaye" target="_blank" rel="noopener noreferrer" className="text-primary underline font-semibold">
+                  @whitneyshauntaye
+                </a>{" "}
+                on X with your payment screenshot + "Daily Pass" — activated within 1 hour.
+              </p>
+            </div>
+          )}
         </div>
       </GlassCard>
     </motion.div>
@@ -208,10 +251,12 @@ export default function Subscribe() {
   const [loading, setLoading] = useState(true)
   const [checkingOut, setCheckingOut] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [dailySuccess, setDailySuccess] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get("success") === "1") setSuccess(true)
+    if (params.get("daily_success") === "1") setDailySuccess(true)
 
     Promise.all([fetchProStatus(), fetchZenProPrice()])
       .then(([status, price]) => {
@@ -296,6 +341,22 @@ export default function Subscribe() {
 
       {/* Success banner */}
       <AnimatePresence>
+        {dailySuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="w-full max-w-2xl mb-6"
+          >
+            <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300">
+              <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <div>
+                <p className="font-semibold">Daily Pass Activated!</p>
+                <p className="text-sm opacity-80">You have 24 hours of full access. Go play!</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
         {success && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}

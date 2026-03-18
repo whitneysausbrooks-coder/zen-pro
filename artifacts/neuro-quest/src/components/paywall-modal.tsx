@@ -52,6 +52,21 @@ async function startStripeCheckout(priceId: string): Promise<string | null> {
   }
 }
 
+async function startDailyPassCheckout(hours = 24): Promise<string | null> {
+  try {
+    const r = await fetch(`${BASE}/api/stripe/daily-pass-checkout`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hours }),
+    })
+    const d = await r.json()
+    return d.url ?? null
+  } catch {
+    return null
+  }
+}
+
 /* ─── Countdown timer ──────────────────────────────────── */
 function useCountdown(expiresAt: string | null) {
   const [remaining, setRemaining] = useState("")
@@ -108,10 +123,15 @@ function PayPanel({ tier, method, stripeConfigured, stripePriceId }: PayPanelPro
   const [stripeLoading, setStripeLoading] = useState(false)
 
   const handleStripe = async () => {
-    if (!stripePriceId) return
     setStripeLoading(true)
-    const url = await startStripeCheckout(stripePriceId)
-    if (url) window.location.href = url
+    if (tier === "daily") {
+      const url = await startDailyPassCheckout(24)
+      if (url) window.location.href = url
+    } else {
+      if (!stripePriceId) { setStripeLoading(false); return }
+      const url = await startStripeCheckout(stripePriceId)
+      if (url) window.location.href = url
+    }
     setStripeLoading(false)
   }
 
@@ -184,7 +204,8 @@ function PayPanel({ tier, method, stripeConfigured, stripePriceId }: PayPanelPro
   }
 
   if (method === "stripe") {
-    if (!stripeConfigured) {
+    const canPay = stripeConfigured && (tier === "daily" || !!stripePriceId)
+    if (!canPay) {
       return (
         <div className="rounded-xl bg-white/4 border border-white/10 p-5 text-center">
           <CreditCard className="w-8 h-8 text-white/20 mx-auto mb-2" />

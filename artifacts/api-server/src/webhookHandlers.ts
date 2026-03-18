@@ -42,6 +42,20 @@ export class WebhookHandlers {
           .where(eq(userProfilesTable.stripe_customer_id, customerId));
         break;
       }
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const meta = session.metadata ?? {};
+        if (meta.type === "daily_pass" && meta.nq_session) {
+          const hours = Math.max(1, Math.min(720, Number(meta.hours) || 24));
+          const expires = new Date(Date.now() + hours * 3600 * 1000);
+          console.log(`Daily Pass purchased via Stripe: session=${meta.nq_session} expires=${expires.toISOString()}`);
+          await db
+            .update(userProfilesTable)
+            .set({ daily_pass_expires: expires })
+            .where(eq(userProfilesTable.session_id, meta.nq_session));
+        }
+        break;
+      }
       default:
         console.log(`Unhandled Stripe event: ${event.type}`);
     }
