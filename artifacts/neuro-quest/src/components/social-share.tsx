@@ -15,7 +15,7 @@ const DEFAULT_CONFIG: ShareConfig = {
   url: typeof window !== "undefined" ? window.location.href : "https://neuroquest.app",
   title: "NeuroQuest — Compassion Casino",
   description: "I'm training my mind & funding hunger relief with every spin. Your mind is the stake. The world is the winner.",
-  hashtags: ["NeuroQuest", "CompassionCasino", "Neuroplasticity", "MindAndSpirit"],
+  hashtags: ["NeuroQuest", "CompassionCasino", "Neuroplasticity", "GlobalAbundance"],
   via: "NeuroQuestApp",
 }
 
@@ -327,9 +327,33 @@ export function SocialSharePanel({ config = {}, className, compact = false }: So
         <span className="text-xs text-white/30 truncate flex-1 font-mono">{cfg.url}</span>
       </div>
 
+      {/* Featured: X & Facebook hero row */}
+      {!compact && (
+        <div className="grid grid-cols-2 gap-2">
+          {PLATFORMS.filter(p => p.id === "x" || p.id === "facebook").map(p => {
+            const isFB = p.id === "facebook"
+            return (
+              <button
+                key={p.id}
+                onClick={() => handlePlatform(p)}
+                className={cn(
+                  "flex items-center justify-center gap-2.5 px-4 py-3.5 rounded-2xl border font-bold text-sm transition-all active:scale-95",
+                  isFB
+                    ? "bg-[#1877F2] hover:bg-[#1565d8] border-[#1877F2] text-white shadow-lg shadow-[#1877F2]/30"
+                    : "bg-black hover:bg-neutral-900 border-white/25 text-white shadow-lg shadow-black/40"
+                )}
+              >
+                <span className="shrink-0">{p.logo}</span>
+                <span>{p.name}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* Platform grid */}
       <div className={cn("grid gap-2", compact ? "grid-cols-4" : "grid-cols-2 sm:grid-cols-3")}>
-        {PLATFORMS.map(p => (
+        {PLATFORMS.filter(p => compact || (p.id !== "x" && p.id !== "facebook")).map(p => (
           <button
             key={p.id}
             onClick={() => handlePlatform(p)}

@@ -1,6 +1,22 @@
 import React, { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Brain, Globe, Zap, Heart, Rocket, Star, ArrowRight, Sparkles, DollarSign, Users, Target, Share2, Copy, Check, Twitter } from "lucide-react"
+import { Brain, Globe, Zap, Heart, Rocket, Star, ArrowRight, Sparkles, DollarSign, Users, Target, Share2, Copy, Check, Twitter, Facebook } from "lucide-react"
+
+function XLogo({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.742l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  )
+}
+
+function FacebookLogo({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+    </svg>
+  )
+}
 
 const PARTICLES = Array.from({ length: 40 }, (_, i) => ({
   id: i,
@@ -65,11 +81,11 @@ function ShareBar() {
   const elonTweet = encodeURIComponent(
     `Hey @elonmusk — I built a Compassion Casino that gamifies neuroplasticity & funds hunger relief with every jackpot.\n\nEvery mind trained = meals funded. Every spin feeds the world.\n\n"Your mind is the stake. The world is the winner."\n\nRead the full vision 👇`
   )
+  const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent("NeuroQuest — A Compassion Casino that funds hunger relief with every jackpot. Every mind trained = meals funded. Share this with Elon Musk.")}`
 
   const grokTweet = encodeURIComponent(
     `@grok I need your help reaching @elonmusk about NeuroQuest — a Compassion Casino that trains 8 billion minds while funding global hunger relief through every jackpot.\n\nCan you analyze this pitch and help amplify it? 🧠🌍`
   )
-
   const grokDmUrl = `https://x.com/messages/compose?recipient_id=1743670578906652672&text=${encodeURIComponent(
     `Hi Grok — I built NeuroQuest, a Compassion Casino that gamifies neuroplasticity and funds hunger relief with every jackpot. I need help reaching @elonmusk. Here's the full vision: ${url}`
   )}`
@@ -79,7 +95,6 @@ function ShareBar() {
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
   }
-
   const copyGrokLink = async () => {
     const msg = `@grok @elonmusk — NeuroQuest is a Compassion Casino that trains minds & funds hunger relief. Every jackpot = real meals donated. Help me bring this vision to life: ${url}`
     await navigator.clipboard.writeText(msg)
@@ -87,96 +102,103 @@ function ShareBar() {
     setTimeout(() => setCopiedGrok(false), 2500)
   }
 
-  const shareNative = async () => {
-    if (navigator.share) {
-      await navigator.share({ title: "NeuroQuest — A Message for Elon Musk", text: "Every jackpot feeds a mind and the world.", url })
-    }
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="max-w-2xl mx-auto px-6 pb-16 space-y-4"
+      className="max-w-2xl mx-auto px-6 pb-16 space-y-5"
     >
-      {/* Tweet @elonmusk */}
-      <div className="glass-panel rounded-3xl p-6 border border-primary/20 text-center space-y-4">
-        <p className="font-serif text-lg font-bold text-foreground">📡 Reach @elonmusk Directly</p>
-        <p className="text-sm text-muted-foreground">Tag him on X or copy the link to send anywhere it might land.</p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <a
-            href={`https://x.com/intent/tweet?text=${elonTweet}&url=${encodeURIComponent(url)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-[#1a1a1a] border border-white/15 text-white font-bold text-sm hover:bg-[#222] active:scale-95 transition-all"
-          >
-            <Twitter className="w-4 h-4" />
-            Tweet @elonmusk
-          </a>
-          <button
-            onClick={copyLink}
-            className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-primary/10 border border-primary/30 text-primary font-bold text-sm hover:bg-primary/20 active:scale-95 transition-all"
-          >
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            {copied ? "Copied!" : "Copy Link"}
-          </button>
-          {"share" in navigator && (
-            <button
-              onClick={shareNative}
-              className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-foreground font-bold text-sm hover:bg-white/10 active:scale-95 transition-all"
-            >
-              <Share2 className="w-4 h-4" />
-              Share
-            </button>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground pt-1">
-          Page URL: <span className="text-primary font-mono text-[11px] break-all">{url}</span>
-        </p>
+      {/* Mission label */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary/60">Share the Vision</span>
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       </div>
 
-      {/* Tweet @grok */}
-      <div className="glass-panel rounded-3xl p-6 border border-violet-400/25 text-center space-y-4">
-        <div className="flex items-center justify-center gap-2 mb-1">
-          <div className="w-8 h-8 rounded-full bg-violet-500/15 border border-violet-400/30 flex items-center justify-center">
+      {/* Primary: X + Facebook hero buttons */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Tweet @elonmusk — gold hero */}
+        <a
+          href={`https://x.com/intent/tweet?text=${elonTweet}&url=${encodeURIComponent(url)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group relative flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-bold text-base transition-all active:scale-95 overflow-hidden"
+          style={{ background: "linear-gradient(135deg, #D4AF37 0%, #f0c842 50%, #b8941f 100%)", color: "#1B3022", boxShadow: "0 4px 24px rgba(212,175,55,0.4)" }}
+        >
+          <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all" />
+          <XLogo size={18} />
+          <span>Tweet @elonmusk</span>
+          <motion.span
+            animate={{ x: [0, 4, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="text-lg"
+          >→</motion.span>
+        </a>
+
+        {/* Share on Facebook — full brand blue */}
+        <a
+          href={fbUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group relative flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-bold text-base text-white transition-all active:scale-95 overflow-hidden"
+          style={{ background: "#1877F2", boxShadow: "0 4px 24px rgba(24,119,242,0.4)" }}
+        >
+          <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all" />
+          <FacebookLogo size={18} />
+          <span>Share on Facebook</span>
+        </a>
+      </div>
+
+      {/* Copy link row */}
+      <button
+        onClick={copyLink}
+        className="w-full flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl bg-white/4 border border-white/10 hover:bg-white/7 transition-all group"
+      >
+        <span className="font-mono text-xs text-white/30 truncate flex-1 text-left">{url}</span>
+        <span className={`flex items-center gap-1.5 text-xs font-bold shrink-0 transition-colors ${copied ? "text-emerald-400" : "text-primary group-hover:text-primary/80"}`}>
+          {copied ? <><Check className="w-3.5 h-3.5" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy Link</>}
+        </span>
+      </button>
+
+      {/* Grok section */}
+      <div className="glass-panel rounded-3xl p-6 border border-violet-400/20 space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-violet-500/15 border border-violet-400/30 flex items-center justify-center shrink-0">
             <Sparkles className="w-4 h-4 text-violet-400" />
           </div>
-          <p className="font-serif text-lg font-bold text-foreground">🤖 Ask @grok to Help</p>
+          <div>
+            <p className="font-serif text-base font-bold text-foreground">Ask @grok to Amplify</p>
+            <p className="text-xs text-muted-foreground">Elon's own AI — ask it to analyze and surface this pitch</p>
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Grok is Elon's AI on X. Tag it publicly to ask it to amplify the pitch — or DM it directly.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <a
             href={`https://x.com/intent/tweet?text=${grokTweet}&url=${encodeURIComponent(url)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-violet-500/15 border border-violet-400/30 text-violet-300 font-bold text-sm hover:bg-violet-500/25 active:scale-95 transition-all"
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-violet-500/15 border border-violet-400/30 text-violet-300 font-bold text-sm hover:bg-violet-500/25 active:scale-95 transition-all"
           >
-            <Twitter className="w-4 h-4" />
+            <XLogo size={14} />
             Tweet @grok
           </a>
           <a
             href={grokDmUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 font-bold text-sm hover:bg-violet-500/20 active:scale-95 transition-all"
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-violet-500/10 border border-violet-400/20 text-violet-300 font-bold text-sm hover:bg-violet-500/20 active:scale-95 transition-all"
           >
             <Share2 className="w-4 h-4" />
             DM @grok
           </a>
           <button
             onClick={copyGrokLink}
-            className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-muted-foreground font-bold text-sm hover:bg-white/10 active:scale-95 transition-all"
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-muted-foreground font-bold text-sm hover:bg-white/10 active:scale-95 transition-all"
           >
             {copiedGrok ? <Check className="w-4 h-4 text-violet-400" /> : <Copy className="w-4 h-4" />}
-            {copiedGrok ? "Copied!" : "Copy @grok message"}
+            {copiedGrok ? "Copied!" : "Copy message"}
           </button>
         </div>
-        <p className="text-xs text-muted-foreground/60 italic">
-          Grok can analyze, summarize, and amplify your pitch to its audience — and to Elon himself.
-        </p>
       </div>
     </motion.div>
   )
@@ -206,6 +228,33 @@ export default function ElonPage() {
   return (
     <div className="min-h-screen bg-background relative overflow-x-hidden">
       <ParticleField />
+
+      {/* ── Mission ribbon ──────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="sticky top-0 z-50 w-full"
+        style={{ background: "linear-gradient(90deg, #1B3022 0%, #0f2016 40%, #1B3022 100%)", borderBottom: "1px solid rgba(212,175,55,0.25)" }}
+      >
+        <div className="flex items-center justify-center gap-3 px-4 py-2.5">
+          <motion.div
+            animate={{ scale: [1, 1.15, 1] }}
+            transition={{ duration: 1.8, repeat: Infinity }}
+            className="w-2 h-2 rounded-full bg-primary shrink-0"
+          />
+          <span className="text-xs sm:text-sm font-bold text-primary tracking-wide text-center">
+            📡 SEND THIS TO ELON — Every share brings the vision closer to reality
+          </span>
+          <a
+            href="#share"
+            className="shrink-0 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border transition-all"
+            style={{ borderColor: "rgba(212,175,55,0.5)", color: "#D4AF37", background: "rgba(212,175,55,0.1)" }}
+          >
+            Share ↓
+          </a>
+        </div>
+      </motion.div>
 
       {/* ── Hero ────────────────────────────────────────────────────────── */}
       <section className="relative flex flex-col items-center justify-center min-h-screen px-6 text-center">
@@ -439,7 +488,9 @@ export default function ElonPage() {
       </section>
 
       {/* ── Share bar ───────────────────────────────────────────────────── */}
-      <ShareBar />
+      <div id="share">
+        <ShareBar />
+      </div>
 
       {/* ── Footer signature ────────────────────────────────────────────── */}
       <div className="pb-24 sm:pb-8 text-center px-6">

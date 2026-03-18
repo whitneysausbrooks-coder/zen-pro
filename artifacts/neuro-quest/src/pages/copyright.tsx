@@ -96,7 +96,7 @@ export default function CopyrightPage() {
                   ["Compassion Jackpot™", "The proprietary mechanic linking slot machine wins to real-world micro-donations"],
                   ["Neural Stake™", "The branded memory challenge game concept"],
                   ["Global Abundance Mission™", "The impact-focused brand narrative and donation framework"],
-                  ["Mind & Spirit™", "The platform sub-brand and wellness positioning"],
+                  ["Mind & Spirit™", "The wellness and mindfulness positioning sub-brand"],
                 ].map(([mark, desc]) => (
                   <li key={mark} className="flex items-start gap-3 pl-2">
                     <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />

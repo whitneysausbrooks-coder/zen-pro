@@ -399,7 +399,7 @@ export default function Subscribe() {
             Zen Pro — Tier 1
           </div>
           <h1 className="font-serif text-5xl md:text-6xl text-gradient-gold leading-tight">
-            Elevate Your<br />Mind & Spirit
+            Elevate Your<br />Compassion Casino
           </h1>
           <p className="text-muted-foreground text-lg max-w-lg mx-auto leading-relaxed">
             The premium layer of NeuroQuest. Infinite access, amplified power, and a casino floor dressed in gold.

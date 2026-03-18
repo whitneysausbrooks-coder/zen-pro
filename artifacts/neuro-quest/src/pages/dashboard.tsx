@@ -200,7 +200,7 @@ export default function Dashboard() {
             <div>
               <h1 className="text-3xl font-serif font-bold text-gradient-gold">NeuroQuest</h1>
               <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest mt-1">
-                Mind & Spirit
+                Compassion Casino
               </p>
             </div>
           </motion.div>

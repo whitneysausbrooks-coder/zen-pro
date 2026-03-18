@@ -19,7 +19,7 @@ const SHARE_CONFIGS = [
     config: {
       title: "NeuroQuest — Compassion Casino",
       description: "I'm training my mind & funding hunger relief with every spin. Your mind is the stake. The world is the winner.",
-      hashtags: ["NeuroQuest", "CompassionCasino", "Neuroplasticity", "MindAndSpirit"],
+      hashtags: ["NeuroQuest", "CompassionCasino", "Neuroplasticity", "GlobalAbundance"],
     },
   },
   {
