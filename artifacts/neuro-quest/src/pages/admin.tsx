@@ -20,6 +20,7 @@ export default function AdminPanel() {
   const { toast } = useToast()
   const [status, setStatus] = useState<AdminStatus | null>(null)
   const [loading, setLoading] = useState(true)
+  const [unauthorized, setUnauthorized] = useState(false)
   const [toggling, setToggling] = useState(false)
   const [targetInput, setTargetInput] = useState("")
   const [sending, setSending] = useState(false)
@@ -32,6 +33,11 @@ export default function AdminPanel() {
   const fetchStatus = useCallback(async () => {
     try {
       const r = await fetch(`${BASE}/api/admin/status`, { credentials: "include" })
+      if (r.status === 403 || r.status === 401) {
+        setUnauthorized(true)
+        setLoading(false)
+        return
+      }
       if (r.ok) {
         const data = await r.json()
         setStatus(data)
@@ -156,6 +162,24 @@ export default function AdminPanel() {
 
   const progress = status ? Math.min(status.community_wins / status.raid_mode_target, 1) : 0
   const pct = Math.round(progress * 100)
+
+  if (unauthorized) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-6 text-center">
+        <div className="text-6xl">🔒</div>
+        <h1 className="text-2xl font-bold text-foreground">Access Denied</h1>
+        <p className="text-muted-foreground max-w-sm">
+          You do not have permission to view this page. Admin access is restricted.
+        </p>
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center gap-2 text-primary hover:underline text-sm transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen p-6 max-w-2xl mx-auto">

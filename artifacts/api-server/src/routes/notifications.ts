@@ -8,6 +8,7 @@ import {
 } from "@workspace/db/schema";
 import { eq, lt, and, not, inArray, count } from "drizzle-orm";
 import webpush from "web-push";
+import { requireAdmin } from "../middlewares/adminMiddleware";
 
 const router: IRouter = Router();
 
@@ -188,7 +189,7 @@ router.get("/quest/nudge-status", async (req, res) => {
 });
 
 /* ── Admin: send nudge campaign ──────────────────────────────────────────── */
-router.post("/admin/send-nudge", async (req, res) => {
+router.post("/admin/send-nudge", requireAdmin, async (req, res) => {
   try {
     await ensureVapid();
     // Re-init webpush with current keys

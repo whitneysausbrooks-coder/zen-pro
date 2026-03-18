@@ -1,7 +1,7 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { build as esbuild } from "esbuild";
-import { rm, readFile } from "fs/promises";
+import { rm, readFile, cp } from "fs/promises";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,6 +67,12 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+
+  const frontendDist = path.resolve(__dirname, "..", "neuro-quest", "dist", "public");
+  const publicDest = path.resolve(distDir, "public");
+  console.log("copying frontend dist to server dist/public...");
+  await cp(frontendDist, publicDest, { recursive: true });
+  console.log("done.");
 }
 
 buildAll().catch((err) => {

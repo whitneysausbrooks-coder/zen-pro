@@ -46,6 +46,7 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 ## Root Scripts
 
 - `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
+- `pnpm run build:prod` — unified production build: builds neuro-quest frontend (Vite) then api-server (esbuild), and copies frontend dist into `artifacts/api-server/dist/public/`
 - `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
 
 ## Packages
@@ -55,11 +56,12 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`; in production (`NODE_ENV=production`) also serves the compiled neuro-quest frontend from `dist/public/` as static files with a catch-all to `index.html` for SPA routing
+- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /healthz` (full path: `/api/healthz`)
+- Admin routes: `src/routes/admin.ts` — all `/admin/*` API endpoints require `ADMIN_USER_IDS` env var (comma-separated Replit user IDs); returns 403 if caller is not in the list
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
+- `pnpm --filter @workspace/api-server run build` — builds neuro-quest frontend first, then esbuild CJS bundle (`dist/index.cjs`), then copies frontend to `dist/public/`
 - Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
 
 ### `lib/db` (`@workspace/db`)

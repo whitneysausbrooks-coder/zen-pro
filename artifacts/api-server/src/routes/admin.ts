@@ -2,8 +2,11 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { globalSettingsTable, activitiesTable, userProfilesTable } from "@workspace/db/schema";
 import { count, eq } from "drizzle-orm";
+import { requireAdmin } from "../middlewares/adminMiddleware";
 
 const router: IRouter = Router();
+
+router.use("/admin", requireAdmin);
 
 async function getOrCreateSettings() {
   const rows = await db.select().from(globalSettingsTable).limit(1);
