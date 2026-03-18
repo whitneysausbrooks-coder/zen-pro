@@ -5,7 +5,8 @@ import { useQueryClient } from "@tanstack/react-query"
 import {
   Brain, Flame, Leaf, Moon, Sun, Star, Eye, Wind, Heart,
   ArrowLeft, Zap, Sparkles, Crown, X, Gift, Megaphone,
-  Share2, Users, Globe, TrendingUp, ChevronRight
+  Share2, Users, Globe, TrendingUp, ChevronRight,
+  CreditCard, Loader2
 } from "lucide-react"
 import { playReelStop, playWinChime, playJackpotFanfare } from "@/hooks/use-sound"
 import confetti from "canvas-confetti"
@@ -22,6 +23,21 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
+
+async function buyExtraSpins(): Promise<string | null> {
+  try {
+    const r = await fetch(`${BASE}/api/stripe/extra-spins-checkout`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ spins: 10 }),
+    })
+    const d = await r.json()
+    return d.url ?? null
+  } catch {
+    return null
+  }
+}
 
 /* ── Sponsor ─────────────────────────────────────────────────────────────── */
 const CURRENT_SPONSOR = {
@@ -688,6 +704,7 @@ export default function SlotMachine() {
   const [showBreathing, setShowBreathing] = useState(false)
   const [breathingPhase, setBreathingPhase] = useState<"inhale" | "hold" | "exhale">("inhale")
   const [spinCount, setSpinCount] = useState(0)
+  const [buyingSpins, setBuyingSpins] = useState(false)
 
   const isSleepMode = new Date().getHours() >= 22 || new Date().getHours() < 6
   const [streak, setStreak] = useState<{
@@ -698,6 +715,25 @@ export default function SlotMachine() {
     fetch(`${BASE}/api/quest/streak`, { credentials: "include" })
       .then(r => r.json()).then(setStreak).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("spins_success") === "1") {
+      toast({ title: "10 Spins Added!", description: "+100 Neural Energy has been loaded to your account. Let's spin!", duration: 6000 })
+      queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
+      window.history.replaceState({}, "", window.location.pathname)
+    }
+  }, [])
+
+  const handleBuySpins = async () => {
+    setBuyingSpins(true)
+    const url = await buyExtraSpins()
+    if (url) window.location.href = url
+    else {
+      toast({ title: "Error", description: "Could not start checkout. Please try again.", variant: "destructive" })
+      setBuyingSpins(false)
+    }
+  }
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
@@ -1102,9 +1138,28 @@ export default function SlotMachine() {
                   <div>
                     <p className="font-serif text-base font-bold text-rose-300">Recharge Your Mind</p>
                     <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-                      You need {SPIN_COST} Neural Energy to spin. Complete a Memory Challenge to earn +50 instantly.
+                      You need {SPIN_COST} Neural Energy to spin. Earn more free or grab 10 instant spins.
                     </p>
                   </div>
+
+                  {/* Instant buy */}
+                  <LuxuryButton
+                    onClick={handleBuySpins}
+                    disabled={buyingSpins}
+                    className="gap-2 w-full sm:w-auto bg-primary/18 border-primary/40 hover:bg-primary/28 text-primary"
+                  >
+                    {buyingSpins
+                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Redirecting…</>
+                      : <><CreditCard className="w-3.5 h-3.5" /> Buy 10 Spins — $2.99</>
+                    }
+                  </LuxuryButton>
+
+                  <div className="flex items-center gap-2 justify-center">
+                    <div className="h-px flex-1 bg-white/8" />
+                    <span className="text-[10px] text-white/20 font-semibold uppercase tracking-widest">or earn free</span>
+                    <div className="h-px flex-1 bg-white/8" />
+                  </div>
+
                   <LuxuryButton size="sm" onClick={() => navigate("/brain-game")}
                     className="gap-2 bg-rose-500/15 border-rose-400/30 hover:bg-rose-500/25 text-rose-200 mx-auto"
                   >

@@ -160,6 +160,65 @@ router.post("/stripe/daily-pass-checkout", async (req: any, res) => {
   }
 });
 
+router.post("/stripe/extra-spins-checkout", async (req: any, res) => {
+  if (!isStripeConfigured()) {
+    return res.status(503).json({ error: "Stripe is not configured." });
+  }
+
+  const sessionId = req.cookies?.["nq_session"];
+  if (!sessionId) return res.status(401).json({ error: "No session found" });
+
+  const spins = Math.max(1, Math.min(100, Number(req.body?.spins) || 10));
+  const energy = spins * 10;
+
+  try {
+    const stripe = getStripeClient();
+
+    const [profile] = await db
+      .select({ stripe_customer_id: userProfilesTable.stripe_customer_id })
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.session_id, sessionId));
+
+    let customerId = profile?.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        metadata: { nq_session: sessionId },
+      });
+      customerId = customer.id;
+      await db
+        .update(userProfilesTable)
+        .set({ stripe_customer_id: customerId })
+        .where(eq(userProfilesTable.session_id, sessionId));
+    }
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const checkoutSession = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ["card"],
+      line_items: [{
+        price_data: {
+          currency: "usd",
+          unit_amount: 299,
+          product_data: {
+            name: `NeuroQuest — ${spins} Extra Spins`,
+            description: `Adds ${energy} Neural Energy to your account (${spins} casino spins at 10 energy each)`,
+          },
+        },
+        quantity: 1,
+      }],
+      mode: "payment",
+      metadata: { nq_session: sessionId, spins: String(spins), energy: String(energy), type: "extra_spins" },
+      success_url: `${baseUrl}/casino?spins_success=1`,
+      cancel_url: `${baseUrl}/casino`,
+    });
+
+    return res.json({ url: checkoutSession.url });
+  } catch (err: any) {
+    console.error("Extra spins checkout error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 router.post("/stripe/portal", async (req: any, res) => {
   if (!isStripeConfigured()) {
     return res.status(503).json({ error: "Stripe not configured" });

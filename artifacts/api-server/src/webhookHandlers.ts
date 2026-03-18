@@ -2,7 +2,7 @@ import Stripe from "stripe";
 import { getStripeClient } from "./stripeClient";
 import { db } from "@workspace/db";
 import { userProfilesTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 export class WebhookHandlers {
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
@@ -45,6 +45,7 @@ export class WebhookHandlers {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const meta = session.metadata ?? {};
+
         if (meta.type === "daily_pass" && meta.nq_session) {
           const hours = Math.max(1, Math.min(720, Number(meta.hours) || 24));
           const expires = new Date(Date.now() + hours * 3600 * 1000);
@@ -54,6 +55,16 @@ export class WebhookHandlers {
             .set({ daily_pass_expires: expires })
             .where(eq(userProfilesTable.session_id, meta.nq_session));
         }
+
+        if (meta.type === "extra_spins" && meta.nq_session) {
+          const energy = Math.max(10, Math.min(1000, Number(meta.energy) || 100));
+          console.log(`Extra spins purchased via Stripe: session=${meta.nq_session} +${energy} neural energy`);
+          await db
+            .update(userProfilesTable)
+            .set({ neural_energy: sql`${userProfilesTable.neural_energy} + ${energy}` })
+            .where(eq(userProfilesTable.session_id, meta.nq_session));
+        }
+
         break;
       }
       default:
