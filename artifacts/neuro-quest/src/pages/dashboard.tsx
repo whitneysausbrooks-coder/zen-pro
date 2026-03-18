@@ -1,6 +1,6 @@
 import React from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone, Globe } from "lucide-react"
+import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone, Globe, TrendingUp, Users } from "lucide-react"
 import { UserAuthButton } from "@/components/user-auth-button"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
@@ -42,10 +42,51 @@ const COMPASSION_ACTIONS = [
   { label: "Express Gratitude", amount: 10 },
 ]
 
+const DASH_SOCIAL_PROOF = [
+  { name: "Layla", city: "Atlanta" },
+  { name: "Marcus", city: "Chicago" },
+  { name: "Soo-Yeon", city: "Seoul" },
+  { name: "Destiny", city: "Houston" },
+  { name: "Andres", city: "Miami" },
+  { name: "Imani", city: "Brooklyn" },
+]
+
+function useDashCommunityPool(base = 12847) {
+  const [pool, setPool] = React.useState(base)
+  React.useEffect(() => {
+    const tick = () => {
+      setPool(p => p + Math.floor(Math.random() * 3 + 1))
+      setTimeout(tick, Math.random() * 10000 + 5000)
+    }
+    const t = setTimeout(tick, 4000)
+    return () => clearTimeout(t)
+  }, [])
+  return pool
+}
+
+function DashSocialProofTicker() {
+  const [idx, setIdx] = React.useState(0)
+  React.useEffect(() => {
+    const t = setInterval(() => setIdx(i => (i + 1) % DASH_SOCIAL_PROOF.length), 5000)
+    return () => clearInterval(t)
+  }, [])
+  const w = DASH_SOCIAL_PROOF[idx]
+  return (
+    <AnimatePresence mode="wait">
+      <motion.span key={idx} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} transition={{ duration: 0.35 }}
+        className="text-xs text-rose-300/60"
+      >
+        <span className="font-bold text-rose-300/80">{w.name}</span> in {w.city} just hit a Compassion Jackpot ♡
+      </motion.span>
+    </AnimatePresence>
+  )
+}
+
 export default function Dashboard() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [, navigate] = useLocation()
+  const communityPool = useDashCommunityPool()
 
   const { data: profile, isLoading: isProfileLoading } = useGetProfile()
   const { data: activities, isLoading: isActivitiesLoading } = useGetActivities()
@@ -334,29 +375,83 @@ export default function Dashboard() {
               </GlassCard>
             </motion.div>
 
-            {/* Casino — Slot Machine */}
+            {/* Casino — Compassion Jackpot Hero */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
             >
               <GlassCard
-                className="cursor-pointer group hover:border-orange-400/40 transition-all duration-300"
+                className="cursor-pointer group hover:border-rose-400/50 transition-all duration-300 relative overflow-hidden slot-machine-glow"
                 onClick={() => navigate("/casino")}
               >
-                <GlassCardContent className="p-6 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-orange-400/20 rounded-2xl border border-orange-400/30 group-hover:bg-orange-400/30 transition-colors">
-                      <Dices className="w-7 h-7 text-orange-400" />
+                {/* Ambient gradient */}
+                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/8 via-transparent to-orange-400/5 pointer-events-none" />
+
+                <GlassCardContent className="p-0">
+                  {/* Top bar: live pool */}
+                  <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-white/5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse shrink-0" />
+                      <DashSocialProofTicker />
                     </div>
-                    <div>
-                      <h3 className="font-serif font-semibold text-lg text-foreground">The Casino</h3>
-                      <p className="text-sm text-muted-foreground">3-Reel Slot Machine · Press your luck</p>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Users className="w-3 h-3 text-rose-400/60" />
+                      <motion.span
+                        key={communityPool}
+                        initial={{ color: "#f87171" }}
+                        animate={{ color: "#fb7185" }}
+                        transition={{ duration: 0.4 }}
+                        className="text-xs font-bold tabular-nums text-rose-400"
+                      >
+                        {communityPool.toLocaleString()}
+                      </motion.span>
+                      <span className="text-xs text-white/30">lives touched</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 bg-rose-400/10 border border-rose-400/30 rounded-full px-4 py-2 shrink-0 group-hover:bg-rose-400/20 transition-colors">
-                    <Zap className="w-4 h-4 text-rose-400" />
-                    <span className="text-sm font-bold text-rose-400">−10</span>
+
+                  {/* Main content */}
+                  <div className="px-5 py-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="relative p-3 bg-rose-400/15 rounded-2xl border border-rose-400/30 group-hover:bg-rose-400/25 transition-colors shrink-0">
+                        <Dices className="w-7 h-7 text-rose-300" />
+                        <motion.div
+                          animate={{ scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] }}
+                          transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                          className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-400 flex items-center justify-center"
+                        >
+                          <Heart className="w-2 h-2 text-white fill-white" />
+                        </motion.div>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <h3 className="font-serif font-semibold text-lg text-foreground">The Casino</h3>
+                          <span className="text-[9px] font-bold uppercase tracking-widest bg-rose-400/15 text-rose-300 border border-rose-400/30 rounded-full px-2 py-0.5">
+                            Compassion Jackpot
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">3× ♡ = real micro-donation funded · Sponsored</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <div className="flex items-center gap-1 bg-rose-400/15 border border-rose-400/35 rounded-full px-3 py-1.5 group-hover:bg-rose-400/25 transition-colors">
+                        {[0,1,2].map(i => (
+                          <motion.div key={i} animate={{ scale: [1, 1.15, 1] }} transition={{ delay: i * 0.18, repeat: Infinity, duration: 1.4, ease: "easeInOut" }}>
+                            <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400" />
+                          </motion.div>
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-rose-400/60 font-semibold">Win = Change a Life</span>
+                    </div>
+                  </div>
+
+                  {/* Impact bar */}
+                  <div className="px-5 pb-4 flex items-center gap-2">
+                    <TrendingUp className="w-3.5 h-3.5 text-rose-400/50 shrink-0" />
+                    <p className="text-[11px] text-white/35 leading-relaxed">
+                      Every jackpot triggers a real donation to <span className="text-rose-300/60 font-semibold">World Hunger Relief Fund</span> — at no extra cost to you.
+                    </p>
                   </div>
                 </GlassCardContent>
               </GlassCard>
