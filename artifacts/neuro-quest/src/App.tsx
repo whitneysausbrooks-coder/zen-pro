@@ -19,6 +19,8 @@ import { MobileNav } from "@/components/mobile-nav";
 import { InstallPrompt } from "@/components/install-prompt";
 import ElonPage from "@/pages/elon";
 import PaymentPage from "@/pages/payment";
+import SharePage from "@/pages/share";
+import CopyrightPage from "@/pages/copyright";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +71,8 @@ function Router() {
           <Route path="/admin"       component={AdminPanel}  />
           <Route path="/elon"        component={ElonPage}    />
           <Route path="/payment"     component={PaymentPage} />
+          <Route path="/share"       component={SharePage}   />
+          <Route path="/copyright"   component={CopyrightPage} />
           <Route                     component={NotFound}    />
         </Switch>
       </motion.div>

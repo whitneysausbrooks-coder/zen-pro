@@ -10,6 +10,8 @@ import { NotificationWidget } from "@/components/notification-widget"
 import { ReturnNudge } from "@/components/return-nudge"
 import { GrowthChart } from "@/components/growth-chart"
 import { GlobalImpactBanner } from "@/components/global-impact-banner"
+import { FloatingShareButton } from "@/components/social-share"
+import { CopyrightFooter } from "@/components/copyright-footer"
 
 import { 
   useGetProfile, 
@@ -166,6 +168,7 @@ export default function Dashboard() {
   }, [])
 
   return (
+    <>
     <div className="min-h-screen relative overflow-hidden pb-20">
       {/* Morning Bloom Modal */}
       <AnimatePresence>
@@ -686,6 +689,16 @@ export default function Dashboard() {
 
         </div>
       </div>
+
+      <CopyrightFooter />
     </div>
+
+    <FloatingShareButton config={{
+      url: typeof window !== "undefined" ? window.location.origin + BASE : "",
+      title: "NeuroQuest — Compassion Casino",
+      description: "I'm training my mind & funding hunger relief with every spin. Your mind is the stake. The world is the winner.",
+      hashtags: ["NeuroQuest", "CompassionCasino", "Neuroplasticity"],
+    }} />
+    </>
   )
 }

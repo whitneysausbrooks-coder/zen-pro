@@ -124,4 +124,14 @@ Utility scripts package. Each script is a `.ts` file in `src/` with a correspond
 
 **Raid Mode:** Admin-toggled live global event. `global_settings` table (single row) holds `raid_mode_active`, `raid_mode_target`. `POST /api/admin/raid-mode` toggles it. `GET /api/admin/status` returns current state + community wins count. `GET /api/quest/event` is the public endpoint. When active, `earn-compassion` doubles all points automatically. Dashboard shows animated violet `RaidModeBanner` (component: `src/components/raid-mode-banner.tsx`) that polls every 15s with a live community progress bar. Admin panel accessible at `/admin`.
 
+**Social Sharing System:** Universal 13-platform share panel. Component: `src/components/social-share.tsx`. Exports `SocialSharePanel` (embeddable grid), `FloatingShareButton` (gold FAB on every page). Platforms: X/Twitter, Threads, Facebook, Instagram (copy), WhatsApp, Telegram, LinkedIn, Reddit, TikTok (copy), Pinterest, Discord (copy), Email, SMS. All include branded pre-written copy with hashtags. Dedicated share page at `/share` with 4 preset message variants (General, Jackpot Win, Challenge, Streak). PWA install instructions + native share API. Copyright micro-text on every panel.
+
+**Copyright & IP Protection:** Page at `/copyright` documents: ownership (Whitney Shauntaye), 6 trademarked marks (NeuroQuest™, Compassion Casino™, Compassion Jackpot™, etc.), 10 protected IP elements, user license terms, commercial licensing terms, DMCA notice instructions, governing law (U.S. Copyright Act, Lanham Act, Berne Convention). `CopyrightFooter` component (`src/components/copyright-footer.tsx`) appears at bottom of all main pages with link to `/copyright`.
+
+**Open Graph / Rich Previews:** `index.html` contains full og:title, og:description, og:image, og:url, og:image:width/height/alt, og:site_name, og:locale + complete Twitter Card meta tags (twitter:card=summary_large_image, twitter:site, twitter:creator, twitter:image). Author + copyright meta tags. Canonical URL tag.
+
+**PWA:** `manifest.json` + `sw.js` + icons (192/512) + apple-touch-icon. `beforeinstallprompt` handler in share page for install button. iOS instructions (Share → Add to Home Screen).
+
+**Routes:** `/share` (SharePage), `/copyright` (CopyrightPage).
+
 **Note:** api-server does NOT have `zod` as a direct dependency — use plain JS validation or import from `@workspace/api-zod`.
