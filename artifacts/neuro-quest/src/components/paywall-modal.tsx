@@ -1,18 +1,25 @@
 import React, { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Crown, Zap, Heart, Bitcoin, Smartphone, CreditCard, Copy, Check, Clock, Infinity, X, Shield, ExternalLink, Loader2, ChevronRight } from "lucide-react"
+import { Crown, Zap, Heart, Bitcoin, CreditCard, Copy, Check, Clock, Infinity, X, Shield, ExternalLink, Loader2, ChevronRight } from "lucide-react"
 import { LuxuryButton } from "@/components/ui/luxury-button"
 import { GlassCard, GlassCardContent } from "@/components/ui/glass-card"
 import { cn } from "@/lib/utils"
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
 
-const CASHAPP = "$whitneyshauntaye"
 const BITCOIN = "bc1q8q0nguhkdl8t7searxdfuaew8x64afa772l0ns"
 const X_HANDLE = "@whitneyshauntaye"
 
+function ApplePayIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+    </svg>
+  )
+}
+
 type Tier = "daily" | "pro"
-type PayMethod = "cashapp" | "bitcoin" | "stripe"
+type PayMethod = "apple" | "bitcoin" | "stripe"
 
 interface AccessStatus {
   has_access: boolean
@@ -135,41 +142,22 @@ function PayPanel({ tier, method, stripeConfigured, stripePriceId }: PayPanelPro
     setStripeLoading(false)
   }
 
-  if (method === "cashapp") {
+  if (method === "apple") {
     return (
       <div className="space-y-3">
-        <div className="rounded-xl bg-[#00D64F]/10 border border-[#00D64F]/25 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Smartphone className="w-4 h-4 text-[#00D64F]" />
-              <span className="text-sm font-bold text-[#00D64F]">CashApp</span>
-            </div>
-            <span className="font-bold text-white text-lg">{price}</span>
-          </div>
-          <div className="flex items-center justify-between bg-black/30 rounded-lg px-3 py-2">
-            <span className="font-mono text-white font-bold">{CASHAPP}</span>
-            <CopyBtn text={CASHAPP} label="Copy" />
-          </div>
-        </div>
-        <div className="rounded-xl bg-amber-400/8 border border-amber-400/20 px-4 py-3">
-          <p className="text-xs text-amber-200/80 leading-relaxed">
-            <span className="font-bold text-amber-300">After sending:</span> DM{" "}
-            <a href={`https://x.com/${X_HANDLE.slice(1)}`} target="_blank" rel="noopener noreferrer" className="text-amber-300 underline font-bold">
-              {X_HANDLE}
-            </a>{" "}
-            on X with your payment screenshot + "{label}" and we'll activate you within 1 hour.
+        <div className="rounded-xl bg-white/8 border border-white/15 p-4 text-center space-y-2">
+          <ApplePayIcon size={28} />
+          <p className="text-sm font-bold text-white">Apple Pay</p>
+          <p className="text-xs text-white/50 leading-relaxed">
+            On iPhone, iPad or Mac with Safari — Apple Pay appears automatically at checkout. Tap the button below to proceed.
           </p>
+          <p className="text-2xl font-serif font-bold text-foreground">{price}</p>
         </div>
-        <a
-          href={`https://cash.app/${CASHAPP}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <LuxuryButton className="w-full gap-2">
-            <ExternalLink className="w-4 h-4" />
-            Open CashApp &rarr; {CASHAPP}
-          </LuxuryButton>
-        </a>
+        <LuxuryButton onClick={handleStripe} disabled={stripeLoading} className="w-full gap-2">
+          {stripeLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ApplePayIcon size={16} />}
+          {stripeLoading ? "Redirecting…" : `Pay ${price} with Apple Pay`}
+        </LuxuryButton>
+        <p className="text-[10px] text-white/25 text-center">Opens Stripe Checkout — Apple Pay activates automatically on supported devices.</p>
       </div>
     )
   }
@@ -210,7 +198,7 @@ function PayPanel({ tier, method, stripeConfigured, stripePriceId }: PayPanelPro
         <div className="rounded-xl bg-white/4 border border-white/10 p-5 text-center">
           <CreditCard className="w-8 h-8 text-white/20 mx-auto mb-2" />
           <p className="text-sm text-white/40">Card payments coming soon.</p>
-          <p className="text-xs text-white/25 mt-1">Use CashApp or Bitcoin to activate instantly.</p>
+          <p className="text-xs text-white/25 mt-1">Use Bitcoin to activate instantly, or try Apple Pay.</p>
         </div>
       )
     }
@@ -242,7 +230,7 @@ export function PaywallGate({ children, gameName = "this game" }: PaywallGatePro
   const [status, setStatus] = useState<AccessStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [tier, setTier] = useState<Tier>("daily")
-  const [method, setMethod] = useState<PayMethod>("cashapp")
+  const [method, setMethod] = useState<PayMethod>("apple")
   const [stripeInfo, setStripeInfo] = useState<{ configured: boolean; priceId: string | null }>({ configured: false, priceId: null })
 
   const countdown = useCountdown(status?.daily_pass_expires ?? null)
@@ -369,10 +357,10 @@ export function PaywallGate({ children, gameName = "this game" }: PaywallGatePro
               <p className="text-xs text-white/35 uppercase tracking-widest font-semibold mb-2">Pay with</p>
               <div className="grid grid-cols-3 gap-2">
                 {([
-                  { id: "cashapp", icon: Smartphone, label: "CashApp", color: "text-[#00D64F]", bg: "bg-[#00D64F]/15" },
-                  { id: "bitcoin", icon: Bitcoin, label: "Bitcoin", color: "text-amber-400", bg: "bg-amber-400/15" },
-                  { id: "stripe", icon: CreditCard, label: "Card", color: "text-violet-300", bg: "bg-violet-300/15" },
-                ] as const).map(({ id, icon: Icon, label, color, bg }) => (
+                  { id: "apple",   label: "Apple Pay", color: "text-white",       bg: "bg-white/18" },
+                  { id: "bitcoin", label: "Bitcoin",   color: "text-amber-400",   bg: "bg-amber-400/15" },
+                  { id: "stripe",  label: "Card",      color: "text-violet-300",  bg: "bg-violet-300/15" },
+                ] as const).map(({ id, label, color, bg }) => (
                   <button
                     key={id}
                     onClick={() => setMethod(id)}
@@ -383,7 +371,9 @@ export function PaywallGate({ children, gameName = "this game" }: PaywallGatePro
                         : "bg-white/3 border-white/8 text-white/35 hover:text-white/55"
                     )}
                   >
-                    <Icon className="w-4 h-4" />
+                    {id === "apple"   && <ApplePayIcon size={16} />}
+                    {id === "bitcoin" && <Bitcoin className="w-4 h-4" />}
+                    {id === "stripe"  && <CreditCard className="w-4 h-4" />}
                     {label}
                   </button>
                 ))}
@@ -412,7 +402,7 @@ export function PaywallGate({ children, gameName = "this game" }: PaywallGatePro
             <div className="flex items-start gap-2 text-[10px] text-white/25">
               <Shield className="w-3 h-3 shrink-0 mt-0.5" />
               <span>
-                Payments are manual-activation (CashApp/BTC) or via Stripe. Daily Pass = 24 hours. Zen Pro auto-renews monthly.
+                Payments via Apple Pay, Card (Stripe), or Bitcoin. Daily Pass = 24 hours. Zen Pro auto-renews monthly.
                 Contact {X_HANDLE} to cancel. No refunds on daily passes once activated.
                 © {new Date().getFullYear()} NeuroQuest™ by Whitney Shauntaye.
               </span>

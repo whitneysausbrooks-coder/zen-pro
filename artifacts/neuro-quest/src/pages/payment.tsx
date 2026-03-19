@@ -2,25 +2,49 @@ import React, { useState } from "react"
 import { Link } from "wouter"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-  ArrowLeft, Copy, Check, Crown, ExternalLink, Smartphone, Bitcoin, CreditCard, Sparkles
+  ArrowLeft, Copy, Check, Crown, Bitcoin, CreditCard, Sparkles, Loader2
 } from "lucide-react"
 import { GlassCard, GlassCardContent } from "@/components/ui/glass-card"
 import { useToast } from "@/hooks/use-toast"
 import { UserAuthButton } from "@/components/user-auth-button"
 
-const CASHAPP_TAG = "$whitneyshauntaye"
-const CASHAPP_URL = "https://cash.app/$whitneyshauntaye"
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
 const BTC_ADDRESS = "bc1q8q0nguhkdl8t7searxdfuaew8x64afa772l0ns"
 const ZEN_PRO_PRICE = "$9.99"
 const ZEN_PRO_AMOUNT_BTC_APPROX = "≈ 0.000095 BTC"
 
-type Tab = "cashapp" | "bitcoin" | "card"
+function ApplePayIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+    </svg>
+  )
+}
+
+async function startProCheckout(): Promise<string | null> {
+  try {
+    const r = await fetch(`${BASE}/api/stripe/zen-pro-price`, { credentials: "include" })
+    const d = await r.json()
+    if (!d.configured || !d.priceId) return null
+    const r2 = await fetch(`${BASE}/api/stripe/checkout`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ priceId: d.priceId }),
+    })
+    const d2 = await r2.json()
+    return d2.url ?? null
+  } catch { return null }
+}
+
+type Tab = "apple" | "bitcoin" | "card"
 
 export default function PaymentPage() {
   const { toast } = useToast()
-  const [tab, setTab] = useState<Tab>("cashapp")
+  const [tab, setTab] = useState<Tab>("apple")
   const [copiedBtc, setCopiedBtc] = useState(false)
-  const [copiedTag, setCopiedTag] = useState(false)
+  const [appleLoading, setAppleLoading] = useState(false)
+  const [cardLoading, setCardLoading] = useState(false)
 
   const copyBtc = async () => {
     await navigator.clipboard.writeText(BTC_ADDRESS)
@@ -29,17 +53,24 @@ export default function PaymentPage() {
     setTimeout(() => setCopiedBtc(false), 3000)
   }
 
-  const copyTag = async () => {
-    await navigator.clipboard.writeText(CASHAPP_TAG)
-    setCopiedTag(true)
-    toast({ title: "CashApp tag copied!", description: "Send $9.99 to " + CASHAPP_TAG })
-    setTimeout(() => setCopiedTag(false), 3000)
+  const handleApplePay = async () => {
+    setAppleLoading(true)
+    const url = await startProCheckout()
+    if (url) window.location.href = url
+    else { toast({ title: "Checkout unavailable", description: "Please try Card payment instead.", variant: "destructive" }); setAppleLoading(false) }
+  }
+
+  const handleCard = async () => {
+    setCardLoading(true)
+    const url = await startProCheckout()
+    if (url) window.location.href = url
+    else { toast({ title: "Checkout unavailable", description: "Please try again shortly.", variant: "destructive" }); setCardLoading(false) }
   }
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "cashapp", label: "CashApp", icon: <Smartphone className="w-4 h-4" /> },
-    { id: "bitcoin", label: "Bitcoin", icon: <Bitcoin className="w-4 h-4" /> },
-    { id: "card",    label: "Card / Stripe", icon: <CreditCard className="w-4 h-4" /> },
+    { id: "apple",   label: "Apple Pay", icon: <ApplePayIcon size={16} /> },
+    { id: "bitcoin", label: "Bitcoin",   icon: <Bitcoin className="w-4 h-4" /> },
+    { id: "card",    label: "Card",      icon: <CreditCard className="w-4 h-4" /> },
   ]
 
   return (
@@ -99,60 +130,45 @@ export default function PaymentPage() {
 
       {/* Panel */}
       <AnimatePresence mode="wait">
-        {tab === "cashapp" && (
+        {tab === "apple" && (
           <motion.div
-            key="cashapp"
+            key="apple"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             className="w-full max-w-lg"
           >
-            <GlassCard className="rounded-3xl border border-emerald-500/20">
+            <GlassCard className="rounded-3xl border border-white/15">
               <GlassCardContent className="p-8 text-center space-y-6">
-                {/* CashApp logo block */}
                 <div className="flex flex-col items-center gap-3">
-                  <div className="w-16 h-16 rounded-2xl bg-[#00D64F]/15 border border-[#00D64F]/30 flex items-center justify-center">
-                    <Smartphone className="w-8 h-8 text-[#00D64F]" />
+                  <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center">
+                    <ApplePayIcon size={36} />
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Send to</p>
-                    <p className="font-mono text-2xl font-bold text-[#00D64F]">{CASHAPP_TAG}</p>
+                    <p className="font-bold text-xl text-white">Apple Pay</p>
+                    <p className="text-xs text-muted-foreground mt-1">Fast, secure, one-touch payment</p>
                   </div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center">
-                  <p className="text-3xl font-serif font-bold text-foreground">{ZEN_PRO_PRICE}</p>
-                  <p className="text-xs text-muted-foreground mt-1">per month · Zen Pro subscription</p>
+                  <p className="text-3xl font-serif font-bold text-foreground">{ZEN_PRO_PRICE}<span className="text-base text-muted-foreground font-normal">/mo</span></p>
+                  <p className="text-xs text-muted-foreground mt-1">Zen Pro subscription · cancel any time</p>
                 </div>
 
-                <div className="space-y-3">
-                  <a
-                    href={CASHAPP_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-[#00D64F] text-black font-bold text-base hover:bg-[#00D64F]/90 active:scale-98 transition-all"
-                  >
-                    <ExternalLink className="w-5 h-5" />
-                    Open CashApp & Pay
-                  </a>
-                  <button
-                    onClick={copyTag}
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-white/5 border border-white/10 text-sm text-muted-foreground hover:bg-white/10 transition-all"
-                  >
-                    {copiedTag ? <Check className="w-4 h-4 text-[#00D64F]" /> : <Copy className="w-4 h-4" />}
-                    {copiedTag ? "Copied!" : "Copy $cashtag"}
-                  </button>
-                </div>
-
-                <div className="p-3 rounded-xl bg-amber-500/8 border border-amber-500/20 text-left">
-                  <p className="text-xs text-amber-300/80 leading-relaxed">
-                    <strong className="text-amber-300">After paying:</strong> Message us on X{" "}
-                    <a href="https://x.com/intent/tweet?text=Hey%20%40NeuroQuestApp%20I%20just%20paid%20for%20Zen%20Pro%20via%20CashApp!" target="_blank" rel="noopener noreferrer" className="underline">
-                      @NeuroQuestApp
-                    </a>{" "}
-                    with your payment confirmation and we'll activate Zen Pro within 24 hours.
+                <div className="p-3 rounded-xl bg-blue-500/8 border border-blue-400/20 text-left">
+                  <p className="text-xs text-blue-300/80 leading-relaxed">
+                    Apple Pay activates automatically on <strong className="text-blue-300">iPhone, iPad, or Mac with Safari</strong>. On other browsers, you'll pay by card instead — same price, same instant access.
                   </p>
                 </div>
+
+                <button
+                  onClick={handleApplePay}
+                  disabled={appleLoading}
+                  className="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl bg-white text-black font-bold text-base hover:bg-white/90 active:scale-98 transition-all disabled:opacity-60"
+                >
+                  {appleLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ApplePayIcon size={22} />}
+                  {appleLoading ? "Redirecting…" : "Pay with Apple Pay"}
+                </button>
               </GlassCardContent>
             </GlassCard>
           </motion.div>
@@ -235,12 +251,14 @@ export default function PaymentPage() {
                   <p className="text-xs text-muted-foreground">Powered by Stripe — cancel any time from your billing portal.</p>
                 </div>
 
-                <Link href="/subscribe">
-                  <button className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-violet-500 text-white font-bold text-base hover:bg-violet-600 active:scale-98 transition-all">
-                    <CreditCard className="w-5 h-5" />
-                    Pay by Card
-                  </button>
-                </Link>
+                <button
+                  onClick={handleCard}
+                  disabled={cardLoading}
+                  className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-violet-500 text-white font-bold text-base hover:bg-violet-600 active:scale-98 transition-all disabled:opacity-60"
+                >
+                  {cardLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
+                  {cardLoading ? "Redirecting…" : "Pay by Card"}
+                </button>
 
                 <p className="text-xs text-muted-foreground">Stripe handles all card details securely. We never see your card number.</p>
               </GlassCardContent>

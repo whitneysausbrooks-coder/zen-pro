@@ -372,7 +372,7 @@ export default function AdminPanel() {
           </GlassCardHeader>
           <GlassCardContent className="pt-0 pb-6 px-5 space-y-4">
             <p className="text-sm text-muted-foreground leading-relaxed">
-              After a player pays via CashApp or Bitcoin, paste their <code className="text-xs bg-white/8 px-1 py-0.5 rounded text-primary">nq_session</code> cookie value here to activate their access. They can find it in browser DevTools → Application → Cookies.
+              After a player pays via Bitcoin (or any manual payment), paste their <code className="text-xs bg-white/8 px-1 py-0.5 rounded text-primary">nq_session</code> cookie value here to activate their access. They can find it in browser DevTools → Application → Cookies.
             </p>
 
             <div className="space-y-2">

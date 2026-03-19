@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   Crown, Zap, Dices, Infinity, Star, CheckCircle2,
   ArrowLeft, Sparkles, TrendingUp, Users, Shield, Loader2,
-  Smartphone, Bitcoin, CreditCard, Clock, Copy, Check, ExternalLink
+  Bitcoin, CreditCard, Clock, Copy, Check, ExternalLink
 } from "lucide-react"
 import { UserAuthButton } from "@/components/user-auth-button"
 import { GlassCard, GlassCardContent } from "@/components/ui/glass-card"
@@ -83,7 +83,6 @@ const MRR_GOAL = 100_000
 const MRR_CURRENT = 12_480
 const MRR_PCT = Math.min((MRR_CURRENT / MRR_GOAL) * 100, 100)
 
-const CASHAPP = "$whitneyshauntaye"
 const BITCOIN = "bc1q8q0nguhkdl8t7searxdfuaew8x64afa772l0ns"
 
 function CopyField({ value, label }: { value: string; label: string }) {
@@ -121,8 +120,16 @@ async function startDailyPassCheckout(): Promise<string | null> {
   }
 }
 
+function ApplePayIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+    </svg>
+  )
+}
+
 function DailyPassCard() {
-  const [method, setMethod] = useState<"cashapp" | "bitcoin" | "card">("cashapp")
+  const [method, setMethod] = useState<"apple" | "bitcoin" | "card">("apple")
   const [cardLoading, setCardLoading] = useState(false)
 
   const handleCardCheckout = async () => {
@@ -171,9 +178,9 @@ function DailyPassCard() {
           {/* Payment method toggle */}
           <div className="grid grid-cols-3 gap-2 mb-4">
             {([
-              { id: "cashapp", icon: <Smartphone className="w-3.5 h-3.5" />, label: "CashApp", active: "bg-[#00D64F]/18 border-[#00D64F]/40 text-[#00D64F]" },
+              { id: "apple",   icon: <ApplePayIcon size={14} />, label: "Apple Pay", active: "bg-white/15 border-white/30 text-white" },
               { id: "bitcoin", icon: <Bitcoin className="w-3.5 h-3.5" />, label: "Bitcoin", active: "bg-amber-400/18 border-amber-400/40 text-amber-400" },
-              { id: "card", icon: <CreditCard className="w-3.5 h-3.5" />, label: "Card", active: "bg-violet-400/18 border-violet-400/40 text-violet-300" },
+              { id: "card",    icon: <CreditCard className="w-3.5 h-3.5" />, label: "Card", active: "bg-violet-400/18 border-violet-400/40 text-violet-300" },
             ] as const).map((m) => (
               <button
                 key={m.id}
@@ -188,18 +195,15 @@ function DailyPassCard() {
             ))}
           </div>
 
-          {method === "cashapp" && (
-            <div className="rounded-xl bg-[#00D64F]/8 border border-[#00D64F]/20 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-white font-bold">{CASHAPP}</span>
-                <CopyField value={CASHAPP} label="Copy" />
-              </div>
-              <a href={`https://cash.app/${CASHAPP}`} target="_blank" rel="noopener noreferrer">
-                <LuxuryButton className="w-full gap-2 bg-[#00D64F]/20 border-[#00D64F]/40 hover:bg-[#00D64F]/30 text-[#00D64F]">
-                  <ExternalLink className="w-4 h-4" />
-                  Send $5 on CashApp
-                </LuxuryButton>
-              </a>
+          {method === "apple" && (
+            <div className="rounded-xl bg-white/6 border border-white/15 p-4 space-y-3">
+              <p className="text-xs text-white/50 leading-relaxed text-center">
+                Apple Pay activates automatically on <strong className="text-white/80">iPhone, iPad or Mac in Safari</strong>. On other browsers you'll pay by card — same price, instant access.
+              </p>
+              <LuxuryButton onClick={handleCardCheckout} disabled={cardLoading} className="w-full gap-2 bg-white/10 border-white/25 hover:bg-white/18 text-white">
+                {cardLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ApplePayIcon size={14} />}
+                {cardLoading ? "Redirecting…" : "Pay $5 with Apple Pay"}
+              </LuxuryButton>
             </div>
           )}
 
@@ -480,16 +484,16 @@ export default function Subscribe() {
                   <div className="space-y-3">
                     <p className="text-xs text-center text-muted-foreground uppercase tracking-wider">Choose how to pay</p>
 
-                    <Link href="/payment">
-                      <button className="flex items-center justify-between w-full px-5 py-4 rounded-2xl bg-[#00D64F]/10 border border-[#00D64F]/30 hover:bg-[#00D64F]/18 active:scale-98 transition-all group">
+                    <Link href="/payment?tab=apple">
+                      <button className="flex items-center justify-between w-full px-5 py-4 rounded-2xl bg-white/8 border border-white/20 hover:bg-white/12 active:scale-98 transition-all group">
                         <div className="flex items-center gap-3">
-                          <Smartphone className="w-5 h-5 text-[#00D64F]" />
+                          <ApplePayIcon size={20} />
                           <div className="text-left">
-                            <p className="text-sm font-bold text-foreground">CashApp</p>
-                            <p className="text-xs text-muted-foreground">$whitneyshauntaye · instant</p>
+                            <p className="text-sm font-bold text-foreground">Apple Pay</p>
+                            <p className="text-xs text-muted-foreground">iPhone, iPad, Mac · one-touch</p>
                           </div>
                         </div>
-                        <span className="text-xs text-[#00D64F] font-semibold">$9.99 →</span>
+                        <span className="text-xs text-white/60 font-semibold">$9.99 →</span>
                       </button>
                     </Link>
 
