@@ -107,98 +107,130 @@ function ShareBar() {
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="max-w-2xl mx-auto px-6 pb-16 space-y-5"
+      className="max-w-2xl mx-auto px-5 pb-20 space-y-4"
     >
-      {/* Mission label */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary/60">Share the Vision</span>
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+      {/* Section header */}
+      <div className="flex items-center gap-3 pt-2">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+        <span className="text-[11px] font-black uppercase tracking-[0.25em] text-primary">Share the Vision</span>
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
       </div>
 
-      {/* Primary: X + Facebook hero buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Tweet @elonmusk — gold hero */}
-        <a
-          href={`https://x.com/intent/tweet?text=${elonTweet}&url=${encodeURIComponent(url)}`}
+      {/* ① ELON — full-width gold hero */}
+      <motion.a
+        href={`https://x.com/intent/tweet?text=${elonTweet}&url=${encodeURIComponent(url)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.97 }}
+        className="relative w-full flex flex-col items-center justify-center gap-1 px-6 py-5 rounded-3xl font-black text-lg overflow-hidden"
+        style={{ background: "linear-gradient(135deg, #7a5a00 0%, #D4AF37 30%, #f5d060 55%, #D4AF37 75%, #9a7300 100%)", color: "#1B3022", boxShadow: "0 0 40px rgba(212,175,55,0.55), 0 4px 16px rgba(0,0,0,0.4)" }}
+      >
+        {/* shimmer */}
+        <motion.div
+          animate={{ x: ["-100%", "220%"] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear", repeatDelay: 2 }}
+          className="absolute inset-0 w-1/3"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)" }}
+        />
+        <div className="relative flex items-center gap-3">
+          <XLogo size={22} />
+          <span className="tracking-wide">Tweet @elonmusk</span>
+          <motion.span animate={{ x: [0, 6, 0] }} transition={{ duration: 1, repeat: Infinity }} className="text-xl">→</motion.span>
+        </div>
+        <span className="relative text-xs font-semibold opacity-70 tracking-widest uppercase">Tag him directly — be the signal in the noise</span>
+      </motion.a>
+
+      {/* ② GROK + FACEBOOK — two hero buttons */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Grok — violet hero */}
+        <motion.a
+          href={`https://x.com/intent/tweet?text=${grokTweet}&url=${encodeURIComponent(url)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="group relative flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-bold text-base transition-all active:scale-95 overflow-hidden"
-          style={{ background: "linear-gradient(135deg, #D4AF37 0%, #f0c842 50%, #b8941f 100%)", color: "#1B3022", boxShadow: "0 4px 24px rgba(212,175,55,0.4)" }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
+          className="relative flex flex-col items-center justify-center gap-1 px-4 py-4 rounded-2xl font-bold text-sm overflow-hidden"
+          style={{ background: "linear-gradient(135deg, #3b0764 0%, #7c3aed 50%, #a855f7 100%)", color: "#fff", boxShadow: "0 0 28px rgba(167,85,247,0.5), 0 4px 12px rgba(0,0,0,0.4)" }}
         >
-          <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all" />
-          <XLogo size={18} />
-          <span>Tweet @elonmusk</span>
-          <motion.span
-            animate={{ x: [0, 4, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            className="text-lg"
-          >→</motion.span>
-        </a>
+          <motion.div
+            animate={{ x: ["-100%", "220%"] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear", repeatDelay: 3 }}
+            className="absolute inset-0 w-1/3"
+            style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)" }}
+          />
+          <div className="relative flex items-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            <span>Ask @grok</span>
+          </div>
+          <span className="relative text-[10px] opacity-60 uppercase tracking-widest">Elon's AI</span>
+        </motion.a>
 
-        {/* Share on Facebook — full brand blue */}
-        <a
+        {/* Facebook — blue hero */}
+        <motion.a
           href={fbUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="group relative flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-bold text-base text-white transition-all active:scale-95 overflow-hidden"
-          style={{ background: "#1877F2", boxShadow: "0 4px 24px rgba(24,119,242,0.4)" }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
+          className="relative flex flex-col items-center justify-center gap-1 px-4 py-4 rounded-2xl font-bold text-sm overflow-hidden"
+          style={{ background: "linear-gradient(135deg, #0f4fa8 0%, #1877F2 60%, #4e9af1 100%)", color: "#fff", boxShadow: "0 0 28px rgba(24,119,242,0.5), 0 4px 12px rgba(0,0,0,0.4)" }}
         >
-          <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all" />
-          <FacebookLogo size={18} />
-          <span>Share on Facebook</span>
-        </a>
+          <motion.div
+            animate={{ x: ["-100%", "220%"] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear", repeatDelay: 4 }}
+            className="absolute inset-0 w-1/3"
+            style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)" }}
+          />
+          <div className="relative flex items-center gap-2">
+            <FacebookLogo size={16} />
+            <span>Facebook</span>
+          </div>
+          <span className="relative text-[10px] opacity-60 uppercase tracking-widest">Share the page</span>
+        </motion.a>
       </div>
 
-      {/* Copy link row */}
-      <button
-        onClick={copyLink}
-        className="w-full flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl bg-white/4 border border-white/10 hover:bg-white/7 transition-all group"
-      >
-        <span className="font-mono text-xs text-white/30 truncate flex-1 text-left">{url}</span>
-        <span className={`flex items-center gap-1.5 text-xs font-bold shrink-0 transition-colors ${copied ? "text-emerald-400" : "text-primary group-hover:text-primary/80"}`}>
-          {copied ? <><Check className="w-3.5 h-3.5" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy Link</>}
-        </span>
-      </button>
+      {/* ③ Secondary: DM Grok + Copy link */}
+      <div className="grid grid-cols-2 gap-2">
+        <a
+          href={grokDmUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-violet-500/10 border border-violet-400/25 text-violet-300 font-bold text-xs hover:bg-violet-500/20 active:scale-95 transition-all"
+        >
+          <Share2 className="w-3.5 h-3.5" />
+          DM @grok directly
+        </a>
+        <button
+          onClick={copyLink}
+          className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 font-bold text-xs active:scale-95 transition-all"
+          style={{ color: copied ? "#34d399" : "#D4AF37" }}
+        >
+          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+          {copied ? "Copied!" : "Copy Link"}
+        </button>
+      </div>
 
-      {/* Grok section */}
-      <div className="glass-panel rounded-3xl p-6 border border-violet-400/20 space-y-4">
+      {/* ④ Grok detail card — copy the full message */}
+      <div
+        className="rounded-2xl p-5 border border-violet-400/20 space-y-3"
+        style={{ background: "rgba(124,58,237,0.07)" }}
+      >
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-violet-500/15 border border-violet-400/30 flex items-center justify-center shrink-0">
-            <Sparkles className="w-4 h-4 text-violet-400" />
-          </div>
-          <div>
-            <p className="font-serif text-base font-bold text-foreground">Ask @grok to Amplify</p>
-            <p className="text-xs text-muted-foreground">Elon's own AI — ask it to analyze and surface this pitch</p>
-          </div>
+          <Sparkles className="w-4 h-4 text-violet-400 shrink-0" />
+          <p className="font-bold text-sm text-violet-300">Copy the @grok message</p>
+          <span className="ml-auto text-[10px] text-violet-400/60 uppercase tracking-widest">AI amplification</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <a
-            href={`https://x.com/intent/tweet?text=${grokTweet}&url=${encodeURIComponent(url)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-violet-500/15 border border-violet-400/30 text-violet-300 font-bold text-sm hover:bg-violet-500/25 active:scale-95 transition-all"
-          >
-            <XLogo size={14} />
-            Tweet @grok
-          </a>
-          <a
-            href={grokDmUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-violet-500/10 border border-violet-400/20 text-violet-300 font-bold text-sm hover:bg-violet-500/20 active:scale-95 transition-all"
-          >
-            <Share2 className="w-4 h-4" />
-            DM @grok
-          </a>
-          <button
-            onClick={copyGrokLink}
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-muted-foreground font-bold text-sm hover:bg-white/10 active:scale-95 transition-all"
-          >
-            {copiedGrok ? <Check className="w-4 h-4 text-violet-400" /> : <Copy className="w-4 h-4" />}
-            {copiedGrok ? "Copied!" : "Copy message"}
-          </button>
-        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Paste this into a tweet tagging @grok — Elon's AI reads and surfaces trending pitches to him directly.
+        </p>
+        <button
+          onClick={copyGrokLink}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500/15 border border-violet-400/30 text-violet-300 font-bold text-xs hover:bg-violet-500/25 active:scale-95 transition-all"
+        >
+          {copiedGrok ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+          {copiedGrok ? "Message copied!" : "Copy @grok message"}
+        </button>
       </div>
     </motion.div>
   )
@@ -231,29 +263,34 @@ export default function ElonPage() {
 
       {/* ── Mission ribbon ──────────────────────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -40 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="sticky top-0 z-50 w-full"
-        style={{ background: "linear-gradient(90deg, #1B3022 0%, #0f2016 40%, #1B3022 100%)", borderBottom: "1px solid rgba(212,175,55,0.25)" }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="sticky top-0 z-50 w-full overflow-hidden"
+        style={{ background: "linear-gradient(90deg, #7a5a00 0%, #D4AF37 30%, #f0c842 50%, #D4AF37 70%, #7a5a00 100%)", boxShadow: "0 2px 32px rgba(212,175,55,0.6)" }}
       >
-        <div className="flex items-center justify-center gap-3 px-4 py-2.5">
-          <motion.div
-            animate={{ scale: [1, 1.15, 1] }}
-            transition={{ duration: 1.8, repeat: Infinity }}
-            className="w-2 h-2 rounded-full bg-primary shrink-0"
-          />
-          <span className="text-xs sm:text-sm font-bold text-primary tracking-wide text-center">
-            📡 SEND THIS TO ELON — Every share brings the vision closer to reality
+        {/* shimmer sweep */}
+        <motion.div
+          animate={{ x: ["-100%", "200%"] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: "linear", repeatDelay: 1.5 }}
+          className="absolute inset-0 w-1/3"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)" }}
+        />
+        <a href="#share" className="relative flex items-center justify-center gap-3 px-4 py-3.5 w-full">
+          <motion.span
+            animate={{ scale: [1, 1.4, 1] }}
+            transition={{ duration: 1.2, repeat: Infinity }}
+            className="text-lg shrink-0"
+          >📡</motion.span>
+          <span className="font-black text-sm sm:text-base tracking-wider text-[#1B3022] uppercase text-center">
+            SEND THIS TO ELON — TAP TO SHARE NOW
           </span>
-          <a
-            href="#share"
-            className="shrink-0 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border transition-all"
-            style={{ borderColor: "rgba(212,175,55,0.5)", color: "#D4AF37", background: "rgba(212,175,55,0.1)" }}
-          >
-            Share ↓
-          </a>
-        </div>
+          <motion.span
+            animate={{ x: [0, 5, 0] }}
+            transition={{ duration: 0.8, repeat: Infinity }}
+            className="text-[#1B3022] font-black text-lg shrink-0"
+          >↓</motion.span>
+        </a>
       </motion.div>
 
       {/* ── Hero ────────────────────────────────────────────────────────── */}
