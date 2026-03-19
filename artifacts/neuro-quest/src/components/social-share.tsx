@@ -14,7 +14,7 @@ export interface ShareConfig {
 const DEFAULT_CONFIG: ShareConfig = {
   url: typeof window !== "undefined" ? window.location.href : "https://neuroquest.app",
   title: "NeuroQuest — Compassion Casino",
-  description: "I'm training my mind & funding hunger relief with every spin. Your mind is the stake. The world is the winner.",
+  description: "I'm training my mind & funding hunger relief with every spin. Train your mind. Feed the world.",
   hashtags: ["NeuroQuest", "CompassionCasino", "Neuroplasticity", "GlobalAbundance"],
   via: "NeuroQuestApp",
 }

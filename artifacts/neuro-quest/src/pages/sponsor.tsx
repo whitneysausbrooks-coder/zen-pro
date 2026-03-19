@@ -18,13 +18,13 @@ const SPONSOR_TIERS = [
     name: "Starter",
     price: "$500",
     period: "/month",
-    prize_budget: "Up to $1,000 in prizes/mo",
-    desc: "Test the channel with a curated prize pool and banner placement.",
+    prize_budget: "Up to $1,000 in charity donations/mo",
+    desc: "Test the channel with a curated donation pool and banner placement.",
     color: "border-cyan-400/35",
     accent: "text-cyan-400",
     badge: null,
     perks: [
-      "50 sponsored prize slots per month",
+      "50 sponsored jackpot triggers per month",
       "Jackpot banner in The Casino",
       "Brand name + logo in win overlay",
       "Monthly impressions report",
@@ -36,13 +36,13 @@ const SPONSOR_TIERS = [
     name: "Featured",
     price: "$2,500",
     period: "/month",
-    prize_budget: "Up to $5,000 in prizes/mo",
+    prize_budget: "Up to $5,000 in charity donations/mo",
     desc: "Exclusive branded jackpot symbol and priority placement across all sessions.",
     color: "border-cyan-400/55",
     accent: "text-cyan-300",
     badge: "Most Popular",
     perks: [
-      "250 sponsored prize slots per month",
+      "250 sponsored jackpot triggers per month",
       "Exclusive Sponsored Jackpot symbol on the reels",
       "Full branded win overlay & animations",
       "Priority banner placement",
@@ -55,13 +55,13 @@ const SPONSOR_TIERS = [
     name: "Premium",
     price: "$10,000",
     period: "/month",
-    prize_budget: "Unlimited prize budget",
+    prize_budget: "Unlimited donation pool",
     desc: "Full Casino experience takeover — custom skin, symbol, and real-time dashboard.",
     color: "border-fuchsia-400/40",
     accent: "text-fuchsia-300",
     badge: "Max Impact",
     perks: [
-      "Unlimited sponsored prize slots",
+      "Unlimited sponsored jackpot triggers",
       "Full Casino UI skin & colour takeover",
       "Custom reel symbol (your brand icon)",
       "Real-time winner dashboard",
@@ -306,7 +306,7 @@ export default function Sponsor() {
                         <span className={`font-serif text-4xl font-bold ${tier.accent}`}>{tier.price}</span>
                         <span className="text-muted-foreground text-sm">{tier.period}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">+ your prize budget · cancel anytime</p>
+                      <p className="text-xs text-muted-foreground mt-1">+ your donation budget · cancel anytime</p>
                     </div>
                     <ul className="space-y-2.5 flex-1">
                       {tier.perks.map((perk) => (
@@ -341,7 +341,7 @@ export default function Sponsor() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
                 {[
                   { icon: <Users className="w-6 h-6" />, label: "Active Casino Players / Month", value: "18,400+" },
-                  { icon: <DollarSign className="w-6 h-6" />, label: "Avg Prize Claimed Per Player", value: "$34" },
+                  { icon: <DollarSign className="w-6 h-6" />, label: "Avg Charity Donation Per Jackpot Win", value: "$34" },
                   { icon: <Star className="w-6 h-6 fill-current" />, label: "Sponsor Satisfaction Score", value: "4.9 / 5" },
                 ].map(({ icon, label, value }) => (
                   <div key={label} className="space-y-2">
@@ -373,7 +373,7 @@ export default function Sponsor() {
                   <h3 className="font-serif text-3xl text-foreground mb-2">Sponsorship Inquiry Received</h3>
                   <p className="text-muted-foreground leading-relaxed">
                     Our partnerships team will reach out within one business day to design
-                    your custom prize package and launch timeline.
+                    your custom sponsorship package and launch timeline.
                   </p>
                 </div>
                 <Link href="/">

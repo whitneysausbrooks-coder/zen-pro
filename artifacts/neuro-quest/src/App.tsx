@@ -19,6 +19,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { InstallPrompt } from "@/components/install-prompt";
 import { AuthGate } from "@/components/auth-gate";
 import { PaywallGate } from "@/components/paywall-modal";
+import { AgeGate } from "@/components/age-gate";
 import ElonPage from "@/pages/elon";
 import PaymentPage from "@/pages/payment";
 import SharePage from "@/pages/share";
@@ -96,12 +97,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-          <MobileNav />
-        </WouterRouter>
-        <InstallPrompt />
-        <Toaster />
+        <AgeGate>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+            <MobileNav />
+          </WouterRouter>
+          <InstallPrompt />
+          <Toaster />
+        </AgeGate>
       </TooltipProvider>
     </QueryClientProvider>
   );

@@ -29,7 +29,7 @@ export function CopyrightFooter({ className }: CopyrightFooterProps) {
               className="flex items-center gap-1.5 text-[11px] text-white/25 hover:text-white/50 transition-colors"
             >
               <Shield className="w-3 h-3" />
-              IP & Copyright
+              Legal & Privacy
             </button>
             <span className="text-white/10">·</span>
             <span className="text-[11px] text-white/20">
@@ -39,9 +39,8 @@ export function CopyrightFooter({ className }: CopyrightFooterProps) {
         </div>
 
         <p className="mt-3 text-[10px] text-white/15 text-center leading-relaxed max-w-2xl mx-auto">
-          The NeuroQuest concept, game mechanics, Compassion Jackpot™ system, Compassion Casino™ branding, 
-          and all associated intellectual property are the exclusive property of Whitney Shauntaye. 
-          Unauthorized reproduction, distribution, or commercial use is prohibited.
+          For entertainment only · No real-money gambling · Neural Energy has no cash value · 18+ only ·
+          The NeuroQuest concept, Compassion Jackpot™, and Compassion Casino™ are exclusive property of Whitney Shauntaye.
         </p>
       </div>
     </footer>

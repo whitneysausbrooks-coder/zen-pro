@@ -134,7 +134,16 @@ Utility scripts package. Each script is a `.ts` file in `src/` with a correspond
 
 **Social Sharing System:** Universal 13-platform share panel. Component: `src/components/social-share.tsx`. Exports `SocialSharePanel` (embeddable grid), `FloatingShareButton` (gold FAB on every page). Platforms: X/Twitter, Threads, Facebook, Instagram (copy), WhatsApp, Telegram, LinkedIn, Reddit, TikTok (copy), Pinterest, Discord (copy), Email, SMS. All include branded pre-written copy with hashtags. Dedicated share page at `/share` with 4 preset message variants (General, Jackpot Win, Challenge, Streak). PWA install instructions + native share API. Copyright micro-text on every panel.
 
-**Copyright & IP Protection:** Page at `/copyright` documents: ownership (Whitney Shauntaye), 6 trademarked marks (NeuroQuest™, Compassion Casino™, Compassion Jackpot™, etc.), 10 protected IP elements, user license terms, commercial licensing terms, DMCA notice instructions, governing law (U.S. Copyright Act, Lanham Act, Berne Convention). `CopyrightFooter` component (`src/components/copyright-footer.tsx`) appears at bottom of all main pages with link to `/copyright`.
+**Legal & Privacy:** Page at `/copyright` (titled "Legal & IP") now contains: IP ownership, 6 trademarks, 10 protected IP elements, DMCA, governing law, **Terms of Use** (entertainment-only declaration, 18+ eligibility, subscription/billing terms, Compassion Jackpot donation clarification, disclaimer), and **Privacy Policy** (data collected, usage, sharing, retention, user rights, children's privacy, cookies). `CopyrightFooter` (`src/components/copyright-footer.tsx`) links to this page as "Legal & Privacy" and includes "For entertainment only · No real-money gambling" disclaimer text on all pages.
+
+**App Store Compliance (implemented):**
+- **Age Gate:** `AgeGate` component wraps entire app in `App.tsx`. First-time visitors see a full-screen 18+ verification modal (localStorage `nq_age_verified`). Shows "For Entertainment Only" disclaimer, gold "Yes, I am 18+" button, and links to Terms/Privacy. Under-18 users see a restriction page.
+- **Entertainment-only disclaimers:** On casino/slot-machine page header and in all footers site-wide.
+- **Sponsor page:** All "prize" language changed to "charity donation" / "jackpot trigger" language — no implication that users receive cash prizes.
+- **Social share / onboarding tagline:** Changed from "Your mind is the stake" to "Train your mind. Feed the world."
+- **Copyright page:** "gambling-style wins" changed to "slot-style game spins."
+- **Subscribe page:** Auto-renewal disclosure strengthened — "Auto-renews monthly · Cancel any time" shown at price point; full legalese renewal disclosure added below payment buttons.
+- **Terms & Privacy:** Full Terms of Use and Privacy Policy added to `/copyright` page.
 
 **Open Graph / Rich Previews:** `index.html` contains full og:title, og:description, og:image, og:url, og:image:width/height/alt, og:site_name, og:locale + complete Twitter Card meta tags (twitter:card=summary_large_image, twitter:site, twitter:creator, twitter:image). Author + copyright meta tags. Canonical URL tag.
 

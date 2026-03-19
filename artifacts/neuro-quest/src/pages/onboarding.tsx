@@ -60,7 +60,7 @@ function SplashStep({ onNext }: { onNext: () => void }) {
         transition={{ delay: 0.9 }}
         className="text-lg sm:text-xl font-serif italic text-white/70 max-w-xs leading-relaxed mb-12"
       >
-        "Your mind is the stake.<br />The world is the winner."
+        "Train your mind.<br />Feed the world."
       </motion.p>
 
       <motion.div

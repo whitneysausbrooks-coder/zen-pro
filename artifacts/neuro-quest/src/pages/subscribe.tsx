@@ -455,7 +455,7 @@ export default function Subscribe() {
                         <span className="font-serif text-6xl font-bold text-gradient-gold">{displayPrice}</span>
                         <span className="text-muted-foreground text-lg">/{displayInterval}</span>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">Cancel any time. No contracts.</p>
+                      <p className="text-sm text-muted-foreground mt-1">Auto-renews monthly · Cancel any time · No contracts.</p>
                     </div>
                     <div className="shrink-0 p-4 rounded-2xl bg-primary/10 border border-primary/25">
                       <Crown className="w-8 h-8 text-primary" />
@@ -524,10 +524,15 @@ export default function Subscribe() {
                     </LuxuryButton>
                   </div>
 
-                  <p className="text-center text-xs text-muted-foreground">
-                    All payment methods accepted · Cancel any time
-                    <Shield className="inline w-3 h-3 ml-1 opacity-50" />
-                  </p>
+                  <div className="text-center space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      All payment methods accepted · Cancel any time
+                      <Shield className="inline w-3 h-3 ml-1 opacity-50" />
+                    </p>
+                    <p className="text-[11px] text-white/25 leading-relaxed">
+                      Zen Pro subscription auto-renews at $9.99/month until cancelled. Cancellation takes effect at the end of the current billing period. No refunds on partial periods.
+                    </p>
+                  </div>
                 </div>
               )}
             </GlassCardContent>

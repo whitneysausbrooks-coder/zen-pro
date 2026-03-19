@@ -972,6 +972,13 @@ export default function SlotMachine() {
           </div>
         </motion.div>
 
+        {/* Entertainment-only disclaimer */}
+        <div className="flex items-center justify-center gap-2 mb-4 px-4 py-2 rounded-2xl bg-white/3 border border-white/8 mx-auto max-w-sm">
+          <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">For Entertainment Only</span>
+          <span className="text-white/15">·</span>
+          <span className="text-[10px] text-white/25">No real money gambling · Neural Energy has no cash value</span>
+        </div>
+
         {/* Balances */}
         <div className="flex justify-center gap-4 mb-5 flex-wrap">
           <div className="glass-panel px-5 py-2 rounded-full flex items-center gap-2">

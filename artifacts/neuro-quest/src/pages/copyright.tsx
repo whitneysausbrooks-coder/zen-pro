@@ -54,11 +54,10 @@ export default function CopyrightPage() {
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
           <div className="inline-flex items-center gap-3 mb-3">
             <Shield className="w-7 h-7 text-primary" />
-            <h1 className="text-3xl font-serif font-bold text-gradient-gold">Intellectual Property</h1>
+            <h1 className="text-3xl font-serif font-bold text-gradient-gold">Legal & IP</h1>
           </div>
           <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-            All creative, conceptual, and technical works contained in NeuroQuest are protected by
-            copyright and intellectual property law.
+            Intellectual property, Terms of Use, and Privacy Policy for NeuroQuest™ — Compassion Casino™.
           </p>
         </motion.div>
 
@@ -113,7 +112,7 @@ export default function CopyrightPage() {
               <p>The following elements are protected by copyright and/or trade secret law:</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                 {[
-                  "The Compassion Jackpot™ mechanic (linking gambling-style wins to charitable micro-donations)",
+                  "The Compassion Jackpot™ mechanic (linking slot-style game spins to charitable micro-donations)",
                   "The dual-currency system (Neural Energy ⚡ + Compassion Points ♡)",
                   "The 'Luxury Zen' visual design system and glassmorphism aesthetic",
                   "All original marketing copy, taglines, and pitch narratives",
@@ -240,6 +239,102 @@ export default function CopyrightPage() {
                 © {YEAR} Whitney Shauntaye — NeuroQuest™. All Rights Reserved.
               </p>
             </div>
+          </motion.div>
+
+          {/* Terms of Service */}
+          <motion.div id="terms" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+            <Section icon={<FileText className="w-4 h-4" />} title="Terms of Use" accent="text-cyan-300">
+              <p>
+                By accessing or using NeuroQuest, you agree to be bound by these Terms of Use. If you do not agree,
+                do not use the platform.
+              </p>
+              <p>
+                <span className="text-white font-semibold">Entertainment Only.</span> NeuroQuest is a brain-training and
+                entertainment application. It is <span className="text-white font-semibold">not a gambling product</span>.
+                Neural Energy (⚡) and Compassion Points (♡) are virtual, in-game currencies with no real-world monetary
+                value and cannot be redeemed for cash, prizes, or any tangible consideration.
+              </p>
+              <p>
+                <span className="text-white font-semibold">Eligibility.</span> You must be at least 18 years of age to use
+                NeuroQuest. By confirming your age and accessing the platform, you represent and warrant that you meet
+                this requirement.
+              </p>
+              <p>
+                <span className="text-white font-semibold">Subscriptions &amp; Billing.</span> Zen Pro ($9.99/month) and Daily Pass ($5.00/24 hours)
+                subscriptions are billed automatically at the stated frequency. Zen Pro subscriptions <span className="text-white font-semibold">auto-renew monthly</span>{" "}
+                until cancelled. You may cancel at any time from your account settings; cancellation takes effect at the end of the current billing period.
+                No refunds are issued for partial billing periods. Extra Spins ($2.99 per 10 spins) are a one-time purchase and non-refundable once used.
+              </p>
+              <p>
+                <span className="text-white font-semibold">Compassion Jackpot Donations.</span> When you trigger a Compassion Jackpot event, a charitable
+                micro-donation is made in your name by our sponsoring brand partners. These are donations to third-party charities — not prizes, winnings, or
+                cash payments to you. No purchase is necessary to trigger a Compassion Jackpot.
+              </p>
+              <p>
+                <span className="text-white font-semibold">Prohibited Conduct.</span> You agree not to reverse-engineer, scrape, reproduce, exploit commercially,
+                or attempt to circumvent any access or security measures of NeuroQuest. Accounts found violating these terms may be suspended or terminated without notice.
+              </p>
+              <p>
+                <span className="text-white font-semibold">Disclaimer.</span> NeuroQuest is provided "as is" without warranty of any kind. We do not guarantee
+                uninterrupted access, accuracy of content, or fitness for any particular purpose. To the maximum extent permitted by law, Whitney Shauntaye shall not
+                be liable for any indirect, incidental, or consequential damages arising from your use of the platform.
+              </p>
+              <p>
+                We reserve the right to modify these Terms at any time. Continued use after changes constitutes acceptance.
+              </p>
+            </Section>
+          </motion.div>
+
+          {/* Privacy Policy */}
+          <motion.div id="privacy" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+            <Section icon={<Lock className="w-4 h-4" />} title="Privacy Policy" accent="text-rose-300">
+              <p>
+                Your privacy is important to us. This policy explains what data NeuroQuest collects, how it is used, and your rights.
+              </p>
+              <p>
+                <span className="text-white font-semibold">Data We Collect.</span> We collect:
+              </p>
+              <ul className="list-disc list-inside space-y-1 pl-2">
+                <li>Account information: your name and profile provided through Replit Auth (sign-in only — we do not store your password).</li>
+                <li>Usage data: game scores, spin history, Neural Energy balance, Compassion Points, and session activity.</li>
+                <li>Payment data: subscription and payment transactions are processed by Stripe. NeuroQuest does not store full card numbers.</li>
+                <li>Device data: browser type, operating system, and device identifiers for app functionality and analytics.</li>
+                <li>Age verification: a local flag stored on your device confirming you have verified your age (18+). This is stored only on your device and not transmitted to our servers.</li>
+              </ul>
+              <p>
+                <span className="text-white font-semibold">How We Use Your Data.</span> We use collected data to operate and improve the platform,
+                process payments, personalise your experience, provide customer support, and comply with legal obligations.
+                We do not sell your personal data to third parties.
+              </p>
+              <p>
+                <span className="text-white font-semibold">Data Sharing.</span> We may share data with:
+              </p>
+              <ul className="list-disc list-inside space-y-1 pl-2">
+                <li><span className="text-white/70">Stripe</span> — for payment processing (governed by Stripe's Privacy Policy).</li>
+                <li><span className="text-white/70">Replit Auth</span> — for authentication services.</li>
+                <li><span className="text-white/70">Sponsoring brands</span> — aggregate, anonymised engagement statistics only (no personally identifiable information).</li>
+              </ul>
+              <p>
+                <span className="text-white font-semibold">Data Retention.</span> We retain account data for as long as your account is active or as needed to provide services.
+                You may request deletion of your account and associated data at any time by contacting us.
+              </p>
+              <p>
+                <span className="text-white font-semibold">Your Rights.</span> Depending on your jurisdiction, you may have rights to access, correct, delete, or export your personal data.
+                To exercise these rights, contact us via the channels listed in the DMCA section above.
+              </p>
+              <p>
+                <span className="text-white font-semibold">Children's Privacy.</span> NeuroQuest is not directed at children under 18. We do not knowingly collect data
+                from anyone under 18 years of age. If you believe a minor has provided us data, please contact us immediately.
+              </p>
+              <p>
+                <span className="text-white font-semibold">Cookies &amp; Local Storage.</span> We use browser local storage (not third-party tracking cookies) to store your
+                session state, game progress, and age verification flag. No third-party advertising cookies are used.
+              </p>
+              <p>
+                This Privacy Policy was last updated: {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}.
+                We may update this policy periodically. Continued use after changes constitutes acceptance.
+              </p>
+            </Section>
           </motion.div>
 
         </div>
