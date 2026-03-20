@@ -1,0 +1,100 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# NeuroQuest — Codemagic Cloud Build & App Store Submission
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# SETUP STEPS (one-time, in Codemagic dashboard):
+#  1. Connect your GitHub repo at app.codemagic.io
+#  2. Go to: Teams → Integrations → Apple Developer Portal
+#     Add your Apple Developer Account credentials
+#  3. Go to: App Settings → Environment variables, add:
+#     APPLE_ID           = your Apple ID email
+#     APP_STORE_CONNECT_ISSUER_ID  = from App Store Connect → API Keys
+#     APP_STORE_CONNECT_KEY_IDENTIFIER = from App Store Connect → API Keys
+#     APP_STORE_CONNECT_PRIVATE_KEY    = contents of the .p8 file (mark as secure)
+#  4. Trigger a build → Codemagic handles the rest (build + sign + submit)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+workflows:
+  ios-app-store:
+    name: NeuroQuest — iOS App Store
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      node: 20.11.0
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.whitneyshauntaye.neuroquest"
+        APP_NAME: "NeuroQuest"
+        XCODE_WORKSPACE: "artifacts/neuro-quest/ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+      app_store_connect:
+        auth: integration  # uses the Apple Developer integration in Codemagic
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.whitneyshauntaye.neuroquest
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: "main"
+          include: true
+
+    scripts:
+      - name: Install pnpm
+        script: npm install -g pnpm@10
+
+      - name: Install Node dependencies
+        script: pnpm install --frozen-lockfile
+        working_directory: .
+
+      - name: Build web app
+        script: pnpm --filter @workspace/neuro-quest build
+        working_directory: .
+        environment:
+          BASE_PATH: "/"
+
+      - name: Sync Capacitor iOS
+        script: |
+          cd artifacts/neuro-quest
+          npx cap sync ios
+
+      - name: Install CocoaPods
+        script: |
+          cd artifacts/neuro-quest/ios/App
+          pod install
+        working_directory: .
+
+      - name: Set app version from build number
+        script: |
+          LATEST=$(app-store-connect get-latest-build-number "$BUNDLE_ID" || echo "0")
+          NEXT=$(( ${LATEST:-0} + 1 ))
+          /usr/libexec/PlistBuddy \
+            -c "Set :CFBundleShortVersionString 1.0.0" \
+            -c "Set :CFBundleVersion $NEXT" \
+            artifacts/neuro-quest/ios/App/App/Info.plist
+
+      - name: Build iOS archive
+        script: |
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true     # goes to TestFlight first for internal testing
+        submit_to_app_store: false     # set to true when ready for public release
+        release_type: AFTER_APPROVAL   # manual release after Apple approves
+      email:
+        recipients:
+          - whitneyshauntaye@gmail.com  # update with your email
+        notify:
+          success: true
+          failure: true

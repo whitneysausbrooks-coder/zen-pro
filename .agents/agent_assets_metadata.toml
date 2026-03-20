@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "wpWIJfZp3S9ptbGnfeCYJ"
+uri = "file://APP_STORE_SUBMISSION.md"
+type = "text"
+title = "NeuroQuest — App Store Submission Guide"

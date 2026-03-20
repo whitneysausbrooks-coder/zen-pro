@@ -47,3 +47,10 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# iOS / Capacitor build artifacts
+artifacts/neuro-quest/ios/App/Pods/
+artifacts/neuro-quest/ios/App/App.xcworkspace/xcuserdata/
+artifacts/neuro-quest/ios/App/DerivedData/
+artifacts/neuro-quest/ios/App/.build/
+artifacts/neuro-quest/dist/
