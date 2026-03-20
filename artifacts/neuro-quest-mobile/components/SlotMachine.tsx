@@ -128,14 +128,17 @@ export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
       const next = prev + 1;
       if (next === 3) {
         setSpinning(false);
-        onSpin(isWin);
-        if (Platform.OS !== "web") {
-          if (isWin) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          } else {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // Defer to avoid calling setState inside another setState updater
+        setTimeout(() => {
+          onSpin(isWin);
+          if (Platform.OS !== "web") {
+            if (isWin) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } else {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
           }
-        }
+        }, 0);
       }
       return next;
     });

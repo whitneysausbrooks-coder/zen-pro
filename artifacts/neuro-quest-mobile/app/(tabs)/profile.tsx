@@ -15,7 +15,7 @@ import { GlassCard } from "@/components/GlassCard";
 import Colors from "@/constants/colors";
 
 const ACHIEVEMENTS = [
-  { id: "1", title: "First Jackpot", icon: "trophy", unlocked: true },
+  { id: "1", title: "First Jackpot", icon: "award", unlocked: true },
   { id: "2", title: "7 Day Streak", icon: "zap", unlocked: true },
   { id: "3", title: "100 Spins", icon: "repeat", unlocked: true },
   { id: "4", title: "Zen Master", icon: "star", unlocked: false },
@@ -25,7 +25,7 @@ const ACHIEVEMENTS = [
 
 const SETTINGS = [
   { id: "notifications", label: "Daily Reminders", icon: "bell", toggle: true, value: true },
-  { id: "haptics", label: "Haptic Feedback", icon: "phone-vibrate", toggle: true, value: true },
+  { id: "haptics", label: "Haptic Feedback", icon: "smartphone", toggle: true, value: true },
   { id: "privacy", label: "Privacy Policy", icon: "shield", toggle: false },
   { id: "terms", label: "Terms of Use", icon: "file-text", toggle: false },
   { id: "support", label: "Contact Support", icon: "message-circle", toggle: false },
@@ -76,7 +76,7 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.profileName}>Compassion Player</Text>
           <View style={styles.rankBadge}>
-            <Ionicons name="crown" size={14} color={Colors.forestDeep} />
+            <MaterialCommunityIcons name="crown" size={14} color={Colors.forestDeep} />
             <Text style={styles.rankText}>Zen Rank 4</Text>
           </View>
           <Text style={styles.memberSince}>Member since March 2024</Text>
