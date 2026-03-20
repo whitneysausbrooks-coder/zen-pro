@@ -5,7 +5,9 @@ import type { CapacitorConfig } from "@capacitor/cli"
 // Replace DEPLOYED_URL below with your published Replit URL.
 // Find it in your Replit dashboard → Deployments → the .replit.app link.
 // ──────────────────────────────────────────────────────────────────────────────
-const DEPLOYED_URL = "https://neuroquest.replit.app" // ← replace with your .replit.app URL
+// Your published Replit URL — update this if you have a custom domain
+// To find it: Replit Dashboard → your project → Deployments tab
+const DEPLOYED_URL = "https://workspace.whitneysausbroo.replit.app"
 
 const config: CapacitorConfig = {
   appId: "com.whitneyshauntaye.neuroquest",
