@@ -23,16 +23,25 @@ const { width: screenW } = Dimensions.get("window");
 const nd = Platform.OS !== "web";
 const SPINS_KEY = "nq_spins_left";
 const WINS_KEY = "nq_total_wins";
+const DONATIONS_KEY = "nq_micro_donations";
 
 type ResultState = "idle" | "win" | "lose";
+
+const MICRO_DONATION_AMOUNTS = [0.10, 0.25, 0.50, 0.15, 0.30, 0.20];
+const DONATION_CAUSES = [
+  "Clean Water", "End Hunger", "Education", "Mental Health", "Climate Action", "Ocean Cleanup",
+];
 
 export default function PlayScreen() {
   const insets = useSafeAreaInsets();
   const [spinsLeft, setSpinsLeft] = useState(5);
   const [totalWins, setTotalWins] = useState(0);
+  const [totalDonated, setTotalDonated] = useState(0);
+  const [lastDonation, setLastDonation] = useState<{ amount: number; cause: string } | null>(null);
   const [result, setResult] = useState<ResultState>("idle");
   const resultAnim = useRef(new Animated.Value(0)).current;
   const resultScale = useRef(new Animated.Value(0.8)).current;
+  const donationPulse = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -40,8 +49,10 @@ export default function PlayScreen() {
       try {
         const s = await AsyncStorage.getItem(SPINS_KEY);
         const w = await AsyncStorage.getItem(WINS_KEY);
+        const d = await AsyncStorage.getItem(DONATIONS_KEY);
         if (s) setSpinsLeft(parseInt(s));
         if (w) setTotalWins(parseInt(w));
+        if (d) setTotalDonated(parseFloat(d));
       } catch {}
     };
     load();
@@ -67,11 +78,35 @@ export default function PlayScreen() {
     }, 2800);
   }, []);
 
+  const triggerMicroDonation = useCallback(
+    async (isWin: boolean) => {
+      const amount = isWin
+        ? MICRO_DONATION_AMOUNTS[Math.floor(Math.random() * MICRO_DONATION_AMOUNTS.length)] * 2
+        : MICRO_DONATION_AMOUNTS[Math.floor(Math.random() * MICRO_DONATION_AMOUNTS.length)];
+      const cause = DONATION_CAUSES[Math.floor(Math.random() * DONATION_CAUSES.length)];
+      const rounded = Math.round(amount * 100) / 100;
+      setTotalDonated((prev) => {
+        const newTotal = Math.round((prev + rounded) * 100) / 100;
+        AsyncStorage.setItem(DONATIONS_KEY, String(newTotal));
+        return newTotal;
+      });
+      setLastDonation({ amount: rounded, cause });
+
+      Animated.sequence([
+        Animated.timing(donationPulse, { toValue: 1, duration: 300, useNativeDriver: nd }),
+        Animated.timing(donationPulse, { toValue: 0, duration: 2000, useNativeDriver: nd }),
+      ]).start();
+    },
+    []
+  );
+
   const handleSpin = useCallback(
     async (isWin: boolean) => {
       const newSpins = Math.max(0, spinsLeft - 1);
       setSpinsLeft(newSpins);
       await AsyncStorage.setItem(SPINS_KEY, String(newSpins));
+
+      triggerMicroDonation(isWin);
 
       if (isWin) {
         const newWins = totalWins + 1;
@@ -82,7 +117,7 @@ export default function PlayScreen() {
         showResult("lose");
       }
     },
-    [spinsLeft, totalWins, showResult]
+    [spinsLeft, totalWins, showResult, triggerMicroDonation]
   );
 
   const handleBuySpins = useCallback(async () => {
@@ -174,6 +209,93 @@ export default function PlayScreen() {
               <View style={styles.donationDot} />
               <Text style={styles.donationText}>Real donations</Text>
             </View>
+          </View>
+        </GlassCard>
+
+        <GlassCard style={styles.microDonationCard} borderColor="rgba(74,222,128,0.2)" elevated>
+          <LinearGradient
+            colors={["rgba(74,222,128,0.08)", "rgba(96,165,250,0.04)", "transparent"]}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          />
+          <Text style={styles.microEyebrow}>MICRO-DONATIONS</Text>
+          <Text style={styles.microSubtitle}>Every spin generates a real charitable donation</Text>
+
+          <View style={styles.microStats}>
+            <View style={styles.microStatMain}>
+              <Text style={styles.microTotalLabel}>Your Total Impact</Text>
+              <Animated.Text
+                style={[
+                  styles.microTotal,
+                  {
+                    transform: [
+                      {
+                        scale: donationPulse.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [1, 1.1],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                ${totalDonated.toFixed(2)}
+              </Animated.Text>
+            </View>
+            <View style={styles.microStatsRow}>
+              <View style={styles.microStatItem}>
+                <Text style={styles.microStatVal}>{totalWins}</Text>
+                <Text style={styles.microStatLabel}>Jackpots</Text>
+              </View>
+              <View style={styles.microStatDivider} />
+              <View style={styles.microStatItem}>
+                <Text style={styles.microStatVal}>30%</Text>
+                <Text style={styles.microStatLabel}>To Charity</Text>
+              </View>
+              <View style={styles.microStatDivider} />
+              <View style={styles.microStatItem}>
+                <Text style={styles.microStatVal}>6</Text>
+                <Text style={styles.microStatLabel}>Causes</Text>
+              </View>
+            </View>
+          </View>
+
+          {lastDonation && (
+            <Animated.View
+              style={[
+                styles.lastDonation,
+                {
+                  opacity: donationPulse.interpolate({
+                    inputRange: [0, 0.3, 1],
+                    outputRange: [0.6, 1, 0.6],
+                  }),
+                },
+              ]}
+            >
+              <View style={styles.lastDonationDot} />
+              <Text style={styles.lastDonationText}>
+                ${lastDonation.amount.toFixed(2)} donated to {lastDonation.cause}
+              </Text>
+            </Animated.View>
+          )}
+
+          <View style={styles.microBreakdown}>
+            <Text style={styles.microBreakdownTitle}>Where Your Donations Go</Text>
+            {DONATION_CAUSES.map((cause, i) => {
+              const basePct = Math.floor((1 / DONATION_CAUSES.length) * 100);
+              const pct = i < (100 - basePct * DONATION_CAUSES.length) ? basePct + 1 : basePct;
+              return (
+                <View key={cause} style={styles.microCauseRow}>
+                  <View style={[styles.microCauseDot, { backgroundColor: [Colors.mindfulBlue, Colors.balanceAmber, Colors.empathyGreen, Colors.neuralPurple, Colors.compassionPink, Colors.gold][i] }]} />
+                  <Text style={styles.microCauseName}>{cause}</Text>
+                  <View style={styles.microCauseBar}>
+                    <View style={[styles.microCauseFill, { width: `${pct}%`, backgroundColor: [Colors.mindfulBlue, Colors.balanceAmber, Colors.empathyGreen, Colors.neuralPurple, Colors.compassionPink, Colors.gold][i] }]} />
+                  </View>
+                  <Text style={styles.microCausePct}>{pct}%</Text>
+                </View>
+              );
+            })}
           </View>
         </GlassCard>
 
@@ -428,5 +550,135 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.whiteAlpha60,
     lineHeight: 21,
+  },
+  microDonationCard: {
+    padding: 24,
+    gap: 14,
+    overflow: "hidden",
+  },
+  microEyebrow: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+    color: Colors.empathyGreen,
+    letterSpacing: 3,
+  },
+  microSubtitle: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: Colors.whiteAlpha50,
+  },
+  microStats: {
+    gap: 14,
+  },
+  microStatMain: {
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 12,
+    backgroundColor: Colors.whiteAlpha05,
+    borderRadius: 16,
+  },
+  microTotalLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: Colors.whiteAlpha30,
+  },
+  microTotal: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 36,
+    color: Colors.empathyGreen,
+  },
+  microStatsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+  },
+  microStatItem: {
+    alignItems: "center",
+    gap: 2,
+  },
+  microStatVal: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 18,
+    color: Colors.gold,
+  },
+  microStatLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 10,
+    color: Colors.whiteAlpha30,
+  },
+  microStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: Colors.whiteAlpha10,
+  },
+  lastDonation: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(74,222,128,0.08)",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(74,222,128,0.15)",
+  },
+  lastDonationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.empathyGreen,
+  },
+  lastDonationText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: Colors.empathyGreen,
+    flex: 1,
+  },
+  microBreakdown: {
+    gap: 8,
+    backgroundColor: Colors.whiteAlpha05,
+    borderRadius: 12,
+    padding: 14,
+  },
+  microBreakdownTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: Colors.whiteAlpha60,
+    marginBottom: 4,
+  },
+  microCauseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  microCauseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  microCauseName: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: Colors.whiteAlpha50,
+    width: 90,
+  },
+  microCauseBar: {
+    flex: 1,
+    height: 4,
+    backgroundColor: Colors.whiteAlpha05,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  microCauseFill: {
+    height: "100%",
+    borderRadius: 2,
+    opacity: 0.7,
+  },
+  microCausePct: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 10,
+    color: Colors.whiteAlpha30,
+    width: 28,
+    textAlign: "right",
   },
 });

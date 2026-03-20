@@ -16,6 +16,7 @@ import { GlassCard } from "@/components/GlassCard";
 import { StroopGame } from "@/components/StroopGame";
 import { MemoryGrid } from "@/components/MemoryGrid";
 import { BreathingPacer } from "@/components/BreathingPacer";
+import { PatternMatch } from "@/components/PatternMatch";
 import { NeuralSoundscape } from "@/components/NeuralSoundscape";
 import Colors from "@/constants/colors";
 
@@ -194,6 +195,14 @@ const BRAIN_GAMES: BrainGame[] = [
     science: "Trains dorsolateral PFC working memory, linked to emotional regulation",
   },
   {
+    id: "pattern",
+    title: "Pattern Match",
+    description: "Memorize and identify visual patterns. Adaptive difficulty.",
+    icon: "extension-puzzle",
+    iconFamily: "Ionicons",
+    science: "Strengthens ventral visual stream and prefrontal executive function circuits",
+  },
+  {
     id: "breathing",
     title: "4-7-8 Breathing Pacer",
     description: "Guided breathing cycle: 4s inhale, 7s hold, 8s exhale.",
@@ -202,6 +211,94 @@ const BRAIN_GAMES: BrainGame[] = [
     science: "Vagus nerve stimulation activates parasympathetic response, reducing amygdala reactivity",
   },
 ];
+
+interface TeamExercise {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  iconFamily: "Ionicons" | "Feather" | "MaterialCommunity";
+  duration: string;
+  participants: string;
+  category: "empathy" | "communication" | "trust" | "innovation";
+}
+
+const TEAM_EXERCISES: TeamExercise[] = [
+  {
+    id: "empathy_circle",
+    title: "Empathy Circle",
+    description: "Each member shares a challenge. Others practice reflective listening without advice-giving. Build psychological safety.",
+    icon: "people-circle",
+    iconFamily: "Ionicons",
+    duration: "15 min",
+    participants: "4-8",
+    category: "empathy",
+  },
+  {
+    id: "blind_collaboration",
+    title: "Blind Collaboration",
+    description: "One person describes, another builds. Practice clear communication and active listening under constraint.",
+    icon: "eye-off",
+    iconFamily: "Feather",
+    duration: "20 min",
+    participants: "2-6",
+    category: "communication",
+  },
+  {
+    id: "trust_fall_digital",
+    title: "Digital Trust Exercise",
+    description: "Share one vulnerability with your team. Vulnerability-based trust is the foundation of high-performing teams.",
+    icon: "shield-checkmark",
+    iconFamily: "Ionicons",
+    duration: "10 min",
+    participants: "3-10",
+    category: "trust",
+  },
+  {
+    id: "reverse_brainstorm",
+    title: "Reverse Brainstorm",
+    description: "Instead of solving, brainstorm ways to make the problem worse. Then flip each idea — innovative solutions emerge.",
+    icon: "bulb",
+    iconFamily: "Ionicons",
+    duration: "25 min",
+    participants: "4-12",
+    category: "innovation",
+  },
+  {
+    id: "gratitude_round",
+    title: "Gratitude Round",
+    description: "Each person publicly appreciates one specific thing a colleague did this week. Builds recognition culture.",
+    icon: "heart",
+    iconFamily: "Ionicons",
+    duration: "10 min",
+    participants: "3-15",
+    category: "empathy",
+  },
+  {
+    id: "perspective_swap",
+    title: "Perspective Swap",
+    description: "Argue your colleague's position on a work topic for 3 minutes. Develops cognitive flexibility and reduces conflict.",
+    icon: "repeat",
+    iconFamily: "Feather",
+    duration: "15 min",
+    participants: "2-8",
+    category: "communication",
+  },
+];
+
+const TEAM_CATEGORY_COLORS: Record<string, string> = {
+  empathy: Colors.compassionPink,
+  communication: Colors.mindfulBlue,
+  trust: Colors.empathyGreen,
+  innovation: Colors.balanceAmber,
+};
+
+const TEAM_CATEGORY_LABELS: Record<string, string> = {
+  empathy: "Empathy",
+  communication: "Communication",
+  trust: "Trust",
+  innovation: "Innovation",
+};
 
 const CATEGORY_COLORS: Record<string, string> = {
   connection: "#5C8AE0",
@@ -223,7 +320,7 @@ function TaskIcon({ item }: { item: { icon: string; iconFamily: string } }) {
   return <Ionicons name={item.icon as any} size={size} color={color} />;
 }
 
-type ActiveGame = "stroop" | "memory" | "breathing" | "soundscape" | null;
+type ActiveGame = "stroop" | "memory" | "pattern" | "breathing" | "soundscape" | null;
 
 export default function TrainScreen() {
   const insets = useSafeAreaInsets();
@@ -283,6 +380,7 @@ export default function TrainScreen() {
         <View style={[styles.gameContainer, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 }]}>
           {activeGame === "stroop" && <StroopGame onClose={() => setActiveGame(null)} />}
           {activeGame === "memory" && <MemoryGrid onClose={() => setActiveGame(null)} />}
+          {activeGame === "pattern" && <PatternMatch onClose={() => setActiveGame(null)} />}
           {activeGame === "breathing" && <BreathingPacer onClose={() => setActiveGame(null)} />}
           {activeGame === "soundscape" && <NeuralSoundscape onClose={() => setActiveGame(null)} />}
         </View>
@@ -358,7 +456,7 @@ export default function TrainScreen() {
             </View>
             <View style={styles.progressDivider} />
             <View style={styles.progressStat}>
-              <Text style={styles.progressNum}>{MINDFUL_TASKS.length + DOPAMINE_BOOSTERS.length}</Text>
+              <Text style={styles.progressNum}>{MINDFUL_TASKS.length + DOPAMINE_BOOSTERS.length + TEAM_EXERCISES.length}</Text>
               <Text style={styles.progressLabel}>Available</Text>
             </View>
           </View>
@@ -526,6 +624,110 @@ export default function TrainScreen() {
                 </GlassCard>
               </Pressable>
             ))}
+          </View>
+        )}
+
+        {/* ── TEAM BUILDING ── */}
+        <Pressable onPress={() => toggleSection("team")} style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="people" size={20} color={Colors.gold} />
+            <Text style={styles.sectionTitle}>Team Building</Text>
+          </View>
+          <Ionicons
+            name={expandedSection === "team" ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={Colors.whiteAlpha50}
+          />
+        </Pressable>
+
+        {expandedSection === "team" && (
+          <View style={styles.tasksList}>
+            <GlassCard style={styles.teamBanner} borderColor="rgba(96,165,250,0.2)">
+              <LinearGradient
+                colors={["rgba(96,165,250,0.08)", "rgba(74,222,128,0.04)", "transparent"]}
+                style={StyleSheet.absoluteFill}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              />
+              <View style={styles.teamBannerTop}>
+                <MaterialCommunityIcons name="account-group" size={24} color={Colors.mindfulBlue} />
+                <View style={styles.teamBannerInfo}>
+                  <Text style={styles.teamBannerTitle}>Corporate Wellness</Text>
+                  <Text style={styles.teamBannerSub}>Science-backed exercises for high-performing teams</Text>
+                </View>
+              </View>
+              <View style={styles.teamMetrics}>
+                <View style={styles.teamMetric}>
+                  <Text style={styles.teamMetricNum}>87%</Text>
+                  <Text style={styles.teamMetricLabel}>Engagement{"\n"}Increase</Text>
+                </View>
+                <View style={styles.teamMetricDivider} />
+                <View style={styles.teamMetric}>
+                  <Text style={styles.teamMetricNum}>3.2x</Text>
+                  <Text style={styles.teamMetricLabel}>Team{"\n"}Cohesion</Text>
+                </View>
+                <View style={styles.teamMetricDivider} />
+                <View style={styles.teamMetric}>
+                  <Text style={styles.teamMetricNum}>-41%</Text>
+                  <Text style={styles.teamMetricLabel}>Burnout{"\n"}Rate</Text>
+                </View>
+              </View>
+            </GlassCard>
+
+            {TEAM_EXERCISES.map((exercise) => {
+              const done = completedToday.has(exercise.id);
+              const catColor = TEAM_CATEGORY_COLORS[exercise.category];
+              return (
+                <Pressable
+                  key={exercise.id}
+                  onPress={() => toggleTask(exercise.id)}
+                  style={({ pressed }) => [pressed && { opacity: 0.8 }]}
+                >
+                  <GlassCard
+                    style={[styles.taskCard, done && styles.taskCardDone]}
+                    borderColor={done ? catColor : Colors.glassBorder}
+                  >
+                    {done && (
+                      <LinearGradient
+                        colors={[catColor + "15", "transparent"]}
+                        style={StyleSheet.absoluteFill}
+                      />
+                    )}
+                    <View style={styles.taskTop}>
+                      <View style={[styles.taskIconWrap, done && { borderColor: catColor }]}>
+                        <TaskIcon item={exercise} />
+                      </View>
+                      <View style={styles.taskInfo}>
+                        <Text style={[styles.taskTitle, done && styles.taskTitleDone]}>
+                          {exercise.title}
+                        </Text>
+                        <Text style={styles.taskDesc}>{exercise.description}</Text>
+                      </View>
+                      <View style={styles.taskRight}>
+                        <View style={[styles.categoryBadge, { backgroundColor: catColor + "20" }]}>
+                          <Text style={[styles.categoryText, { color: catColor }]}>
+                            {TEAM_CATEGORY_LABELS[exercise.category]}
+                          </Text>
+                        </View>
+                        <View style={[styles.checkCircle, done && styles.checkCircleDone]}>
+                          {done && <Ionicons name="checkmark" size={14} color={Colors.forestDeep} />}
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.teamMeta}>
+                      <View style={styles.teamMetaChip}>
+                        <Ionicons name="time" size={11} color={Colors.whiteAlpha30} />
+                        <Text style={styles.teamMetaText}>{exercise.duration}</Text>
+                      </View>
+                      <View style={styles.teamMetaChip}>
+                        <Ionicons name="people" size={11} color={Colors.whiteAlpha30} />
+                        <Text style={styles.teamMetaText}>{exercise.participants} people</Text>
+                      </View>
+                    </View>
+                  </GlassCard>
+                </Pressable>
+              );
+            })}
           </View>
         )}
 
@@ -882,5 +1084,77 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.whiteAlpha30,
     lineHeight: 18,
+  },
+  teamBanner: {
+    padding: 20,
+    gap: 16,
+    overflow: "hidden",
+  },
+  teamBannerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  teamBannerInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  teamBannerTitle: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 18,
+    color: Colors.white,
+  },
+  teamBannerSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: Colors.whiteAlpha30,
+  },
+  teamMetrics: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    backgroundColor: Colors.whiteAlpha05,
+    borderRadius: 12,
+    padding: 14,
+  },
+  teamMetric: {
+    alignItems: "center",
+    gap: 4,
+  },
+  teamMetricNum: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 20,
+    color: Colors.mindfulBlue,
+  },
+  teamMetricLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 9,
+    color: Colors.whiteAlpha30,
+    textAlign: "center",
+    lineHeight: 13,
+  },
+  teamMetricDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: Colors.whiteAlpha10,
+  },
+  teamMeta: {
+    flexDirection: "row",
+    gap: 12,
+    marginLeft: 52,
+  },
+  teamMetaChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.whiteAlpha05,
+    borderRadius: 100,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  teamMetaText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 10,
+    color: Colors.whiteAlpha30,
   },
 });

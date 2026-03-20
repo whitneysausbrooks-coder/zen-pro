@@ -53,6 +53,24 @@ const PLANS = [
   },
 ];
 
+const ENTERPRISE_FEATURES = [
+  { icon: "people", title: "Team Dashboard", desc: "Real-time wellness metrics across your organization" },
+  { icon: "analytics", title: "ROI Analytics", desc: "Measure engagement, retention, and productivity impact" },
+  { icon: "shield-checkmark", title: "SSO & SCIM", desc: "Enterprise-grade SSO integration and user provisioning" },
+  { icon: "git-branch", title: "Team Challenges", desc: "Custom team exercises designed by organizational psychologists" },
+  { icon: "bar-chart", title: "Burnout Detection", desc: "AI-powered early warning system for employee burnout" },
+  { icon: "heart-circle", title: "CSR Impact Reports", desc: "Branded reports showing your company's charitable impact" },
+  { icon: "lock-closed", title: "HIPAA Compliant", desc: "SOC 2 Type II certified, GDPR ready, data residency options" },
+  { icon: "calendar", title: "Dedicated Success", desc: "Named customer success manager and onboarding support" },
+];
+
+const ENTERPRISE_CLIENTS = [
+  { name: "Fortune 500", count: "12 companies" },
+  { name: "Employees", count: "48,000+" },
+  { name: "Avg. ROI", count: "340%" },
+  { name: "Retention", count: "94%" },
+];
+
 export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState("pro");
@@ -228,6 +246,102 @@ export default function ShopScreen() {
           <View style={styles.donationNote}>
             <View style={styles.donationDot} />
             <Text style={styles.donationText}>$0.90 donated per purchase</Text>
+          </View>
+        </GlassCard>
+
+        <GlassCard style={styles.enterpriseCard} borderColor="rgba(96,165,250,0.2)" elevated>
+          <LinearGradient
+            colors={["rgba(96,165,250,0.08)", "rgba(167,139,250,0.06)", "transparent"]}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          />
+          <View style={styles.enterpriseBadge}>
+            <Text style={styles.enterpriseBadgeText}>ENTERPRISE</Text>
+          </View>
+
+          <Text style={styles.enterpriseTitle}>Corporate Wellness</Text>
+          <View style={styles.enterprisePriceRow}>
+            <Text style={styles.enterprisePrice}>$50</Text>
+            <Text style={styles.enterprisePeriod}>/seat/year</Text>
+          </View>
+
+          <View style={styles.enterpriseNote}>
+            <View style={styles.donationDot} />
+            <Text style={styles.donationText}>$15 per seat donated to charity annually</Text>
+          </View>
+
+          <View style={styles.enterpriseMetrics}>
+            {ENTERPRISE_CLIENTS.map((c) => (
+              <View key={c.name} style={styles.entMetric}>
+                <Text style={styles.entMetricVal}>{c.count}</Text>
+                <Text style={styles.entMetricLabel}>{c.name}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.entFeatures}>
+            {ENTERPRISE_FEATURES.map((f) => (
+              <View key={f.title} style={styles.entFeatureRow}>
+                <View style={styles.entFeatureIcon}>
+                  <Ionicons name={f.icon as any} size={16} color={Colors.mindfulBlue} />
+                </View>
+                <View style={styles.entFeatureInfo}>
+                  <Text style={styles.entFeatureTitle}>{f.title}</Text>
+                  <Text style={styles.entFeatureDesc}>{f.desc}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <Pressable
+            onPress={() => {
+              if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }}
+            style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+          >
+            <LinearGradient
+              colors={[Colors.mindfulBlue, "#4A8FE0", "#3A7BD5"]}
+              style={styles.entButton}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="business" size={18} color={Colors.white} />
+              <Text style={styles.entButtonText}>Request Enterprise Demo</Text>
+            </LinearGradient>
+          </Pressable>
+
+          <Text style={styles.entMinSeats}>Minimum 25 seats · Volume discounts available</Text>
+        </GlassCard>
+
+        <GlassCard style={styles.sponsoredCard} borderColor={Colors.goldAlpha20}>
+          <LinearGradient
+            colors={[Colors.goldAlpha08, Colors.goldAlpha05, "transparent"]}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.sponsoredTop}>
+            <MaterialCommunityIcons name="star-face" size={28} color={Colors.gold} />
+            <View style={styles.sponsoredInfo}>
+              <Text style={styles.sponsoredTitle}>Sponsored Jackpots</Text>
+              <Text style={styles.sponsoredSub}>Your brand. Real donations. Maximum visibility.</Text>
+            </View>
+          </View>
+          <View style={styles.sponsoredTiers}>
+            {[
+              { name: "Bronze", price: "$500/mo", reach: "10K impressions" },
+              { name: "Silver", price: "$2,500/mo", reach: "50K impressions" },
+              { name: "Gold", price: "$10,000/mo", reach: "250K impressions" },
+            ].map((tier) => (
+              <View key={tier.name} style={styles.sponsoredTier}>
+                <Text style={styles.sponsoredTierName}>{tier.name}</Text>
+                <Text style={styles.sponsoredTierPrice}>{tier.price}</Text>
+                <Text style={styles.sponsoredTierReach}>{tier.reach}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.enterpriseNote}>
+            <View style={styles.donationDot} />
+            <Text style={styles.donationText}>30% of sponsorship goes directly to the cause</Text>
           </View>
         </GlassCard>
 
@@ -525,5 +639,193 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 17,
     marginTop: 8,
+  },
+  enterpriseCard: {
+    padding: 24,
+    gap: 16,
+    overflow: "hidden",
+    position: "relative",
+  },
+  enterpriseBadge: {
+    position: "absolute",
+    top: 18,
+    right: 18,
+    backgroundColor: Colors.mindfulBlue,
+    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  enterpriseBadgeText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 9,
+    color: Colors.white,
+    letterSpacing: 1,
+  },
+  enterpriseTitle: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 24,
+    color: Colors.white,
+  },
+  enterprisePriceRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  enterprisePrice: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 40,
+    color: Colors.mindfulBlue,
+  },
+  enterprisePeriod: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: Colors.whiteAlpha30,
+    marginBottom: 8,
+  },
+  enterpriseNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(96,165,250,0.08)",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "rgba(96,165,250,0.15)",
+  },
+  enterpriseMetrics: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  entMetric: {
+    flex: 1,
+    minWidth: "45%",
+    backgroundColor: Colors.whiteAlpha05,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 2,
+  },
+  entMetricVal: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 16,
+    color: Colors.mindfulBlue,
+  },
+  entMetricLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 10,
+    color: Colors.whiteAlpha30,
+  },
+  entFeatures: {
+    gap: 12,
+  },
+  entFeatureRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  entFeatureIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "rgba(96,165,250,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(96,165,250,0.15)",
+  },
+  entFeatureInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  entFeatureTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: Colors.white,
+  },
+  entFeatureDesc: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: Colors.whiteAlpha30,
+    lineHeight: 17,
+  },
+  entButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 18,
+    borderRadius: 100,
+    shadowColor: Colors.mindfulBlue,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  entButtonText: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 16,
+    color: Colors.white,
+  },
+  entMinSeats: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: Colors.whiteAlpha20,
+    textAlign: "center",
+  },
+  sponsoredCard: {
+    padding: 24,
+    gap: 16,
+    overflow: "hidden",
+  },
+  sponsoredTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  sponsoredInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  sponsoredTitle: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 18,
+    color: Colors.white,
+  },
+  sponsoredSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: Colors.whiteAlpha30,
+  },
+  sponsoredTiers: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  sponsoredTier: {
+    flex: 1,
+    backgroundColor: Colors.whiteAlpha05,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderColor: Colors.whiteAlpha10,
+  },
+  sponsoredTierName: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: Colors.gold,
+  },
+  sponsoredTierPrice: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 14,
+    color: Colors.white,
+  },
+  sponsoredTierReach: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 9,
+    color: Colors.whiteAlpha30,
+    textAlign: "center",
   },
 });
