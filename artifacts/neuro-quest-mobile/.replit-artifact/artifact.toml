@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/neuro-quest-mobile/"
+title = "NeuroQuest Mobile"
+version = "1.0.0"
+id = "artifacts/neuro-quest-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/neuro-quest-mobile/" ]
+localPort = 23047
+
+[services.development]
+run = "pnpm --filter @workspace/neuro-quest-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/neuro-quest-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/neuro-quest-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "23047"
+BASE_PATH = "/neuro-quest-mobile/"
