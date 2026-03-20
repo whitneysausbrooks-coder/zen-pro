@@ -13,51 +13,60 @@ import Colors from "@/constants/colors";
 
 const SYMBOLS = ["🌿", "☀️", "💧", "🌍", "❤️", "✨"];
 const SYMBOL_HEIGHT = 80;
-const VISIBLE_SYMBOLS = 3;
+const nd = Platform.OS !== "web";
 
 interface ReelProps {
+  symbols: string[];
   spinning: boolean;
-  finalIndex: number;
-  delay: number;
-  onStop: () => void;
+  finalSymbolIndex: number;
+  stopDelay: number;
+  onStopped: () => void;
 }
 
-function Reel({ spinning, finalIndex, delay, onStop }: ReelProps) {
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const [currentIndex, setCurrentIndex] = useState(0);
+function Reel({ symbols, spinning, finalSymbolIndex, stopDelay, onStopped }: ReelProps) {
+  const [displayIndex, setDisplayIndex] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+  const hasStoppedRef = useRef(false);
 
   useEffect(() => {
-    const nativeDriver = Platform.OS !== "web";
     if (spinning) {
-      Animated.loop(
-        Animated.timing(scrollY, {
-          toValue: SYMBOLS.length * SYMBOL_HEIGHT,
-          duration: 300,
-          useNativeDriver: nativeDriver,
-        })
-      ).start();
-    } else {
-      scrollY.stopAnimation();
-      const target = finalIndex * SYMBOL_HEIGHT;
-      Animated.spring(scrollY, {
-        toValue: target % (SYMBOLS.length * SYMBOL_HEIGHT),
-        useNativeDriver: nativeDriver,
-        friction: 8,
-        tension: 40,
-      }).start(() => {
-        setCurrentIndex(finalIndex);
-        onStop();
-      });
+      hasStoppedRef.current = false;
+      let tick = 0;
+      intervalRef.current = setInterval(() => {
+        tick++;
+        setDisplayIndex(tick % symbols.length);
+      }, 80);
+
+      timeoutRef.current = setTimeout(() => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        intervalRef.current = null;
+        setDisplayIndex(finalSymbolIndex);
+
+        bounceAnim.setValue(-12);
+        Animated.spring(bounceAnim, {
+          toValue: 0,
+          useNativeDriver: nd,
+          friction: 5,
+          tension: 150,
+        }).start(() => {
+          if (!hasStoppedRef.current) {
+            hasStoppedRef.current = true;
+            onStopped();
+          }
+        });
+      }, stopDelay);
     }
-  }, [spinning, finalIndex]);
 
-  const translateY = scrollY.interpolate({
-    inputRange: [0, SYMBOLS.length * SYMBOL_HEIGHT],
-    outputRange: [0, -SYMBOLS.length * SYMBOL_HEIGHT],
-    extrapolate: "extend",
-  });
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [spinning, finalSymbolIndex, stopDelay]);
 
-  const extendedSymbols = [...SYMBOLS, ...SYMBOLS, ...SYMBOLS];
+  const aboveIndex = (displayIndex - 1 + symbols.length) % symbols.length;
+  const belowIndex = (displayIndex + 1) % symbols.length;
 
   return (
     <View style={styles.reelContainer}>
@@ -67,12 +76,16 @@ function Reel({ spinning, finalIndex, delay, onStop }: ReelProps) {
         pointerEvents="none"
       />
       <View style={styles.reelWindow}>
-        <Animated.View style={{ transform: [{ translateY }] }}>
-          {extendedSymbols.map((sym, i) => (
-            <View key={i} style={styles.symbolCell}>
-              <Text style={styles.symbol}>{sym}</Text>
-            </View>
-          ))}
+        <Animated.View style={{ transform: [{ translateY: bounceAnim }] }}>
+          <View style={styles.symbolCell}>
+            <Text style={[styles.symbol, styles.symbolDim]}>{symbols[aboveIndex]}</Text>
+          </View>
+          <View style={[styles.symbolCell, styles.symbolCellCenter]}>
+            <Text style={styles.symbol}>{symbols[displayIndex]}</Text>
+          </View>
+          <View style={styles.symbolCell}>
+            <Text style={[styles.symbol, styles.symbolDim]}>{symbols[belowIndex]}</Text>
+          </View>
         </Animated.View>
       </View>
     </View>
@@ -86,12 +99,11 @@ interface SlotMachineProps {
 
 export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
   const [spinning, setSpinning] = useState(false);
-  const [finalIndices, setFinalIndices] = useState([0, 1, 2]);
+  const [finalIndices, setFinalIndices] = useState([0, 2, 4]);
   const [stoppedCount, setStoppedCount] = useState(0);
-  const [isWin, setIsWin] = useState(false);
+  const winRef = useRef(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const nd = Platform.OS !== "web";
   useEffect(() => {
     const pulse = Animated.loop(
       Animated.sequence([
@@ -106,7 +118,7 @@ export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
   const handleSpin = useCallback(() => {
     if (spinning || spinsLeft <= 0) return;
 
-    if (Platform.OS !== "web") {
+    if (nd) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     }
 
@@ -114,24 +126,23 @@ export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
     const r2 = Math.floor(Math.random() * SYMBOLS.length);
     const jackpot = Math.random() < 0.15;
     const r3 = jackpot ? r1 : Math.floor(Math.random() * SYMBOLS.length);
-    const r4 = jackpot ? r1 : Math.floor(Math.random() * SYMBOLS.length);
     const win = r1 === r2 && r2 === r3;
 
-    setIsWin(win);
+    winRef.current = win;
     setFinalIndices([r1, r2, r3]);
     setStoppedCount(0);
     setSpinning(true);
   }, [spinning, spinsLeft]);
 
-  const handleReelStop = useCallback(() => {
+  const handleReelStopped = useCallback(() => {
     setStoppedCount((prev) => {
       const next = prev + 1;
-      if (next === 3) {
-        setSpinning(false);
-        // Defer to avoid calling setState inside another setState updater
+      if (next >= 3) {
         setTimeout(() => {
+          setSpinning(false);
+          const isWin = winRef.current;
           onSpin(isWin);
-          if (Platform.OS !== "web") {
+          if (nd) {
             if (isWin) {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } else {
@@ -142,7 +153,7 @@ export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
       }
       return next;
     });
-  }, [isWin, onSpin]);
+  }, [onSpin]);
 
   return (
     <View style={styles.container}>
@@ -160,13 +171,16 @@ export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
           {[0, 1, 2].map((i) => (
             <Reel
               key={i}
+              symbols={SYMBOLS}
               spinning={spinning}
-              finalIndex={finalIndices[i]}
-              delay={i * 200}
-              onStop={handleReelStop}
+              finalSymbolIndex={finalIndices[i]}
+              stopDelay={800 + i * 500}
+              onStopped={handleReelStopped}
             />
           ))}
         </View>
+
+        <View style={styles.centerLine} />
 
         <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
           <Pressable
@@ -235,10 +249,19 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: Colors.goldAlpha15,
+    position: "relative",
+  },
+  centerLine: {
+    position: "absolute",
+    left: 32,
+    right: 32,
+    top: "50%",
+    height: 0,
+    borderTopWidth: 0,
   },
   reelContainer: {
     width: 80,
-    height: SYMBOL_HEIGHT * VISIBLE_SYMBOLS,
+    height: SYMBOL_HEIGHT * 3,
     position: "relative",
   },
   reelFade: {
@@ -248,7 +271,7 @@ const styles = StyleSheet.create({
   },
   reelWindow: {
     width: 80,
-    height: SYMBOL_HEIGHT * VISIBLE_SYMBOLS,
+    height: SYMBOL_HEIGHT * 3,
     overflow: "hidden",
     borderRadius: 12,
     backgroundColor: "rgba(0,0,0,0.3)",
@@ -261,8 +284,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  symbolCellCenter: {
+    backgroundColor: "rgba(212, 175, 55, 0.08)",
+  },
   symbol: {
     fontSize: 40,
+  },
+  symbolDim: {
+    opacity: 0.4,
   },
   spinButton: {
     borderRadius: 50,
