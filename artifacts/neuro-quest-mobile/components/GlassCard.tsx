@@ -5,23 +5,32 @@ import Colors from "@/constants/colors";
 
 interface GlassCardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
   borderColor?: string;
   intensity?: number;
+  elevated?: boolean;
 }
 
 export function GlassCard({
   children,
   style,
   borderColor = Colors.glassBorder,
-  intensity = 40,
+  intensity = 50,
+  elevated = false,
 }: GlassCardProps) {
+  const cardStyles = [
+    styles.card,
+    elevated && styles.elevated,
+    { borderColor },
+    style,
+  ];
+
   if (Platform.OS === "ios") {
     return (
       <BlurView
         intensity={intensity}
         tint="dark"
-        style={[styles.card, { borderColor }, style]}
+        style={cardStyles}
       >
         <View style={styles.inner}>{children}</View>
       </BlurView>
@@ -29,14 +38,7 @@ export function GlassCard({
   }
 
   return (
-    <View
-      style={[
-        styles.card,
-        styles.androidCard,
-        { borderColor },
-        style,
-      ]}
-    >
+    <View style={[...cardStyles, styles.androidCard]}>
       {children}
     </View>
   );
@@ -44,9 +46,16 @@ export function GlassCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
     overflow: "hidden",
+  },
+  elevated: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 12,
   },
   inner: {
     flex: 1,

@@ -4,23 +4,27 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Dimensions,
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import { GlassCard } from "@/components/GlassCard";
 import { SlotMachine } from "@/components/SlotMachine";
 import Colors from "@/constants/colors";
 
+const { width: screenW } = Dimensions.get("window");
+const nd = Platform.OS !== "web";
 const SPINS_KEY = "nq_spins_left";
 const WINS_KEY = "nq_total_wins";
 
-type ResultState = "idle" | "win" | "near" | "lose";
+type ResultState = "idle" | "win" | "lose";
 
 export default function PlayScreen() {
   const insets = useSafeAreaInsets();
@@ -29,6 +33,7 @@ export default function PlayScreen() {
   const [result, setResult] = useState<ResultState>("idle");
   const resultAnim = useRef(new Animated.Value(0)).current;
   const resultScale = useRef(new Animated.Value(0.8)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -40,21 +45,25 @@ export default function PlayScreen() {
       } catch {}
     };
     load();
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
   }, []);
 
   const showResult = useCallback((state: ResultState) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
     setResult(state);
-    const nd = Platform.OS !== "web";
     Animated.parallel([
       Animated.timing(resultAnim, { toValue: 1, duration: 300, useNativeDriver: nd }),
       Animated.spring(resultScale, { toValue: 1, useNativeDriver: nd, friction: 7 }),
     ]).start();
 
-    setTimeout(() => {
+    toastTimer.current = setTimeout(() => {
       Animated.parallel([
         Animated.timing(resultAnim, { toValue: 0, duration: 400, useNativeDriver: nd }),
         Animated.timing(resultScale, { toValue: 0.8, duration: 400, useNativeDriver: nd }),
       ]).start(() => setResult("idle"));
+      toastTimer.current = null;
     }, 2800);
   }, []);
 
@@ -77,58 +86,60 @@ export default function PlayScreen() {
   );
 
   const handleBuySpins = useCallback(async () => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const newSpins = spinsLeft + 10;
     setSpinsLeft(newSpins);
     await AsyncStorage.setItem(SPINS_KEY, String(newSpins));
   }, [spinsLeft]);
 
-  const getResultConfig = () => {
-    switch (result) {
-      case "win":
-        return {
-          emoji: "🎉",
-          title: "Jackpot!",
-          subtitle: "A donation goes to your cause",
-          color: Colors.gold,
-        };
-      case "lose":
-        return {
-          emoji: "🌿",
-          title: "Keep Training",
-          subtitle: "Every spin strengthens your mind",
-          color: Colors.whiteAlpha50,
-        };
-      default:
-        return null;
-    }
-  };
+  const handleShareWin = useCallback(async () => {
+    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await Share.share({
+        message:
+          `I just hit ${totalWins} jackpot${totalWins !== 1 ? "s" : ""} on NeuroQuest! 🎰✨\n\n` +
+          "Every spin trains my brain AND funds real charities.\n" +
+          "30% of all revenue donated to verified partners worldwide.\n\n" +
+          "Join the Compassion Casino → neuroquest.app",
+        title: "NeuroQuest Jackpot!",
+      });
+    } catch {}
+  }, [totalWins]);
 
-  const resultConfig = getResultConfig();
+  const resultConfig =
+    result === "win"
+      ? { title: "Jackpot!", subtitle: "A donation goes to your chosen cause", color: Colors.gold }
+      : result === "lose"
+      ? { title: "Keep Going", subtitle: "Every spin strengthens your mind", color: Colors.whiteAlpha50 }
+      : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.black }}>
       <LinearGradient
-        colors={[Colors.forestDeep, Colors.black, Colors.black]}
+        colors={[Colors.celestialPurple, Colors.forestDeep, Colors.celestialBlue, Colors.black, Colors.black]}
+        locations={[0, 0.12, 0.3, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
+      <View style={styles.nebulaGlow} />
+      <View style={styles.starA} />
+      <View style={styles.starB} />
+      <View style={styles.starC} />
+      <View style={styles.starD} />
+      <View style={styles.starE} />
 
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 100 },
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 110 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Compassion Casino</Text>
+          <Text style={styles.eyebrow}>COMPASSION CASINO</Text>
+          <Text style={styles.title}>Spin for Good</Text>
           <Text style={styles.subtitle}>For entertainment & mindfulness only</Text>
         </View>
 
-        {/* Result Toast */}
         {result !== "idle" && resultConfig && (
           <Animated.View
             style={[
@@ -136,12 +147,10 @@ export default function PlayScreen() {
               {
                 opacity: resultAnim,
                 transform: [{ scale: resultScale }],
-                borderColor: resultConfig.color,
               },
             ]}
           >
-            <GlassCard style={styles.resultCard} borderColor={resultConfig.color}>
-              <Text style={styles.resultEmoji}>{resultConfig.emoji}</Text>
+            <GlassCard style={styles.resultCard} borderColor={resultConfig.color} elevated>
               <Text style={[styles.resultTitle, { color: resultConfig.color }]}>
                 {resultConfig.title}
               </Text>
@@ -150,45 +159,71 @@ export default function PlayScreen() {
           </Animated.View>
         )}
 
-        {/* Slot Machine */}
         <SlotMachine onSpin={handleSpin} spinsLeft={spinsLeft} />
 
-        {/* Win Count */}
-        <GlassCard style={styles.winsCard}>
-          <Ionicons name="trophy" size={20} color={Colors.gold} />
-          <Text style={styles.winsText}>
-            <Text style={styles.winsNum}>{totalWins}</Text> jackpot{totalWins !== 1 ? "s" : ""} triggered
-          </Text>
+        <GlassCard style={styles.winsCard} borderColor={Colors.glassBorderLight}>
+          <View style={styles.winsRow}>
+            <View style={styles.winsLeft}>
+              <Ionicons name="trophy" size={18} color={Colors.gold} />
+              <Text style={styles.winsText}>
+                <Text style={styles.winsNum}>{totalWins}</Text>{" "}
+                jackpot{totalWins !== 1 ? "s" : ""} triggered
+              </Text>
+            </View>
+            <View style={styles.donationTag}>
+              <View style={styles.donationDot} />
+              <Text style={styles.donationText}>Real donations</Text>
+            </View>
+          </View>
         </GlassCard>
 
-        {/* Buy More Spins */}
         {spinsLeft === 0 && (
-          <View style={styles.noSpinsContainer}>
+          <GlassCard style={styles.noSpinsCard} borderColor={Colors.goldAlpha20}>
+            <LinearGradient
+              colors={[Colors.goldAlpha05, "transparent"]}
+              style={StyleSheet.absoluteFill}
+            />
             <Text style={styles.noSpinsTitle}>No Spins Remaining</Text>
             <Text style={styles.noSpinsBody}>
-              Get more spins to keep training your mind and feeding the world.
+              Get more spins to keep training your mind and funding global causes.
             </Text>
-            <Pressable onPress={handleBuySpins} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
+            <Pressable onPress={handleBuySpins} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
               <LinearGradient
                 colors={[Colors.goldLight, Colors.gold, Colors.goldDim]}
                 style={styles.buyButton}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <Ionicons name="add-circle" size={20} color={Colors.forestDeep} />
+                <Ionicons name="add-circle" size={18} color={Colors.forestDeep} />
                 <Text style={styles.buyButtonText}>Get 10 Extra Spins — $2.99</Text>
               </LinearGradient>
             </Pressable>
-          </View>
+          </GlassCard>
         )}
 
-        {/* How It Works */}
-        <GlassCard style={styles.howCard}>
-          <Text style={styles.howTitle}>How It Works</Text>
+        <Pressable onPress={handleShareWin} style={({ pressed }) => [pressed && { opacity: 0.9 }]}>
+          <GlassCard style={styles.shareCard} borderColor="rgba(167,139,250,0.2)">
+            <LinearGradient
+              colors={["rgba(167,139,250,0.08)", "rgba(244,114,182,0.06)", "transparent"]}
+              style={StyleSheet.absoluteFill}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            />
+            <Feather name="share-2" size={20} color={Colors.neuralPurple} />
+            <View style={styles.shareTextWrap}>
+              <Text style={styles.shareTitle}>Share Your Wins</Text>
+              <Text style={styles.shareSub}>Challenge friends to spin for good</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={Colors.whiteAlpha30} />
+          </GlassCard>
+        </Pressable>
+
+        <GlassCard style={styles.howCard} borderColor={Colors.glassBorderLight}>
+          <Text style={styles.howEyebrow}>HOW IT WORKS</Text>
           {[
-            { icon: "🧠", text: "Each spin trains your neuroplasticity through pattern recognition" },
+            { icon: "🧠", text: "Each spin trains neuroplasticity through pattern recognition" },
             { icon: "🌍", text: "Match 3 symbols to trigger a real charitable donation" },
-            { icon: "❤️", text: "100% for entertainment — no prizes or gambling of any kind" },
+            { icon: "❤️", text: "30% of all revenue is donated to verified charity partners" },
           ].map((item, i) => (
             <View key={i} style={styles.howRow}>
               <Text style={styles.howIcon}>{item.icon}</Text>
@@ -202,72 +237,120 @@ export default function PlayScreen() {
 }
 
 const styles = StyleSheet.create({
+  nebulaGlow: {
+    position: "absolute",
+    top: -80,
+    left: -60,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: Colors.cosmicGlow,
+    zIndex: 0,
+  },
+  starA: { position: "absolute", top: 60, left: 30, width: 3, height: 3, borderRadius: 1.5, backgroundColor: Colors.starlight, opacity: 0.6 },
+  starB: { position: "absolute", top: 100, right: 50, width: 2, height: 2, borderRadius: 1, backgroundColor: Colors.champagne, opacity: 0.5 },
+  starC: { position: "absolute", top: 180, left: 120, width: 2, height: 2, borderRadius: 1, backgroundColor: Colors.whiteAlpha60, opacity: 0.4 },
+  starD: { position: "absolute", top: 50, right: 100, width: 3, height: 3, borderRadius: 1.5, backgroundColor: Colors.starlight, opacity: 0.3 },
+  starE: { position: "absolute", top: 140, left: 60, width: 1.5, height: 1.5, borderRadius: 0.75, backgroundColor: Colors.champagne, opacity: 0.7 },
   scroll: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     gap: 16,
   },
   header: {
     alignItems: "center",
+    gap: 4,
     marginBottom: 4,
+  },
+  eyebrow: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+    color: Colors.goldDim,
+    letterSpacing: 4,
   },
   title: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 30,
+    fontSize: 32,
     color: Colors.white,
     textAlign: "center",
   },
   subtitle: {
     fontFamily: "Inter_400Regular",
     fontSize: 12,
-    color: Colors.whiteAlpha50,
-    marginTop: 4,
+    color: Colors.whiteAlpha30,
+    marginTop: 2,
     textAlign: "center",
   },
   resultToast: {
     position: "absolute",
-    top: 100,
-    left: 20,
-    right: 20,
+    top: 120,
+    left: 24,
+    right: 24,
     zIndex: 100,
-    borderRadius: 20,
   },
   resultCard: {
     padding: 24,
     alignItems: "center",
     gap: 6,
   },
-  resultEmoji: {
-    fontSize: 40,
-  },
   resultTitle: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 26,
+    fontSize: 28,
   },
   resultSub: {
     fontFamily: "Inter_400Regular",
     fontSize: 14,
-    color: Colors.whiteAlpha80,
+    color: Colors.whiteAlpha60,
     textAlign: "center",
   },
   winsCard: {
+    padding: 16,
+  },
+  winsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  winsLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    padding: 16,
   },
   winsText: {
     fontFamily: "Inter_400Regular",
     fontSize: 14,
-    color: Colors.whiteAlpha80,
+    color: Colors.whiteAlpha60,
   },
   winsNum: {
     fontFamily: "PlayfairDisplay_700Bold",
     color: Colors.gold,
   },
-  noSpinsContainer: {
+  donationTag: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingVertical: 8,
+    gap: 6,
+    backgroundColor: Colors.goldAlpha05,
+    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: Colors.goldAlpha10,
+  },
+  donationDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: Colors.success,
+  },
+  donationText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 10,
+    color: Colors.goldRose,
+  },
+  noSpinsCard: {
+    padding: 28,
+    alignItems: "center",
+    gap: 12,
+    overflow: "hidden",
   },
   noSpinsTitle: {
     fontFamily: "PlayfairDisplay_700Bold",
@@ -279,50 +362,71 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.whiteAlpha50,
     textAlign: "center",
+    lineHeight: 20,
   },
   buyButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 28,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
     borderRadius: 100,
-    marginTop: 8,
     shadowColor: Colors.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
     elevation: 10,
   },
   buyButtonText: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.forestDeep,
   },
-  howCard: {
+  shareCard: {
+    flexDirection: "row",
+    alignItems: "center",
     padding: 20,
-    gap: 12,
+    gap: 14,
+    overflow: "hidden",
   },
-  howTitle: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 18,
+  shareTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  shareTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
     color: Colors.white,
-    marginBottom: 4,
+  },
+  shareSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: Colors.whiteAlpha30,
+  },
+  howCard: {
+    padding: 24,
+    gap: 16,
+  },
+  howEyebrow: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+    color: Colors.goldDim,
+    letterSpacing: 3,
   },
   howRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: 14,
     alignItems: "flex-start",
   },
   howIcon: {
-    fontSize: 20,
+    fontSize: 18,
     marginTop: 1,
   },
   howText: {
     flex: 1,
     fontFamily: "Inter_400Regular",
     fontSize: 14,
-    color: Colors.whiteAlpha80,
-    lineHeight: 20,
+    color: Colors.whiteAlpha60,
+    lineHeight: 21,
   },
 });

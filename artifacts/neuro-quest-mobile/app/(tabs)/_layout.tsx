@@ -4,7 +4,7 @@ import { Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 import Colors from "@/constants/colors";
 
 function NativeTabLayout() {
@@ -13,6 +13,10 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "sparkles", selected: "sparkles" }} />
         <Label>Home</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="train">
+        <Icon sf={{ default: "brain.head.profile", selected: "brain.head.profile" }} />
+        <Label>Train</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="play">
         <Icon sf={{ default: "suit.club", selected: "suit.club.fill" }} />
@@ -47,18 +51,19 @@ function ClassicTabLayout() {
         },
         tabBarBackground: () => (
           <BlurView
-            intensity={80}
+            intensity={90}
             tint="dark"
             style={[StyleSheet.absoluteFill, {
-              backgroundColor: "rgba(7, 13, 9, 0.85)",
+              backgroundColor: "rgba(6, 11, 7, 0.88)",
               borderTopWidth: 1,
-              borderTopColor: Colors.glassBorder,
+              borderTopColor: Colors.glassBorderLight,
             }]}
           />
         ),
         tabBarLabelStyle: {
           fontFamily: "Inter_500Medium",
-          fontSize: 11,
+          fontSize: 10,
+          letterSpacing: 0.3,
           marginBottom: isIOS ? 0 : 4,
         },
       }}
@@ -69,6 +74,15 @@ function ClassicTabLayout() {
           title: "Home",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="sparkles" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="train"
+        options={{
+          title: "Train",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="brain" size={size} color={color} />
           ),
         }}
       />
@@ -109,5 +123,3 @@ export default function TabLayout() {
   }
   return <ClassicTabLayout />;
 }
-
-const styles = StyleSheet.create({});

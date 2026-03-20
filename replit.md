@@ -2,153 +2,81 @@
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+NeuroQuest is a pnpm monorepo using TypeScript, designed to be a brain-training and wellness application that gamifies cognitive exercises and promotes mental well-being. It aims to engage users through interactive games, a unique reward system based on "Neural Energy," and social features, while also incorporating monetization tiers and charitable contributions. The project includes features for user monetization, enterprise solutions, and sponsored jackpots that trigger donations, positioning itself in the digital wellness and casual gaming markets.
 
-## Stack
+## User Preferences
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+I prefer iterative development, with a focus on delivering functional, well-tested components in stages.
+I like clear, concise communication and prefer that you ask before making any major architectural changes or introducing new external dependencies.
+Ensure all changes align with the project's brand identity, emphasizing mental wellness, engagement, and ethical monetization.
+I expect comprehensive test coverage for new features and modifications.
+Do not make changes to files related to internal Replit configurations without explicit instructions.
 
-## Structure
+## System Architecture
 
-```text
-artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
-│   ├── api-client-react/   # Generated React Query hooks
-│   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
-```
+The project is structured as a pnpm workspace monorepo, with distinct `artifacts` for deployable applications and `lib` for shared libraries. It leverages TypeScript 5.9 for strong typing across the board.
 
-## TypeScript & Composite Projects
+**Core Technologies:**
+- **Monorepo Tool:** pnpm workspaces
+- **Node.js:** Version 24
+- **API Framework:** Express 5
+- **Database:** PostgreSQL with Drizzle ORM
+- **Validation:** Zod (`zod/v4`) and `drizzle-zod` for schema generation and validation.
+- **API Codegen:** Orval, generating client code and Zod schemas from an OpenAPI specification.
+- **Build Tool:** esbuild for CJS bundles.
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+**Project Structure:**
+- `artifacts/api-server`: The primary Express API server.
+- `lib/api-spec`: Defines the OpenAPI specification and Orval configuration.
+- `lib/api-client-react`: Generated React Query hooks for frontend API interaction.
+- `lib/api-zod`: Generated Zod schemas for API request/response validation.
+- `lib/db`: Contains Drizzle ORM schema definitions and database connection logic.
+- `scripts`: Houses utility scripts for various development and maintenance tasks.
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+**TypeScript & Composite Projects:**
+The monorepo uses TypeScript composite projects (`composite: true`) with project references to manage inter-package dependencies and ensure correct type-checking and build order. Type-checking is performed from the root, emitting only `.d.ts` files, with actual JavaScript bundling handled by esbuild.
 
-## Root Scripts
+**UI/UX and Design (Luxury Celestial Zen):**
+- **Design Language:** "Luxury Celestial Zen" — PlayfairDisplay_700Bold headings, PlayfairDisplay_400Regular_Italic subtitles, Inter body. Gold (#D4AF37), forest green (#0A1A10), celestial purple (#2A1F4E), nebula accents. Eyebrow text in CAPS with letterSpacing 3-4.
+- **Celestial Aesthetic:** Every screen features cosmic gradient backgrounds (celestialPurple → forestDeep → celestialBlue → black), animated twinkling stars (3 layers), nebula glow circles, and cosmic radiance effects.
+- **Neural Audio Engine:** Full soundscape system with Web Audio API-generated binaural beats (Alpha 10Hz, Beta 18Hz, Theta 6Hz), 40Hz Gamma entrainment (MIT research), Solfeggio frequencies (528Hz, 432Hz, 396Hz), and neural noise (Brown noise, Pink noise). Accessible from Train screen with expandable science explanations.
+- **Empathy Index:** Multi-dimensional emotional intelligence metric with bar visualization — Compassion, Connection, Mindfulness, Listening, Emotional Safety, Shared Purpose. 87% aggregate score with weekly delta.
+- **Heart-Brain Hybrid Score (HBHS):** Composite metric combining Emotional Intelligence (EI), Mental Performance (MP), and Neural Energy Boost (NEB) with formula display. HBHS = √{(EI · MP · NEB) × 1.2{Cohesion}}.
+- **Lives Impacted:** Tangible real-world impact metrics — trees planted, meals funded, students funded, therapy sessions. Displayed on Home and Profile screens.
+- **Share System:** Native Share API integration on Home (share impact), Play (share wins), and Profile (share journey) screens. Purple-themed share cards with cosmic gradients.
+- **GlassCard:** Accepts `style?: ViewStyle | ViewStyle[]` and `elevated?: boolean` prop for luxury glassmorphism.
+- **Brain Games:** StroopGame (30s color-ink test), MemoryGrid (progressive 4×4 working memory), BreathingPacer (4-7-8 animated circle with haptics).
+- **Slot Machine:** Staggered stops 800/1300/1800ms, `winRef.current` avoids stale closures, interval-based symbol cycling, spring bounce on landing.
+- **5-Tab Navigation:** Home, Train, Play, Zen Pro, Profile. NativeTabs (iOS 26+) and ClassicTabs (Expo BlurView).
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run build:prod` — unified production build: builds neuro-quest frontend (Vite) then api-server (esbuild), and copies frontend dist into `artifacts/api-server/dist/public/`
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+**Color Palette (constants/colors.ts):**
+- Forest: #0A1A10, #14271A, #1B3022, #2A4A35
+- Gold: #D4AF37, #E8C84A, #A88C2A, #F0DFA0, #C9A44B
+- Celestial: #1A2744, #2A1F4E, #0D3B3B, #3D2B6B, #5A3D8F
+- Neural: empathyGreen (#4ADE80), mindfulBlue (#60A5FA), balanceAmber (#FBBF24), neuralPurple (#A78BFA), compassionPink (#F472B6)
+- Starlight: #E8DFC8, champagne: #F5E6C8
 
-## Packages
+**Feature Specifications:**
+- **Monetization:** Zen Pro ($9.99/mo), B2B Corporate Wellness ($50/seat/year), Sponsored Jackpots ($500–$10,000/mo).
+- **Games:** Neural Stake (memory), The Casino (slots), Emotional EQ (reaction), Mind-Reader Blackjack (card game).
+- **Onboarding:** Splash screen, 30s Focus Test, Results with +50 Neural Energy welcome gift.
+- **Streak System:** `streak_count`, `last_game_date`, 1.1^streak multiplier (max 2.0), visual glow, casino win boost.
+- **Session Management:** Cookie-based (`nq_session`, httpOnly), no login required per browser.
+- **Morning Bloom Modal:** Daily gratitude entry, awards 20 Neural Energy.
+- **Smart Push Notifications:** Web Push API (VAPID), `push_subscriptions` table, in-app nudges, admin-triggered pushes.
+- **Raid Mode:** Admin-toggled global event, doubles `earn-compassion` points, animated banner with live progress.
+- **Auth & Paywall:** Replit Auth integration, `AuthGate`, `PaywallGate` with Daily Pass ($5/24hrs) and Zen Pro options.
+- **Social Sharing:** 13 platforms, branded copy, PWA support.
+- **Legal:** `/copyright` page with Terms of Use, Privacy Policy, IP details, App Store Compliance (age gate, disclaimers, etc.).
 
-### `artifacts/api-server` (`@workspace/api-server`)
+## External Dependencies
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
-
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`; in production (`NODE_ENV=production`) also serves the compiled neuro-quest frontend from `dist/public/` as static files with a catch-all to `index.html` for SPA routing
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /healthz` (full path: `/api/healthz`)
-- Admin routes: `src/routes/admin.ts` — all `/admin/*` API endpoints require `ADMIN_USER_IDS` env var (comma-separated Replit user IDs); returns 403 if caller is not in the list
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — builds neuro-quest frontend first, then esbuild CJS bundle (`dist/index.cjs`), then copies frontend to `dist/public/`
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
-
-### `lib/db` (`@workspace/db`)
-
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
-
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
-
-## NeuroQuest Features
-
-**Monetization Tiers:**
-- Tier 1 — Zen Pro subscription ($9.99/mo via Stripe). Route: `/subscribe`.
-- Tier 2 — B2B Corporate Wellness ($50/seat/year). Route: `/enterprise`. `enterprise_leads` table. `CONTRACTS_SIGNED` constant controls ARR progress bar.
-- Tier 3 — Sponsored Jackpots ($500–$10,000/mo). Route: `/sponsor`. `sponsor_leads` table. API: `POST /api/sponsor/contact`, `GET /api/sponsor/leads`. Casino shows cyan banner with current sponsor prize. Dashboard shows Tier 3 CTA card.
-
-**Games:**
-- **Neural Stake** (`/brain-game`): Memory match with 3 difficulty tiers — Easy (8 pairs, +50 NE), Medium (10 pairs, +75 NE), Hard (12 pairs, +100 NE). Grid adapts from 4×4 to 5×4 for medium. 12 symbols total (Brain, Flame, Leaf, Moon, Sun, Star, Eye, Wind, Droplets, Cloud, Diamond, Clover).
-- **The Casino** (`/casino`): 3-reel slot machine. Sleep Mode (10 PM–6 AM): Meditation Lounge banner appears with breathing exercise (+10 NE for one 14s inhale/hold/exhale cycle). Breathing modal shows inhale 4s → hold 4s → exhale 6s animated circle.
-- **Emotional EQ** (`/eq-game`): 10-round reaction game. Large emoji face appears; player has 1.5s to identify the emotion from 4 choices. +4 NE per correct, +2 bonus for < 600ms responses. Max +60 NE per session.
-- **Mind-Reader Blackjack** (`/blackjack`): Standard blackjack + "Mind Read" mechanic. After deal, player predicts dealer's hole card: High (8+) or Low (2–7). Correct prediction = +60% payout bonus on any win. Bets: 10/25/50 Neural Energy.
-
-**Onboarding:** First-time visitors (no `nq_onboarding_done` localStorage key) are redirected to `/onboarding` — 3-step flow: (1) Splash screen with gold pulse ring + "Your mind is the stake. The world is the winner." (2) 30s Focus Test — moving gold dot, user taps it, dot speeds up over time, score = hits in 30s. (3) Results screen with focus score, reaction time, rating tier, and "Welcome Gift" of +50 Neural Energy via `POST /api/quest/earn-energy`.
-
-**Streak System:** `streak_count` + `last_game_date` in `user_profiles`. Consecutive-day wins increment streak. Multiplier = min(1.1^streak, 2.0). Streak ≥ 3 → electric-blue glow + 10% casino win boost.
-
-**Session:** Cookie-based (`nq_session`, httpOnly). No login required — each browser = its own profile.
-
-**DB Tables:** `user_profiles`, `activities`, `enterprise_leads`, `sponsor_leads` in `lib/db/src/schema/neuro_quest.ts`.
-
-**API Routes:** `src/routes/quest.ts` (streak, game-complete, energy, compassion), `src/routes/enterprise.ts`, `src/routes/sponsor.ts`, `src/routes/stripe.ts`.
-
-**Morning Bloom Modal:** Daily gratitude gate. `GET /api/quest/gratitude-status` checks if done today. `POST /api/quest/gratitude` saves entry + awards 20 Neural Energy, sets `last_gratitude_date` on `user_profiles`. Modal shows on dashboard load if not done; requires ≥ 3 words; dismisses and refreshes profile on submit. Component: `src/components/morning-bloom-modal.tsx`.
-
-**Smart Push Notifications:** Full Web Push API (VAPID). `push_subscriptions` table stores endpoint/p256dh/auth per session. VAPID keys auto-generated at first server start and persisted in `global_settings`. Service worker: `artifacts/neuro-quest/public/sw.js` (handles push + notificationclick). Hook: `src/hooks/use-notifications.ts`. Dashboard widget: `src/components/notification-widget.tsx` (bell icon + permission request, dismissible, localStorage state). In-app Return Nudge: `src/components/return-nudge.tsx` (shows after 24h+ absence, mentions level + progress to next rank). API routes in `notifications.ts`: `GET /api/notifications/vapid-public-key`, `POST /api/notifications/subscribe`, `DELETE /api/notifications/unsubscribe`, `GET /api/notifications/status`, `GET /api/quest/nudge-status`. Admin trigger: `POST /api/admin/send-nudge` — sends personalized push to all 24h+ inactive subscribers. Message logic: close-to-next-level → "5% away from Luminary" style; multi-day → days count; default → Brain Health Level mention.
-
-**Raid Mode:** Admin-toggled live global event. `global_settings` table (single row) holds `raid_mode_active`, `raid_mode_target`. `POST /api/admin/raid-mode` toggles it. `GET /api/admin/status` returns current state + community wins count. `GET /api/quest/event` is the public endpoint. When active, `earn-compassion` doubles all points automatically. Dashboard shows animated violet `RaidModeBanner` (component: `src/components/raid-mode-banner.tsx`) that polls every 15s with a live community progress bar. Admin panel accessible at `/admin`.
-
-**Auth & Paywall Gates:** All 4 game routes (`/casino`, `/brain-game`, `/blackjack`, `/eq-game`) are double-gated:
-1. `AuthGate` (`src/components/auth-gate.tsx`) — checks Replit Auth (`useAuth`). If not logged in, shows a branded "Sign In to Play Free" card that calls `GET /api/login` via Replit Auth OIDC.
-2. `PaywallGate` (`src/components/paywall-modal.tsx`) — after auth, checks `GET /api/quest/access-status`. If `has_access: false`, shows the paywall with tier toggle (Daily Pass $5 / Zen Pro $9.99) and 3 payment methods (CashApp, Bitcoin, Stripe card). Daily-pass users see a live countdown timer banner.
-
-**Daily Pass ($5 · 24hrs):** New option on `/subscribe` page (`DailyPassCard` component). `daily_pass_expires` timestamp column added to `user_profiles` table. `GET /api/quest/access-status` checks both `is_pro` and `daily_pass_expires > now()`. Admin panel (`/admin`) has new "Grant Access" section with `POST /api/admin/grant-daily-pass` (session_id + hours) and `POST /api/admin/grant-pro` (session_id) for manual activation after CashApp/BTC payment. Players DM @whitneyshauntaye on X with payment screenshot to request activation.
-
-**Social Sharing System:** Universal 13-platform share panel. Component: `src/components/social-share.tsx`. Exports `SocialSharePanel` (embeddable grid), `FloatingShareButton` (gold FAB on every page). Platforms: X/Twitter, Threads, Facebook, Instagram (copy), WhatsApp, Telegram, LinkedIn, Reddit, TikTok (copy), Pinterest, Discord (copy), Email, SMS. All include branded pre-written copy with hashtags. Dedicated share page at `/share` with 4 preset message variants (General, Jackpot Win, Challenge, Streak). PWA install instructions + native share API. Copyright micro-text on every panel.
-
-**Legal & Privacy:** Page at `/copyright` (titled "Legal & IP") now contains: IP ownership, 6 trademarks, 10 protected IP elements, DMCA, governing law, **Terms of Use** (entertainment-only declaration, 18+ eligibility, subscription/billing terms, Compassion Jackpot donation clarification, disclaimer), and **Privacy Policy** (data collected, usage, sharing, retention, user rights, children's privacy, cookies). `CopyrightFooter` (`src/components/copyright-footer.tsx`) links to this page as "Legal & Privacy" and includes "For entertainment only · No real-money gambling" disclaimer text on all pages.
-
-**App Store Compliance (implemented):**
-- **Age Gate:** `AgeGate` component wraps entire app in `App.tsx`. First-time visitors see a full-screen 18+ verification modal (localStorage `nq_age_verified`). Shows "For Entertainment Only" disclaimer, gold "Yes, I am 18+" button, and links to Terms/Privacy. Under-18 users see a restriction page.
-- **Entertainment-only disclaimers:** On casino/slot-machine page header and in all footers site-wide.
-- **Sponsor page:** All "prize" language changed to "charity donation" / "jackpot trigger" language — no implication that users receive cash prizes.
-- **Social share / onboarding tagline:** Changed from "Your mind is the stake" to "Train your mind. Feed the world."
-- **Copyright page:** "gambling-style wins" changed to "slot-style game spins."
-- **Subscribe page:** Auto-renewal disclosure strengthened — "Auto-renews monthly · Cancel any time" shown at price point; full legalese renewal disclosure added below payment buttons.
-- **Terms & Privacy:** Full Terms of Use and Privacy Policy added to `/copyright` page.
-
-**Open Graph / Rich Previews:** `index.html` contains full og:title, og:description, og:image, og:url, og:image:width/height/alt, og:site_name, og:locale + complete Twitter Card meta tags (twitter:card=summary_large_image, twitter:site, twitter:creator, twitter:image). Author + copyright meta tags. Canonical URL tag.
-
-**PWA:** `manifest.json` + `sw.js` + icons (192/512) + apple-touch-icon. `beforeinstallprompt` handler in share page for install button. iOS instructions (Share → Add to Home Screen).
-
-**Routes:** `/share` (SharePage), `/copyright` (CopyrightPage).
-
-**Note:** api-server does NOT have `zod` as a direct dependency — use plain JS validation or import from `@workspace/api-zod`.
+- **PostgreSQL:** For database persistence.
+- **Drizzle ORM:** Object-relational mapping for database interactions.
+- **Express:** Web application framework for the API server.
+- **Zod:** Schema declaration and validation library.
+- **Orval:** OpenAPI client code generator.
+- **React Query:** For data fetching and caching on the frontend (generated client).
+- **Stripe:** Payment gateway for subscriptions.
+- **Replit Auth:** For user authentication.
+- **Web Push API (VAPID):** For push notifications.

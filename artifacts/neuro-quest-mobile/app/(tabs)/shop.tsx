@@ -10,9 +10,11 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GlassCard } from "@/components/GlassCard";
 import Colors from "@/constants/colors";
+
+const nd = Platform.OS !== "web";
 
 const PLANS = [
   {
@@ -20,17 +22,19 @@ const PLANS = [
     title: "Zen Pro",
     price: "$9.99",
     period: "/month",
-    badge: "Most Popular",
-    color: Colors.gold,
+    badge: "MOST POPULAR",
+    donationNote: "$3.00 of every subscription goes directly to charity",
     features: [
       "Unlimited daily spins",
+      "All brain training games unlocked",
       "Priority jackpot access",
-      "Exclusive Zen themes",
+      "Exclusive Zen themes & sounds",
       "Monthly cause selection",
-      "Progress analytics",
+      "Advanced progress analytics",
       "Ad-free experience",
     ],
     cta: "Start Zen Pro",
+    highlight: true,
   },
   {
     id: "daily",
@@ -38,13 +42,14 @@ const PLANS = [
     price: "$5.00",
     period: "/24 hours",
     badge: null,
-    color: Colors.whiteAlpha80,
+    donationNote: "$1.50 donated per pass",
     features: [
       "50 spins for 24 hours",
-      "All Zen Pro features",
-      "Perfect for daily sessions",
+      "All Zen Pro features for the day",
+      "No commitment required",
     ],
     cta: "Get Daily Pass",
+    highlight: false,
   },
 ];
 
@@ -54,42 +59,62 @@ export default function ShopScreen() {
   const [purchased, setPurchased] = useState<string | null>(null);
 
   const handleSelect = useCallback((id: string) => {
-    if (Platform.OS !== "web") Haptics.selectionAsync();
+    if (nd) Haptics.selectionAsync();
     setSelectedPlan(id);
   }, []);
 
-  const handlePurchase = useCallback(
-    (id: string) => {
-      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setPurchased(id);
-    },
-    []
-  );
+  const handlePurchase = useCallback((id: string) => {
+    if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setPurchased(id);
+  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.black }}>
       <LinearGradient
-        colors={[Colors.forestDeep, Colors.black, Colors.black]}
+        colors={[Colors.celestialPurple, Colors.forestDeep, Colors.celestialBlue, Colors.black, Colors.black]}
+        locations={[0, 0.12, 0.3, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
+      <View style={styles.nebulaGlow} />
 
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 100 },
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 110 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.header}>
-          <MaterialCommunityIcons name="crown" size={36} color={Colors.gold} />
-          <Text style={styles.title}>Upgrade Your Practice</Text>
+          <Text style={styles.eyebrow}>ELEVATE YOUR PRACTICE</Text>
+          <Text style={styles.title}>Invest in Your Mind</Text>
           <Text style={styles.subtitle}>
-            Every purchase funds real charitable donations
+            Every purchase funds real charitable donations to verified partners worldwide
           </Text>
         </View>
 
-        {/* Plans */}
+        <GlassCard style={styles.impactBanner} borderColor={Colors.goldAlpha20}>
+          <LinearGradient
+            colors={[Colors.goldAlpha08, Colors.goldAlpha05]}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.impactRow}>
+            <View style={styles.impactStat}>
+              <Text style={styles.impactNum}>$847K</Text>
+              <Text style={styles.impactLabel}>Donated from{"\n"}subscriptions</Text>
+            </View>
+            <View style={styles.impactDivider} />
+            <View style={styles.impactStat}>
+              <Text style={styles.impactNum}>30%</Text>
+              <Text style={styles.impactLabel}>Of revenue to{"\n"}charity</Text>
+            </View>
+            <View style={styles.impactDivider} />
+            <View style={styles.impactStat}>
+              <Text style={styles.impactNum}>12</Text>
+              <Text style={styles.impactLabel}>Verified{"\n"}partners</Text>
+            </View>
+          </View>
+        </GlassCard>
+
         {PLANS.map((plan) => {
           const isSelected = selectedPlan === plan.id;
           const isPurchased = purchased === plan.id;
@@ -98,18 +123,22 @@ export default function ShopScreen() {
             <Pressable
               key={plan.id}
               onPress={() => handleSelect(plan.id)}
-              style={({ pressed }) => [pressed && { opacity: 0.9 }]}
+              style={({ pressed }) => [pressed && { opacity: 0.95 }]}
             >
               <GlassCard
                 style={[styles.planCard, isSelected && styles.planCardSelected]}
-                borderColor={isSelected ? Colors.gold : Colors.glassBorder}
+                borderColor={isSelected ? Colors.goldAlpha30 : Colors.glassBorderLight}
+                elevated={isSelected}
               >
                 {isSelected && (
                   <LinearGradient
-                    colors={[Colors.goldAlpha08, Colors.goldAlpha15, Colors.goldAlpha08]}
+                    colors={[Colors.goldAlpha08, Colors.goldAlpha05, "transparent"]}
                     style={StyleSheet.absoluteFill}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
                   />
                 )}
+
                 {plan.badge && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>{plan.badge}</Text>
@@ -119,19 +148,24 @@ export default function ShopScreen() {
                 <View style={styles.planTop}>
                   <Text style={styles.planTitle}>{plan.title}</Text>
                   <View style={styles.priceRow}>
-                    <Text style={[styles.planPrice, { color: plan.color }]}>
+                    <Text style={[styles.planPrice, isSelected && styles.planPriceSelected]}>
                       {plan.price}
                     </Text>
                     <Text style={styles.planPeriod}>{plan.period}</Text>
                   </View>
                 </View>
 
-                <View style={styles.divider} />
+                <View style={styles.donationNote}>
+                  <View style={styles.donationDot} />
+                  <Text style={styles.donationText}>{plan.donationNote}</Text>
+                </View>
+
+                <View style={styles.featureDivider} />
 
                 <View style={styles.featuresContainer}>
                   {plan.features.map((f, i) => (
                     <View key={i} style={styles.featureRow}>
-                      <Ionicons name="checkmark-circle" size={16} color={Colors.gold} />
+                      <Ionicons name="checkmark" size={14} color={Colors.gold} />
                       <Text style={styles.featureText}>{f}</Text>
                     </View>
                   ))}
@@ -141,71 +175,80 @@ export default function ShopScreen() {
                   onPress={() => handlePurchase(plan.id)}
                   style={({ pressed }) => [pressed && { opacity: 0.85 }]}
                 >
-                  <LinearGradient
-                    colors={
-                      isPurchased
-                        ? [Colors.success, "#3A8A55"]
-                        : [Colors.goldLight, Colors.gold, Colors.goldDim]
-                    }
-                    style={styles.planButton}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    {isPurchased ? (
-                      <>
-                        <Ionicons name="checkmark" size={18} color={Colors.forestDeep} />
-                        <Text style={styles.planButtonText}>Active</Text>
-                      </>
-                    ) : (
-                      <Text style={styles.planButtonText}>{plan.cta}</Text>
-                    )}
-                  </LinearGradient>
+                  {isPurchased ? (
+                    <View style={styles.activeBadge}>
+                      <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
+                      <Text style={styles.activeText}>Active</Text>
+                    </View>
+                  ) : (
+                    <LinearGradient
+                      colors={
+                        isSelected
+                          ? [Colors.goldLight, Colors.gold, Colors.goldDim]
+                          : [Colors.whiteAlpha10, Colors.whiteAlpha05]
+                      }
+                      style={styles.planButton}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Text
+                        style={[
+                          styles.planButtonText,
+                          !isSelected && styles.planButtonTextAlt,
+                        ]}
+                      >
+                        {plan.cta}
+                      </Text>
+                    </LinearGradient>
+                  )}
                 </Pressable>
               </GlassCard>
             </Pressable>
           );
         })}
 
-        {/* Extra Spins */}
-        <GlassCard style={styles.spinsCard}>
-          <View style={styles.spinsLeft}>
-            <MaterialCommunityIcons name="cards-club" size={28} color={Colors.gold} />
-            <View>
-              <Text style={styles.spinsTitle}>Extra Spins</Text>
-              <Text style={styles.spinsDesc}>10 bonus spins, no expiry</Text>
+        <GlassCard style={styles.spinsCard} borderColor={Colors.glassBorderLight}>
+          <View style={styles.spinsTop}>
+            <View style={styles.spinsIconWrap}>
+              <MaterialCommunityIcons name="cards-club" size={24} color={Colors.gold} />
             </View>
+            <View style={styles.spinsInfo}>
+              <Text style={styles.spinsTitle}>Extra Spins</Text>
+              <Text style={styles.spinsDesc}>10 bonus spins · Never expire</Text>
+            </View>
+            <Pressable
+              onPress={() => {
+                if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              }}
+              style={({ pressed }) => [styles.spinsButton, pressed && { opacity: 0.8 }]}
+            >
+              <Text style={styles.spinsPrice}>$2.99</Text>
+            </Pressable>
           </View>
-          <Pressable
-            onPress={() => {
-              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            }}
-            style={({ pressed }) => [styles.spinsButton, pressed && { opacity: 0.8 }]}
-          >
-            <Text style={styles.spinsPrice}>$2.99</Text>
-          </Pressable>
-        </GlassCard>
-
-        {/* Payment Methods */}
-        <GlassCard style={styles.paymentCard}>
-          <Text style={styles.paymentTitle}>Payment Methods</Text>
-          <View style={styles.paymentMethods}>
-            {[
-              { icon: "card", label: "Card" },
-              { icon: "logo-apple", label: "Apple Pay" },
-              { icon: "logo-bitcoin", label: "Bitcoin" },
-            ].map((method) => (
-              <View key={method.label} style={styles.paymentMethod}>
-                <Ionicons name={method.icon as any} size={22} color={Colors.whiteAlpha80} />
-                <Text style={styles.paymentLabel}>{method.label}</Text>
-              </View>
-            ))}
+          <View style={styles.donationNote}>
+            <View style={styles.donationDot} />
+            <Text style={styles.donationText}>$0.90 donated per purchase</Text>
           </View>
         </GlassCard>
 
-        {/* Disclaimer */}
+        <Text style={styles.paymentEyebrow}>PAYMENT METHODS</Text>
+        <View style={styles.paymentRow}>
+          {[
+            { icon: "card", label: "Card" },
+            { icon: "logo-apple", label: "Apple Pay" },
+            { icon: "logo-bitcoin", label: "Bitcoin" },
+          ].map((m) => (
+            <View key={m.label} style={styles.paymentMethod}>
+              <Ionicons name={m.icon as any} size={20} color={Colors.whiteAlpha60} />
+              <Text style={styles.paymentLabel}>{m.label}</Text>
+            </View>
+          ))}
+        </View>
+
         <Text style={styles.disclaimer}>
-          Subscriptions auto-renew until cancelled. Purchases fund charitable
-          donations. For entertainment only. Cancel anytime in App Store settings.
+          Subscriptions auto-renew until cancelled. 30% of all revenue is donated
+          to verified charity partners. For entertainment & mindfulness only.
+          Cancel anytime in App Store settings.
         </Text>
       </ScrollView>
     </View>
@@ -214,17 +257,33 @@ export default function ShopScreen() {
 
 const styles = StyleSheet.create({
   scroll: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     gap: 16,
   },
   header: {
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     marginBottom: 4,
+  },
+  nebulaGlow: {
+    position: "absolute",
+    top: -80,
+    right: -60,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: Colors.cosmicGlow,
+    zIndex: 0,
+  },
+  eyebrow: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+    color: Colors.goldDim,
+    letterSpacing: 4,
   },
   title: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 28,
+    fontSize: 32,
     color: Colors.white,
     textAlign: "center",
   },
@@ -233,20 +292,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.whiteAlpha50,
     textAlign: "center",
+    lineHeight: 20,
+    maxWidth: 300,
+  },
+  impactBanner: {
+    padding: 20,
+    overflow: "hidden",
+  },
+  impactRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+  },
+  impactStat: {
+    alignItems: "center",
+    gap: 4,
+  },
+  impactNum: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 24,
+    color: Colors.gold,
+  },
+  impactLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 10,
+    color: Colors.whiteAlpha30,
+    textAlign: "center",
+    lineHeight: 14,
+  },
+  impactDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: Colors.whiteAlpha10,
   },
   planCard: {
-    padding: 22,
-    gap: 14,
+    padding: 24,
+    gap: 16,
     overflow: "hidden",
     position: "relative",
   },
-  planCardSelected: {
-    borderColor: Colors.gold,
-  },
+  planCardSelected: {},
   badge: {
     position: "absolute",
-    top: 16,
-    right: 16,
+    top: 18,
+    right: 18,
     backgroundColor: Colors.gold,
     borderRadius: 100,
     paddingHorizontal: 10,
@@ -254,16 +343,16 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontFamily: "Inter_700Bold",
-    fontSize: 10,
+    fontSize: 9,
     color: Colors.forestDeep,
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   planTop: {
-    gap: 4,
+    gap: 8,
   },
   planTitle: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 22,
+    fontSize: 24,
     color: Colors.white,
   },
   priceRow: {
@@ -273,25 +362,52 @@ const styles = StyleSheet.create({
   },
   planPrice: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 36,
+    fontSize: 40,
+    color: Colors.whiteAlpha80,
+  },
+  planPriceSelected: {
+    color: Colors.gold,
   },
   planPeriod: {
     fontFamily: "Inter_400Regular",
     fontSize: 14,
-    color: Colors.whiteAlpha50,
-    marginBottom: 6,
+    color: Colors.whiteAlpha30,
+    marginBottom: 8,
   },
-  divider: {
+  donationNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: Colors.goldAlpha05,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: Colors.goldAlpha10,
+  },
+  donationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.success,
+  },
+  donationText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: Colors.goldRose,
+    flex: 1,
+  },
+  featureDivider: {
     height: 1,
-    backgroundColor: Colors.glassBorder,
+    backgroundColor: Colors.whiteAlpha05,
   },
   featuresContainer: {
-    gap: 10,
+    gap: 12,
   },
   featureRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
   featureText: {
     fontFamily: "Inter_400Regular",
@@ -300,34 +416,63 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   planButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 18,
+    borderRadius: 100,
+    shadowColor: Colors.gold,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  planButtonText: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 16,
+    color: Colors.forestDeep,
+    letterSpacing: 0.5,
+  },
+  planButtonTextAlt: {
+    color: Colors.whiteAlpha60,
+  },
+  activeBadge: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
     paddingVertical: 16,
     borderRadius: 100,
-    shadowColor: Colors.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: Colors.success,
+    backgroundColor: "rgba(76, 175, 110, 0.08)",
   },
-  planButtonText: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 16,
-    color: Colors.forestDeep,
+  activeText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+    color: Colors.success,
   },
   spinsCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 18,
+    padding: 20,
     gap: 14,
   },
-  spinsLeft: {
-    flex: 1,
+  spinsTop: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
+  },
+  spinsIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: Colors.goldAlpha08,
+    borderWidth: 1,
+    borderColor: Colors.goldAlpha15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  spinsInfo: {
+    flex: 1,
+    gap: 2,
   },
   spinsTitle: {
     fontFamily: "PlayfairDisplay_700Bold",
@@ -337,34 +482,32 @@ const styles = StyleSheet.create({
   spinsDesc: {
     fontFamily: "Inter_400Regular",
     fontSize: 12,
-    color: Colors.whiteAlpha50,
+    color: Colors.whiteAlpha30,
   },
   spinsButton: {
-    backgroundColor: Colors.goldAlpha15,
+    backgroundColor: Colors.goldAlpha10,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    borderColor: Colors.goldAlpha20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
   spinsPrice: {
     fontFamily: "PlayfairDisplay_700Bold",
     fontSize: 16,
     color: Colors.gold,
   },
-  paymentCard: {
-    padding: 18,
-    gap: 14,
-  },
-  paymentTitle: {
+  paymentEyebrow: {
     fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-    color: Colors.whiteAlpha50,
-    letterSpacing: 1,
+    fontSize: 10,
+    color: Colors.whiteAlpha30,
+    letterSpacing: 3,
+    textAlign: "center",
   },
-  paymentMethods: {
+  paymentRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    justifyContent: "center",
+    gap: 32,
   },
   paymentMethod: {
     alignItems: "center",
@@ -372,14 +515,15 @@ const styles = StyleSheet.create({
   },
   paymentLabel: {
     fontFamily: "Inter_500Medium",
-    fontSize: 12,
-    color: Colors.whiteAlpha80,
+    fontSize: 11,
+    color: Colors.whiteAlpha30,
   },
   disclaimer: {
     fontFamily: "Inter_400Regular",
     fontSize: 11,
     color: Colors.whiteAlpha20,
     textAlign: "center",
-    lineHeight: 16,
+    lineHeight: 17,
+    marginTop: 8,
   },
 });
