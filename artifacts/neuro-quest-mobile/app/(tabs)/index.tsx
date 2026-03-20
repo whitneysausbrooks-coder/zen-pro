@@ -359,7 +359,7 @@ export default function HomeScreen() {
           <View style={styles.topBar}>
             <View>
               <Text style={styles.greeting}>WELCOME BACK</Text>
-              <Text style={styles.username}>Compassion Player</Text>
+              <Text style={styles.username}>NeuroQuest{"\n"}Compassion Casino</Text>
             </View>
             <View style={styles.topRight}>
               <Pressable onPress={handleShare} style={styles.shareBtn}>
@@ -924,9 +924,10 @@ const styles = StyleSheet.create({
   },
   username: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 24,
+    fontSize: 20,
     color: Colors.white,
     marginTop: 4,
+    lineHeight: 26,
   },
   streakContainer: {
     alignItems: "center",

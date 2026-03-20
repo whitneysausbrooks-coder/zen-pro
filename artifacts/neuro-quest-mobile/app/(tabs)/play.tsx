@@ -17,6 +17,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { GlassCard } from "@/components/GlassCard";
 import { SlotMachine } from "@/components/SlotMachine";
+import { HoldAndWinSlot } from "@/components/HoldAndWinSlot";
+import { DiamondJackpotSlot } from "@/components/DiamondJackpotSlot";
 import Colors from "@/constants/colors";
 
 const { width: screenW } = Dimensions.get("window");
@@ -127,6 +129,23 @@ export default function PlayScreen() {
     await AsyncStorage.setItem(SPINS_KEY, String(newSpins));
   }, [spinsLeft]);
 
+  const handlePremiumResult = useCallback(
+    (won: boolean, _payoutAmount: number, _cost: number) => {
+      triggerMicroDonation(won);
+      if (won) {
+        setTotalWins((prev) => {
+          const next = prev + 1;
+          AsyncStorage.setItem(WINS_KEY, String(next));
+          return next;
+        });
+        showResult("win");
+      } else {
+        showResult("lose");
+      }
+    },
+    [showResult, triggerMicroDonation]
+  );
+
   const handleShareWin = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
@@ -211,6 +230,15 @@ export default function PlayScreen() {
             </View>
           </View>
         </GlassCard>
+
+        <View style={styles.premiumDivider}>
+          <View style={styles.premiumLine} />
+          <Text style={styles.premiumLabel}>PREMIUM GAMES</Text>
+          <View style={styles.premiumLine} />
+        </View>
+
+        <HoldAndWinSlot onResult={handlePremiumResult} />
+        <DiamondJackpotSlot onResult={handlePremiumResult} />
 
         <GlassCard style={styles.microDonationCard} borderColor="rgba(74,222,128,0.2)" elevated>
           <LinearGradient
@@ -467,6 +495,23 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     fontSize: 10,
     color: Colors.goldRose,
+  },
+  premiumDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginVertical: 8,
+  },
+  premiumLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.goldAlpha15,
+  },
+  premiumLabel: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 10,
+    color: Colors.gold,
+    letterSpacing: 3,
   },
   noSpinsCard: {
     padding: 28,
