@@ -1,7 +1,11 @@
+"use no memo";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Dimensions,
   Platform,
@@ -12,6 +16,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GlassCard } from "@/components/GlassCard";
@@ -20,13 +25,42 @@ import Colors from "@/constants/colors";
 const { width } = Dimensions.get("window");
 const nd = Platform.OS !== "web";
 
-const ACHIEVEMENTS = [
-  { id: "1", title: "First Jackpot", icon: "award", unlocked: true },
-  { id: "2", title: "7 Day Streak", icon: "zap", unlocked: true },
-  { id: "3", title: "100 Spins", icon: "repeat", unlocked: true },
-  { id: "4", title: "Zen Master", icon: "star", unlocked: false },
-  { id: "5", title: "Generous Soul", icon: "heart", unlocked: false },
-  { id: "6", title: "30 Day Streak", icon: "calendar", unlocked: false },
+const NEURAL_ENERGY_KEY = "nq_neural_energy";
+const DONATIONS_KEY = "nq_micro_donations";
+const SPINS_KEY = "nq_spins_left";
+const STREAK_KEY = "nq_streak_count";
+const WINS_KEY = "nq_total_wins";
+const GRATITUDE_LOG_KEY = "nq_gratitude_log";
+const TOTAL_SPINS_USED_KEY = "nq_total_spins_used";
+
+function safeInt(val: string | null, fallback: number): number {
+  if (!val) return fallback;
+  const n = parseInt(val, 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+function safeFloat(val: string | null, fallback: number): number {
+  if (!val) return fallback;
+  const n = parseFloat(val);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+interface LiveData {
+  neuralEnergy: number;
+  totalDonated: number;
+  spinsLeft: number;
+  streak: number;
+  totalWins: number;
+  gratitudeCount: number;
+  totalSpinsUsed: number;
+}
+
+const ACHIEVEMENTS_DEF: Array<{ id: string; title: string; icon: string; condition: (d: LiveData) => boolean }> = [
+  { id: "first_jackpot", title: "First Jackpot", icon: "award", condition: (d) => d.totalWins >= 1 },
+  { id: "7_streak", title: "7 Day Streak", icon: "zap", condition: (d) => d.streak >= 7 },
+  { id: "100_spins", title: "100 Spins", icon: "repeat", condition: (d) => d.totalSpinsUsed >= 100 },
+  { id: "zen_master", title: "Zen Master", icon: "star", condition: (d) => d.gratitudeCount >= 30 },
+  { id: "generous", title: "Generous Soul", icon: "heart", condition: (d) => d.totalDonated >= 5 },
+  { id: "30_streak", title: "30 Day Streak", icon: "calendar", condition: (d) => d.streak >= 30 },
 ];
 
 const SETTINGS = [
@@ -37,22 +71,120 @@ const SETTINGS = [
   { id: "support", label: "Contact Support", icon: "message-circle", toggle: false },
 ];
 
-const EMPATHY_DIMS = [
-  { label: "Compassion", value: 0.89, color: Colors.compassionPink },
-  { label: "Connection", value: 0.82, color: Colors.empathyGreen },
-  { label: "Mindfulness", value: 0.91, color: Colors.mindfulBlue },
-  { label: "Listening", value: 0.76, color: Colors.neuralPurple },
-  { label: "Emotional Safety", value: 0.84, color: Colors.balanceAmber },
-  { label: "Shared Purpose", value: 0.78, color: Colors.gold },
-];
+async function shareText(message: string, title: string) {
+  if (Platform.OS === "web") {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(message);
+      } else {
+        await Clipboard.setStringAsync(message);
+      }
+      Alert.alert("Copied!", "Your share text has been copied to the clipboard.");
+    } catch {
+      try {
+        await Clipboard.setStringAsync(message);
+        Alert.alert("Copied!", "Your share text has been copied to the clipboard.");
+      } catch {}
+    }
+  } else {
+    try {
+      await Share.share({ message, title });
+    } catch {}
+  }
+}
+
+function computeZenRank(data: LiveData) {
+  const points =
+    data.totalWins * 10 +
+    data.streak * 5 +
+    Math.floor(data.totalDonated * 20) +
+    data.gratitudeCount * 15 +
+    data.neuralEnergy;
+  if (points >= 5000) return { rank: 10, points, nextThreshold: 5000, label: "Enlightened" };
+  if (points >= 3000) return { rank: 9, points, nextThreshold: 5000, label: "Transcendent" };
+  if (points >= 2000) return { rank: 8, points, nextThreshold: 3000, label: "Luminary" };
+  if (points >= 1500) return { rank: 7, points, nextThreshold: 2000, label: "Sage" };
+  if (points >= 1000) return { rank: 6, points, nextThreshold: 1500, label: "Adept" };
+  if (points >= 600) return { rank: 5, points, nextThreshold: 1000, label: "Seeker" };
+  if (points >= 300) return { rank: 4, points, nextThreshold: 600, label: "Apprentice" };
+  if (points >= 100) return { rank: 3, points, nextThreshold: 300, label: "Initiate" };
+  if (points >= 30) return { rank: 2, points, nextThreshold: 100, label: "Curious" };
+  return { rank: 1, points, nextThreshold: 30, label: "Newcomer" };
+}
+
+function computeEmpathyIndex(data: LiveData) {
+  const compassion = Math.min(1, (data.totalDonated * 10 + data.totalWins * 2) / 100);
+  const connection = Math.min(1, (data.streak * 3 + data.gratitudeCount * 2) / 80);
+  const mindfulness = Math.min(1, (data.neuralEnergy + data.gratitudeCount * 5) / 200);
+  const listening = Math.min(1, (data.totalSpinsUsed + data.streak) / 150);
+  const emotionalSafety = Math.min(1, (data.gratitudeCount * 4 + data.streak * 2) / 100);
+  const sharedPurpose = Math.min(1, (data.totalDonated * 15 + data.totalWins) / 80);
+  return [
+    { label: "Compassion", value: compassion, color: Colors.compassionPink },
+    { label: "Connection", value: connection, color: Colors.empathyGreen },
+    { label: "Mindfulness", value: mindfulness, color: Colors.mindfulBlue },
+    { label: "Listening", value: listening, color: Colors.neuralPurple },
+    { label: "Emotional Safety", value: emotionalSafety, color: Colors.balanceAmber },
+    { label: "Shared Purpose", value: sharedPurpose, color: Colors.gold },
+  ];
+}
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const [data, setData] = useState<LiveData>({
+    neuralEnergy: 0,
+    totalDonated: 0,
+    spinsLeft: 5,
+    streak: 0,
+    totalWins: 0,
+    gratitudeCount: 0,
+    totalSpinsUsed: 0,
+  });
   const [settings, setSettings] = useState(
     SETTINGS.reduce((acc, s) => ({ ...acc, [s.id]: s.value ?? false }), {} as Record<string, boolean>)
   );
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const starAnim = useRef(new Animated.Value(0)).current;
+
+  const loadData = useCallback(async () => {
+    try {
+      const [energy, donated, spins, streak, wins, gratLog, spinsUsed] = await Promise.all([
+        AsyncStorage.getItem(NEURAL_ENERGY_KEY),
+        AsyncStorage.getItem(DONATIONS_KEY),
+        AsyncStorage.getItem(SPINS_KEY),
+        AsyncStorage.getItem(STREAK_KEY),
+        AsyncStorage.getItem(WINS_KEY),
+        AsyncStorage.getItem(GRATITUDE_LOG_KEY),
+        AsyncStorage.getItem(TOTAL_SPINS_USED_KEY),
+      ]);
+
+      let gratitudeCount = 0;
+      if (gratLog) {
+        try {
+          const parsed = JSON.parse(gratLog);
+          gratitudeCount = Array.isArray(parsed) ? parsed.length : 0;
+        } catch {
+          gratitudeCount = 0;
+        }
+      }
+
+      setData({
+        neuralEnergy: safeInt(energy, 0),
+        totalDonated: safeFloat(donated, 0),
+        spinsLeft: safeInt(spins, 5),
+        streak: safeInt(streak, 0),
+        totalWins: safeInt(wins, 0),
+        gratitudeCount,
+        totalSpinsUsed: safeInt(spinsUsed, 0),
+      });
+    } catch {}
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -77,24 +209,33 @@ export default function ProfileScreen() {
     setSettings((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
+  const zen = computeZenRank(data);
+  const empathyDims = computeEmpathyIndex(data);
+  const empathyAvg = Math.round(empathyDims.reduce((sum, d) => sum + d.value, 0) / empathyDims.length * 100);
+  const achievements = ACHIEVEMENTS_DEF.map((a) => ({ ...a, unlocked: a.condition(data) }));
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
+
+  const zenProgress = zen.rank >= 10 ? 1 : (zen.points - (zen.rank > 1 ? [0, 0, 30, 100, 300, 600, 1000, 1500, 2000, 3000][zen.rank] : 0)) / (zen.nextThreshold - (zen.rank > 1 ? [0, 0, 30, 100, 300, 600, 1000, 1500, 2000, 3000][zen.rank] : 0));
+
+  const hbhsScore = Math.min(100, (empathyAvg * 0.4 + zen.rank * 6 + Math.min(data.neuralEnergy / 10, 20)));
+
+  const treesEquiv = Math.floor(data.totalDonated / 2);
+  const mealsEquiv = Math.floor(data.totalDonated / 1.5);
+  const studentsEquiv = (data.totalDonated / 50).toFixed(1);
+
   const handleShare = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      await Share.share({
-        message:
-          "My NeuroQuest Profile 🧠✨\n\n" +
-          "Zen Rank: 4 • HBHS: 100.0\n" +
-          "Empathy Index: 87% (+14% this week)\n" +
-          "$247.50 donated to charity\n" +
-          "15 trees • 23 meals • 2 students funded\n\n" +
-          "Train your mind. Change the world.\n" +
-          "neuroquest.app",
-        title: "My NeuroQuest Profile",
-      });
-    } catch {}
-  }, []);
+    const msg =
+      `My NeuroQuest Profile 🧠✨\n\n` +
+      `Zen Rank: ${zen.rank} (${zen.label}) • HBHS: ${hbhsScore.toFixed(1)}\n` +
+      `Empathy Index: ${empathyAvg}%\n` +
+      `$${data.totalDonated.toFixed(2)} donated to charity\n` +
+      `${data.streak}-day streak 🔥 • ${data.totalWins} jackpots\n\n` +
+      `Train your mind. Change the world.\n` +
+      `neuroquest.app`;
+    await shareText(msg, "My NeuroQuest Profile");
+  }, [zen, hbhsScore, empathyAvg, data]);
 
-  const zenRankProgress = 0.65;
   const starOp = starAnim.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.8] });
   const ringScale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
 
@@ -142,9 +283,8 @@ export default function ProfileScreen() {
           <Text style={styles.profileName}>Compassion Player</Text>
           <View style={styles.rankBadge}>
             <MaterialCommunityIcons name="crown" size={12} color={Colors.forestDeep} />
-            <Text style={styles.rankText}>Zen Rank 4</Text>
+            <Text style={styles.rankText}>Zen Rank {zen.rank} · {zen.label}</Text>
           </View>
-          <Text style={styles.memberSince}>Member since March 2024</Text>
           <Pressable onPress={handleShare} style={styles.shareProfileBtn}>
             <Feather name="share-2" size={14} color={Colors.neuralPurple} />
             <Text style={styles.shareProfileText}>Share Profile</Text>
@@ -154,17 +294,17 @@ export default function ProfileScreen() {
         <GlassCard style={styles.rankCard} borderColor={Colors.glassBorderLight}>
           <View style={styles.rankHeader}>
             <Text style={styles.cardEyebrow}>ZEN RANK PROGRESS</Text>
-            <Text style={styles.rankLevel}>4 → 5</Text>
+            <Text style={styles.rankLevel}>{zen.rank} → {Math.min(zen.rank + 1, 10)}</Text>
           </View>
           <View style={styles.progressTrack}>
             <LinearGradient
               colors={[Colors.goldLight, Colors.gold]}
-              style={[styles.progressFill, { width: `${zenRankProgress * 100}%` }]}
+              style={[styles.progressFill, { width: `${Math.min(zenProgress, 1) * 100}%` }]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             />
           </View>
-          <Text style={styles.progressLabel}>650 / 1,000 Compassion Points</Text>
+          <Text style={styles.progressLabel}>{zen.points} / {zen.nextThreshold} Compassion Points</Text>
         </GlassCard>
 
         <GlassCard style={styles.hbhsCard} borderColor="rgba(244,114,182,0.2)" elevated>
@@ -176,28 +316,24 @@ export default function ProfileScreen() {
           />
           <Text style={styles.cardEyebrowPink}>HEART-BRAIN HYBRID SCORE</Text>
           <View style={styles.hbhsRow}>
-            <Text style={styles.hbhsValue}>100.0</Text>
+            <Text style={styles.hbhsValue}>{hbhsScore.toFixed(1)}</Text>
             <View style={styles.hbhsTag}>
               <Text style={styles.hbhsTagText}>HBHS</Text>
             </View>
             <View style={{ flex: 1 }} />
-            <View style={styles.hbhsDelta}>
-              <Ionicons name="trending-up" size={14} color={Colors.empathyGreen} />
-              <Text style={styles.hbhsDeltaText}>+14%</Text>
-            </View>
           </View>
           <View style={styles.neuralRow}>
             <View style={[styles.neuralPill, { backgroundColor: Colors.empathyGreenDim }]}>
               <Text style={styles.neuralPillLabel}>EI</Text>
-              <Text style={[styles.neuralPillVal, { color: Colors.empathyGreen }]}>75%</Text>
+              <Text style={[styles.neuralPillVal, { color: Colors.empathyGreen }]}>{empathyAvg}%</Text>
             </View>
             <View style={[styles.neuralPill, { backgroundColor: Colors.mindfulBlueDim }]}>
-              <Text style={styles.neuralPillLabel}>MP</Text>
-              <Text style={[styles.neuralPillVal, { color: Colors.mindfulBlue }]}>82%</Text>
+              <Text style={styles.neuralPillLabel}>NE</Text>
+              <Text style={[styles.neuralPillVal, { color: Colors.mindfulBlue }]}>{data.neuralEnergy}</Text>
             </View>
             <View style={[styles.neuralPill, { backgroundColor: Colors.balanceAmberDim }]}>
-              <Text style={styles.neuralPillLabel}>NEB</Text>
-              <Text style={[styles.neuralPillVal, { color: Colors.balanceAmber }]}>680</Text>
+              <Text style={styles.neuralPillLabel}>WINS</Text>
+              <Text style={[styles.neuralPillVal, { color: Colors.balanceAmber }]}>{data.totalWins}</Text>
             </View>
           </View>
         </GlassCard>
@@ -210,15 +346,15 @@ export default function ProfileScreen() {
           <View style={styles.empathyHead}>
             <Text style={styles.cardEyebrowPurple}>EMPATHY INDEX</Text>
             <View style={styles.empathyBadge}>
-              <Text style={styles.empathyBadgeText}>87%</Text>
+              <Text style={styles.empathyBadgeText}>{empathyAvg}%</Text>
             </View>
           </View>
           <View style={styles.empathyBars}>
-            {EMPATHY_DIMS.map((d) => (
+            {empathyDims.map((d) => (
               <View key={d.label} style={styles.empathyBarRow}>
                 <Text style={styles.empathyBarLabel}>{d.label}</Text>
                 <View style={styles.empathyBarTrack}>
-                  <View style={[styles.empathyBarFill, { width: `${d.value * 100}%`, backgroundColor: d.color }]} />
+                  <View style={[styles.empathyBarFill, { width: `${Math.round(d.value * 100)}%`, backgroundColor: d.color }]} />
                 </View>
                 <Text style={[styles.empathyBarVal, { color: d.color }]}>{Math.round(d.value * 100)}%</Text>
               </View>
@@ -230,12 +366,12 @@ export default function ProfileScreen() {
         <Text style={styles.sectionTitle}>Making a difference</Text>
         <View style={styles.impactGrid}>
           {[
-            { label: "Total Donated", value: "$247.50", icon: "heart" },
-            { label: "Jackpots Won", value: "23", icon: "trophy" },
-            { label: "Day Streak", value: "7", icon: "flame" },
-            { label: "Total Spins", value: "184", icon: "repeat" },
-            { label: "Games Played", value: "62", icon: "game-controller" },
-            { label: "Tasks Done", value: "41", icon: "checkmark-done" },
+            { label: "Total Donated", value: `$${data.totalDonated.toFixed(2)}`, icon: "heart" },
+            { label: "Jackpots Won", value: String(data.totalWins), icon: "trophy" },
+            { label: "Day Streak", value: String(data.streak), icon: "flame" },
+            { label: "Neural Energy", value: String(data.neuralEnergy), icon: "flash" },
+            { label: "Spins Left", value: String(data.spinsLeft), icon: "repeat" },
+            { label: "Gratitudes", value: String(data.gratitudeCount), icon: "sunny" },
           ].map((stat, i) => (
             <GlassCard key={i} style={styles.impactCard} borderColor={Colors.glassBorderLight}>
               <Ionicons name={stat.icon as any} size={20} color={Colors.gold} />
@@ -249,10 +385,10 @@ export default function ProfileScreen() {
         <Text style={styles.sectionTitle}>Your real-world footprint</Text>
         <View style={styles.livesRow}>
           {[
-            { icon: "🌳", val: "15", label: "Trees", color: Colors.empathyGreen },
-            { icon: "🍽️", val: "23", label: "Meals", color: Colors.balanceAmber },
-            { icon: "📖", val: "2", label: "Students", color: Colors.mindfulBlue },
-            { icon: "🧘", val: "0.5", label: "Sessions", color: Colors.neuralPurple },
+            { icon: "🌳", val: String(treesEquiv), label: "Trees", color: Colors.empathyGreen },
+            { icon: "🍽️", val: String(mealsEquiv), label: "Meals", color: Colors.balanceAmber },
+            { icon: "📖", val: studentsEquiv, label: "Students", color: Colors.mindfulBlue },
+            { icon: "🧘", val: String(data.gratitudeCount), label: "Practices", color: Colors.neuralPurple },
           ].map((l, i) => (
             <View key={i} style={styles.livesItem}>
               <Text style={styles.livesIcon}>{l.icon}</Text>
@@ -269,24 +405,24 @@ export default function ProfileScreen() {
           />
           <View style={styles.charityHeader}>
             <Ionicons name="heart" size={20} color={Colors.gold} />
-            <Text style={styles.charityTitle}>Your Charity Impact</Text>
+            <Text style={styles.charityTitle}>Charity Allocation</Text>
           </View>
+          <Text style={styles.charitySubtext}>30% of all revenue donated to verified partners</Text>
           <View style={styles.charityBreakdown}>
             {[
-              { cause: "End Hunger", amount: "$98.50", percent: "40%" },
-              { cause: "Clean Water", amount: "$62.00", percent: "25%" },
-              { cause: "Climate Action", amount: "$49.50", percent: "20%" },
-              { cause: "Education", amount: "$37.50", percent: "15%" },
+              { cause: "End Hunger", percent: "25%" },
+              { cause: "Clean Water", percent: "25%" },
+              { cause: "Climate Action", percent: "20%" },
+              { cause: "Education", percent: "15%" },
+              { cause: "Mental Health", percent: "10%" },
+              { cause: "Ocean Cleanup", percent: "5%" },
             ].map((item, i) => (
               <View key={i} style={styles.charityRow}>
                 <View style={styles.charityRowLeft}>
                   <View style={styles.charityDot} />
                   <Text style={styles.charityCause}>{item.cause}</Text>
                 </View>
-                <View style={styles.charityRowRight}>
-                  <Text style={styles.charityAmount}>{item.amount}</Text>
-                  <Text style={styles.charityPercent}>{item.percent}</Text>
-                </View>
+                <Text style={styles.charityPercent}>{item.percent}</Text>
               </View>
             ))}
           </View>
@@ -310,9 +446,9 @@ export default function ProfileScreen() {
         </Pressable>
 
         <Text style={styles.sectionEyebrow}>ACHIEVEMENTS</Text>
-        <Text style={styles.sectionTitle}>Milestones</Text>
+        <Text style={styles.sectionTitle}>Milestones ({unlockedCount}/{achievements.length})</Text>
         <View style={styles.achievementsGrid}>
-          {ACHIEVEMENTS.map((a) => (
+          {achievements.map((a) => (
             <GlassCard
               key={a.id}
               style={[styles.achieveCard, !a.unlocked && styles.achieveCardLocked]}
@@ -480,12 +616,6 @@ const styles = StyleSheet.create({
     color: Colors.forestDeep,
     letterSpacing: 0.5,
   },
-  memberSince: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    color: Colors.whiteAlpha30,
-    marginTop: 2,
-  },
   shareProfileBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -558,16 +688,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: Colors.compassionPink,
     letterSpacing: 2,
-  },
-  hbhsDelta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  hbhsDeltaText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 13,
-    color: Colors.empathyGreen,
   },
   neuralRow: {
     flexDirection: "row",
@@ -665,40 +785,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.whiteAlpha30,
     textAlign: "center",
-    letterSpacing: 0.3,
   },
   livesRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 8,
-    marginBottom: 4,
   },
   livesItem: {
-    flex: 1,
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.whiteAlpha05,
-    borderRadius: 16,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: Colors.glassBorderLight,
+    flex: 1,
   },
   livesIcon: {
-    fontSize: 24,
+    fontSize: 28,
   },
   livesVal: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 20,
+    fontSize: 22,
   },
   livesLabel: {
     fontFamily: "Inter_400Regular",
-    fontSize: 9,
+    fontSize: 10,
     color: Colors.whiteAlpha30,
-    letterSpacing: 0.3,
   },
   charityCard: {
-    padding: 22,
-    gap: 16,
+    padding: 20,
+    gap: 14,
     overflow: "hidden",
   },
   charityHeader: {
@@ -711,8 +822,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: Colors.white,
   },
+  charitySubtext: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: Colors.whiteAlpha30,
+    marginTop: -8,
+  },
   charityBreakdown: {
-    gap: 12,
+    gap: 10,
   },
   charityRow: {
     flexDirection: "row",
@@ -722,7 +839,7 @@ const styles = StyleSheet.create({
   charityRowLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   charityDot: {
     width: 6,
@@ -732,43 +849,33 @@ const styles = StyleSheet.create({
   },
   charityCause: {
     fontFamily: "Inter_500Medium",
-    fontSize: 14,
-    color: Colors.whiteAlpha80,
-  },
-  charityRowRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  charityAmount: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 15,
-    color: Colors.gold,
+    fontSize: 13,
+    color: Colors.whiteAlpha60,
   },
   charityPercent: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
     color: Colors.whiteAlpha30,
   },
   shareImpactCard: {
+    padding: 20,
     flexDirection: "row",
     alignItems: "center",
-    padding: 20,
     gap: 14,
     overflow: "hidden",
   },
   shareImpactText: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
   shareImpactTitle: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 15,
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 16,
     color: Colors.white,
   },
   shareImpactSub: {
     fontFamily: "Inter_400Regular",
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.whiteAlpha30,
   },
   achievementsGrid: {
@@ -778,53 +885,53 @@ const styles = StyleSheet.create({
   },
   achieveCard: {
     width: "30%",
-    aspectRatio: 1,
+    padding: 16,
     alignItems: "center",
-    justifyContent: "center",
-    padding: 12,
-    gap: 6,
+    gap: 8,
     overflow: "hidden",
   },
   achieveCardLocked: {
-    opacity: 0.4,
+    opacity: 0.5,
   },
   achieveTitle: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_600SemiBold",
     fontSize: 10,
-    color: Colors.white,
+    color: Colors.gold,
     textAlign: "center",
   },
   achieveTitleLocked: {
-    color: Colors.whiteAlpha50,
+    color: Colors.whiteAlpha20,
   },
   settingsCard: {
     padding: 4,
-    overflow: "hidden",
   },
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
+    padding: 16,
     gap: 14,
-    padding: 18,
   },
   settingLabel: {
-    flex: 1,
     fontFamily: "Inter_500Medium",
-    fontSize: 15,
-    color: Colors.whiteAlpha90,
+    fontSize: 14,
+    color: Colors.whiteAlpha60,
+    flex: 1,
+  },
+  settingDivider: {
+    height: 1,
+    backgroundColor: Colors.whiteAlpha05,
+    marginHorizontal: 16,
   },
   toggle: {
-    width: 46,
-    height: 28,
-    borderRadius: 100,
+    width: 44,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: Colors.whiteAlpha10,
     justifyContent: "center",
-    paddingHorizontal: 3,
+    paddingHorizontal: 2,
   },
   toggleOn: {
-    backgroundColor: Colors.forestLight,
-    borderWidth: 1,
-    borderColor: Colors.goldAlpha30,
+    backgroundColor: Colors.empathyGreenDim,
   },
   toggleKnob: {
     width: 22,
@@ -833,13 +940,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.whiteAlpha30,
   },
   toggleKnobOn: {
-    backgroundColor: Colors.gold,
+    backgroundColor: Colors.empathyGreen,
     alignSelf: "flex-end",
-  },
-  settingDivider: {
-    height: 1,
-    backgroundColor: Colors.whiteAlpha05,
-    marginHorizontal: 18,
   },
   version: {
     fontFamily: "Inter_400Regular",

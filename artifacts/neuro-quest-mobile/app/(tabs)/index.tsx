@@ -1,9 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import {
+  Alert,
   Animated,
   Dimensions,
   KeyboardAvoidingView,
@@ -299,17 +301,22 @@ export default function HomeScreen() {
 
   const handleShare = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      await Share.share({
-        message:
-          `I'm training my mind and changing lives with NeuroQuest! 🧠✨\n\n` +
-          `My Impact: $${totalDonated.toFixed(2)} donated • ${neuralEnergy} Neural Energy\n` +
-          `Empathy Index: ${empathyIndex}% • ${streakCount}-day streak 🔥\n\n` +
-          `Every spin funds real charities. 30% of revenue goes to verified partners worldwide.\n\n` +
-          `Join the Compassion Casino → neuroquest.app`,
-        title: "My NeuroQuest Impact",
-      });
-    } catch {}
+    const msg =
+      `I'm training my mind and changing lives with NeuroQuest! 🧠✨\n\n` +
+      `My Impact: $${totalDonated.toFixed(2)} donated • ${neuralEnergy} Neural Energy\n` +
+      `Empathy Index: ${empathyIndex}% • ${streakCount}-day streak 🔥\n\n` +
+      `Every spin funds real charities. 30% of revenue goes to verified partners worldwide.\n\n` +
+      `Join the Compassion Casino → neuroquest.app`;
+    if (Platform.OS === "web") {
+      try {
+        await Clipboard.setStringAsync(msg);
+        Alert.alert("Copied!", "Share text copied to clipboard.");
+      } catch {}
+    } else {
+      try {
+        await Share.share({ message: msg, title: "My NeuroQuest Impact" });
+      } catch {}
+    }
   }, [totalDonated, neuralEnergy, streakCount]);
 
   const empathyIndex = 87;

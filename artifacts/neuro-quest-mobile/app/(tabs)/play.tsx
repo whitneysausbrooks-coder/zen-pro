@@ -1,8 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Dimensions,
   Platform,
@@ -26,6 +28,7 @@ const nd = Platform.OS !== "web";
 const SPINS_KEY = "nq_spins_left";
 const WINS_KEY = "nq_total_wins";
 const DONATIONS_KEY = "nq_micro_donations";
+const TOTAL_SPINS_USED_KEY = "nq_total_spins_used";
 
 type ResultState = "idle" | "win" | "lose";
 
@@ -108,6 +111,9 @@ export default function PlayScreen() {
       setSpinsLeft(newSpins);
       await AsyncStorage.setItem(SPINS_KEY, String(newSpins));
 
+      const prev = parseInt((await AsyncStorage.getItem(TOTAL_SPINS_USED_KEY)) || "0", 10) || 0;
+      await AsyncStorage.setItem(TOTAL_SPINS_USED_KEY, String(prev + 1));
+
       triggerMicroDonation(isWin);
 
       if (isWin) {
@@ -131,6 +137,10 @@ export default function PlayScreen() {
 
   const handlePremiumResult = useCallback(
     (won: boolean, _donationCents: number) => {
+      AsyncStorage.getItem(TOTAL_SPINS_USED_KEY).then((val) => {
+        const prev = parseInt(val || "0", 10) || 0;
+        AsyncStorage.setItem(TOTAL_SPINS_USED_KEY, String(prev + 1));
+      });
       triggerMicroDonation(won);
       if (won) {
         setTotalWins((prev) => {
@@ -148,16 +158,21 @@ export default function PlayScreen() {
 
   const handleShareWin = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      await Share.share({
-        message:
-          `I just hit ${totalWins} jackpot${totalWins !== 1 ? "s" : ""} on NeuroQuest! 🎰✨\n\n` +
-          "Every spin trains my brain AND funds real charities.\n" +
-          "30% of all revenue donated to verified partners worldwide.\n\n" +
-          "Join the Compassion Casino → neuroquest.app",
-        title: "NeuroQuest Jackpot!",
-      });
-    } catch {}
+    const msg =
+      `I just hit ${totalWins} jackpot${totalWins !== 1 ? "s" : ""} on NeuroQuest! 🎰✨\n\n` +
+      "Every spin trains my brain AND funds real charities.\n" +
+      "30% of all revenue donated to verified partners worldwide.\n\n" +
+      "Join the Compassion Casino → neuroquest.app";
+    if (Platform.OS === "web") {
+      try {
+        await Clipboard.setStringAsync(msg);
+        Alert.alert("Copied!", "Share text copied to clipboard.");
+      } catch {}
+    } else {
+      try {
+        await Share.share({ message: msg, title: "NeuroQuest Jackpot!" });
+      } catch {}
+    }
   }, [totalWins]);
 
   const resultConfig =
