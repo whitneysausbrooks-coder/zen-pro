@@ -130,7 +130,7 @@ export default function PlayScreen() {
   }, [spinsLeft]);
 
   const handlePremiumResult = useCallback(
-    (won: boolean, _payoutAmount: number, _cost: number) => {
+    (won: boolean, _donationCents: number) => {
       triggerMicroDonation(won);
       if (won) {
         setTotalWins((prev) => {
@@ -233,7 +233,7 @@ export default function PlayScreen() {
 
         <View style={styles.premiumDivider}>
           <View style={styles.premiumLine} />
-          <Text style={styles.premiumLabel}>PREMIUM GAMES</Text>
+          <Text style={styles.premiumLabel}>DONATION GAMES</Text>
           <View style={styles.premiumLine} />
         </View>
 

@@ -19,13 +19,13 @@ const MULTIPLIERS: Record<string, number> = {
 };
 
 const TIERS = [
-  { label: "$1", cost: 1, multiplier: 1, color: Colors.mindfulBlue },
-  { label: "$3", cost: 3, multiplier: 3, color: Colors.balanceAmber },
-  { label: "$5", cost: 5, multiplier: 5, color: Colors.gold },
+  { label: "1¢", cents: 1, multiplier: 1, color: Colors.mindfulBlue },
+  { label: "3¢", cents: 3, multiplier: 3, color: Colors.balanceAmber },
+  { label: "5¢", cents: 5, multiplier: 5, color: Colors.gold },
 ];
 
 interface Props {
-  onResult: (won: boolean, payout: number, cost: number) => void;
+  onResult: (won: boolean, donationCents: number) => void;
 }
 
 export function HoldAndWinSlot({ onResult }: Props) {
@@ -135,22 +135,22 @@ export function HoldAndWinSlot({ onResult }: Props) {
       const s2 = SYMBOLS[newReels[1]];
       const s3 = SYMBOLS[newReels[2]];
 
-      let winAmount = 0;
+      let donationCents = 0;
       if (s1 === s2 && s2 === s3) {
-        winAmount = (MULTIPLIERS[s1] || 3) * tier.multiplier;
-        setResultText(`JACKPOT! ${s1}${s1}${s1} — $${winAmount}`);
+        donationCents = (MULTIPLIERS[s1] || 3) * tier.cents;
+        setResultText(`JACKPOT! ${s1}${s1}${s1} — ${donationCents}¢ donated!`);
       } else if (s1 === s2 || s2 === s3 || s1 === s3) {
         const matchSym = s1 === s2 ? s1 : s1 === s3 ? s1 : s2;
-        winAmount = Math.ceil((MULTIPLIERS[matchSym] || 2) * tier.multiplier * 0.3);
-        setResultText(`Pair! ${matchSym}${matchSym} — $${winAmount}`);
+        donationCents = Math.ceil((MULTIPLIERS[matchSym] || 2) * tier.cents * 0.3);
+        setResultText(`Pair! ${matchSym}${matchSym} — ${donationCents}¢ donated!`);
       } else {
         setResultText("No match — try again!");
       }
 
-      setPayout(winAmount);
+      setPayout(donationCents);
       setPhase("result");
       Animated.timing(resultAnim, { toValue: 1, duration: 400, useNativeDriver: nd }).start();
-      onResult(winAmount > 0, winAmount, tier.cost);
+      onResult(donationCents > 0, donationCents);
 
       const rid = setTimeout(() => {
         if (!mountedRef.current) return;
@@ -182,22 +182,22 @@ export function HoldAndWinSlot({ onResult }: Props) {
       const s2 = SYMBOLS[newReels[1]];
       const s3 = SYMBOLS[newReels[2]];
 
-      let winAmount = 0;
+      let donationCents = 0;
       if (s1 === s2 && s2 === s3) {
-        winAmount = (MULTIPLIERS[s1] || 3) * tier.multiplier;
-        setResultText(`JACKPOT! ${s1}${s1}${s1} — $${winAmount}`);
+        donationCents = (MULTIPLIERS[s1] || 3) * tier.cents;
+        setResultText(`JACKPOT! ${s1}${s1}${s1} — ${donationCents}¢ donated!`);
       } else if (s1 === s2 || s2 === s3 || s1 === s3) {
         const matchSym = s1 === s2 ? s1 : s1 === s3 ? s1 : s2;
-        winAmount = Math.ceil((MULTIPLIERS[matchSym] || 2) * tier.multiplier * 0.3);
-        setResultText(`Pair! ${matchSym}${matchSym} — $${winAmount}`);
+        donationCents = Math.ceil((MULTIPLIERS[matchSym] || 2) * tier.cents * 0.3);
+        setResultText(`Pair! ${matchSym}${matchSym} — ${donationCents}¢ donated!`);
       } else {
         setResultText("No match — try again!");
       }
 
-      setPayout(winAmount);
+      setPayout(donationCents);
       setPhase("result");
       Animated.timing(resultAnim, { toValue: 1, duration: 400, useNativeDriver: nd }).start();
-      onResult(winAmount > 0, winAmount, tier.cost);
+      onResult(donationCents > 0, donationCents);
 
       const rid = setTimeout(() => {
         if (!mountedRef.current) return;
@@ -220,7 +220,7 @@ export function HoldAndWinSlot({ onResult }: Props) {
       <View style={s.header}>
         <Text style={s.badge}>HOLD & WIN</Text>
         <Text style={s.title}>Vegas Hold</Text>
-        <Text style={s.sub}>Hold your best reels, respin the rest</Text>
+        <Text style={s.sub}>Hold your best reels, donate on match</Text>
       </View>
 
       <View style={s.reelsRow}>
@@ -268,7 +268,7 @@ export function HoldAndWinSlot({ onResult }: Props) {
             <Text style={[s.tierLabel, selectedTier === i && { color: tier.color }]}>
               {tier.label}
             </Text>
-            <Text style={s.tierMult}>{tier.multiplier}× payout</Text>
+            <Text style={s.tierMult}>{tier.multiplier}× donation</Text>
           </Pressable>
         ))}
       </View>
@@ -302,7 +302,7 @@ export function HoldAndWinSlot({ onResult }: Props) {
             end={{ x: 1, y: 1 }}
           >
             <Text style={s.spinText}>
-              {phase === "spinning" || phase === "respin" ? "SPINNING..." : `SPIN — ${TIERS[selectedTier].label}`}
+              {phase === "spinning" || phase === "respin" ? "SPINNING..." : `SPIN — donate ${TIERS[selectedTier].label}`}
             </Text>
           </LinearGradient>
         </Pressable>

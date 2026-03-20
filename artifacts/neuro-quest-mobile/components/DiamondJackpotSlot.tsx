@@ -18,13 +18,13 @@ const PAYOUTS: Record<string, number> = {
 };
 
 const TIERS = [
-  { label: "$1", cost: 1, multiplier: 1, color: Colors.mindfulBlue },
-  { label: "$3", cost: 3, multiplier: 3, color: Colors.balanceAmber },
-  { label: "$5", cost: 5, multiplier: 5, color: Colors.gold },
+  { label: "1¢", cents: 1, multiplier: 1, color: Colors.mindfulBlue },
+  { label: "3¢", cents: 3, multiplier: 3, color: Colors.balanceAmber },
+  { label: "5¢", cents: 5, multiplier: 5, color: Colors.gold },
 ];
 
 interface Props {
-  onResult: (won: boolean, payout: number, cost: number) => void;
+  onResult: (won: boolean, donationCents: number) => void;
 }
 
 export function DiamondJackpotSlot({ onResult }: Props) {
@@ -127,16 +127,16 @@ export function DiamondJackpotSlot({ onResult }: Props) {
       if (count > maxCount) { maxCount = count; maxSym = sym; }
     });
 
-    let winAmount = 0;
+    let donationCents = 0;
     if (maxCount === 5) {
-      winAmount = (PAYOUTS[maxSym] || 5) * tier.multiplier * 3;
-      setResultText(`💎 MEGA JACKPOT! ${maxSym}×5 — $${winAmount}`);
+      donationCents = (PAYOUTS[maxSym] || 5) * tier.multiplier * 3;
+      setResultText(`💎 MEGA JACKPOT! ${maxSym}×5 — ${donationCents}¢ donated!`);
     } else if (maxCount === 4) {
-      winAmount = (PAYOUTS[maxSym] || 5) * tier.multiplier * 2;
-      setResultText(`🔥 Four of a Kind! ${maxSym}×4 — $${winAmount}`);
+      donationCents = (PAYOUTS[maxSym] || 5) * tier.multiplier * 2;
+      setResultText(`🔥 Four of a Kind! ${maxSym}×4 — ${donationCents}¢ donated!`);
     } else if (maxCount === 3) {
-      winAmount = Math.ceil((PAYOUTS[maxSym] || 3) * tier.multiplier * 0.8);
-      setResultText(`Three ${maxSym}! — $${winAmount}`);
+      donationCents = Math.ceil((PAYOUTS[maxSym] || 3) * tier.multiplier * 0.8);
+      setResultText(`Three ${maxSym}! — ${donationCents}¢ donated!`);
     } else {
       let consecutive = 1;
       let maxConsecutive = 1;
@@ -145,20 +145,20 @@ export function DiamondJackpotSlot({ onResult }: Props) {
         else { consecutive = 1; }
       }
       if (maxConsecutive >= 2) {
-        winAmount = Math.ceil(tier.multiplier * 0.5);
-        setResultText(`Small win — $${winAmount}`);
+        donationCents = Math.ceil(tier.cents * 0.5) || 1;
+        setResultText(`Small match — ${donationCents}¢ donated!`);
       } else {
         setResultText("No match — spin again!");
       }
     }
 
-    setPayout(winAmount);
+    setPayout(donationCents);
     setPhase("result");
     Animated.timing(resultAnim, { toValue: 1, duration: 400, useNativeDriver: nd }).start();
-    onResult(winAmount > 0, winAmount, tier.cost);
+    onResult(donationCents > 0, donationCents);
 
     if (nd) {
-      if (winAmount > 0) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (donationCents > 0) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
@@ -182,7 +182,7 @@ export function DiamondJackpotSlot({ onResult }: Props) {
       <View style={s.header}>
         <Text style={s.badge}>5-REEL PREMIUM</Text>
         <Text style={s.title}>Diamond Jackpot</Text>
-        <Text style={s.sub}>5 reels, bigger wins, premium payouts</Text>
+        <Text style={s.sub}>5 reels, bigger matches, bigger donations</Text>
       </View>
 
       <View style={s.reelsRow}>
@@ -209,7 +209,7 @@ export function DiamondJackpotSlot({ onResult }: Props) {
             <Text style={[s.tierLabel, selectedTier === i && { color: tier.color }]}>
               {tier.label}
             </Text>
-            <Text style={s.tierMult}>{tier.multiplier}× payout</Text>
+            <Text style={s.tierMult}>{tier.multiplier}× donation</Text>
           </Pressable>
         ))}
       </View>
@@ -217,17 +217,17 @@ export function DiamondJackpotSlot({ onResult }: Props) {
       <View style={s.payoutRow}>
         <View style={s.payoutItem}>
           <Text style={s.payoutEmoji}>💎×5</Text>
-          <Text style={s.payoutVal}>Mega Jackpot</Text>
+          <Text style={s.payoutVal}>Mega Donation</Text>
         </View>
         <View style={s.payoutDivider} />
         <View style={s.payoutItem}>
           <Text style={s.payoutEmoji}>×4</Text>
-          <Text style={s.payoutVal}>Four of a Kind</Text>
+          <Text style={s.payoutVal}>Big Donation</Text>
         </View>
         <View style={s.payoutDivider} />
         <View style={s.payoutItem}>
           <Text style={s.payoutEmoji}>×3</Text>
-          <Text style={s.payoutVal}>Three Match</Text>
+          <Text style={s.payoutVal}>Donation Match</Text>
         </View>
       </View>
 
@@ -243,7 +243,7 @@ export function DiamondJackpotSlot({ onResult }: Props) {
           end={{ x: 1, y: 1 }}
         >
           <Text style={s.spinText}>
-            {phase === "spinning" ? "SPINNING..." : `SPIN — ${TIERS[selectedTier].label}`}
+            {phase === "spinning" ? "SPINNING..." : `SPIN — donate ${TIERS[selectedTier].label}`}
           </Text>
         </LinearGradient>
       </Pressable>
