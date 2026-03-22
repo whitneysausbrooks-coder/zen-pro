@@ -265,9 +265,12 @@ function ResultsStep({ score, responseMs }: { score: number; responseMs: number[
             <span className="text-[10px] text-muted-foreground uppercase tracking-widest">hits</span>
           </motion.div>
           <h2 className="text-2xl font-serif font-bold text-foreground">
-            Your Focus is{" "}
-            <span className={focusColor}>{focusRating}</span>
+            Welcome to{" "}
+            <span className="text-gradient-gold">NeuroQuest</span>
           </h2>
+          <p className={cn("text-sm font-semibold mt-1", focusColor)}>
+            Your Focus: {focusRating}
+          </p>
           {avgMs > 0 && (
             <p className="text-sm text-muted-foreground mt-1">Avg response: {avgMs}ms</p>
           )}
