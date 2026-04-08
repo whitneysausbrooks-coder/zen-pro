@@ -2,7 +2,7 @@ import React, { useState, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useLocation } from "wouter"
 import { useQueryClient } from "@tanstack/react-query"
-import { Brain, Eye, ArrowLeft, Zap, RefreshCw, HelpCircle } from "lucide-react"
+import { Brain, Eye, ArrowLeft, Zap, RefreshCw, HelpCircle, Share2 } from "lucide-react"
 import { getGetProfileQueryKey, getGetActivitiesQueryKey, useGetProfile } from "@workspace/api-client-react"
 import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/glass-card"
 import { LuxuryButton } from "@/components/ui/luxury-button"
@@ -474,10 +474,49 @@ export default function Blackjack() {
                   <LuxuryButton variant="outline" className="flex-1 gap-2" onClick={resetBet}>
                     <RefreshCw className="w-4 h-4" /> Play Again
                   </LuxuryButton>
-                  <LuxuryButton className="flex-1 gap-2" onClick={() => navigate("/wellness")}>
+                  {(result === "win" || result === "blackjack") && (
+                    <LuxuryButton
+                      variant="glass"
+                      className="flex-1 gap-2 border-emerald-400/30 hover:border-emerald-400/60"
+                      onClick={async () => {
+                        const bonusPct = Math.round(MIND_READ_BONUS * 100)
+                        const text = result === "blackjack"
+                          ? `Blackjack! 🧠 I just earned +${netChange} Neural Energy™ on NeuroQuest's Mind-Reader Challenge${mindReadCorrect ? " with a correct Mind Read prediction!" : "!"} Train your brain & feed the world.`
+                          : `I won +${netChange} Neural Energy™ on NeuroQuest's Mind-Reader Challenge${mindReadCorrect ? ` with a ${bonusPct}% Mind Read bonus!` : "!"} Brain training that feeds the world. 🧠`
+                        const url = typeof window !== "undefined" ? window.location.origin + BASE : ""
+                        const copyFallback = async () => {
+                          try {
+                            await navigator.clipboard.writeText(`${text}\n\n${url}`)
+                            toast({ title: "Copied!", description: "Your win has been copied to clipboard. Paste it anywhere to share!" })
+                          } catch {
+                            toast({ title: "Share", description: text })
+                          }
+                        }
+                        if (navigator.share) {
+                          try {
+                            await navigator.share({ title: "NeuroQuest Win!", text, url })
+                          } catch (e: any) {
+                            if (e?.name !== "AbortError") await copyFallback()
+                          }
+                        } else {
+                          await copyFallback()
+                        }
+                      }}
+                    >
+                      <Share2 className="w-4 h-4" /> Share Win
+                    </LuxuryButton>
+                  )}
+                  {result !== "win" && result !== "blackjack" && (
+                    <LuxuryButton className="flex-1 gap-2" onClick={() => navigate("/wellness")}>
+                      Compassion Wheel
+                    </LuxuryButton>
+                  )}
+                </div>
+                {(result === "win" || result === "blackjack") && (
+                  <LuxuryButton variant="outline" className="w-full gap-2 mt-2" onClick={() => navigate("/wellness")}>
                     Compassion Wheel
                   </LuxuryButton>
-                </div>
+                )}
               </GlassCardContent>
             </GlassCard>
           </motion.div>

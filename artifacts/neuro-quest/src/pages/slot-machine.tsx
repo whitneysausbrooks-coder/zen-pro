@@ -1090,6 +1090,32 @@ export default function SlotMachine() {
                   {result.tier === "compassion_jackpot" && (
                     <p className="text-sm font-medium text-rose-300">+{COMPASSION_JACKPOT} Compassion Points</p>
                   )}
+                  {result.payout > 0 && result.tier !== "compassion_jackpot" && (
+                    <button
+                      onClick={async () => {
+                        const tierNames: Record<string, string> = { jackpot: "Milestone", three: "Triple Match", two: "Double Match" }
+                        const text = `${tierNames[result.tier] ?? "Win"}! 🧠 I just earned +${result.payout} Neural Energy™ on NeuroQuest's Compassion Wheel! Every play funds hunger relief. #NeuroQuest #CompassionImpact`
+                        const url = typeof window !== "undefined" ? window.location.origin + BASE : ""
+                        const copyFallback = async () => {
+                          try {
+                            await navigator.clipboard.writeText(`${text}\n\n${url}`)
+                            toast({ title: "Copied!", description: "Your win has been copied to clipboard." })
+                          } catch {
+                            toast({ title: "Share", description: text })
+                          }
+                        }
+                        if (navigator.share) {
+                          try { await navigator.share({ title: "NeuroQuest Win!", text, url }) }
+                          catch (e: any) { if (e?.name !== "AbortError") await copyFallback() }
+                        } else {
+                          await copyFallback()
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 mt-2 px-4 py-1.5 rounded-full bg-primary/15 border border-primary/30 text-primary text-xs font-bold hover:bg-primary/25 transition-all"
+                    >
+                      <Share2 className="w-3.5 h-3.5" /> Share Win
+                    </button>
+                  )}
                 </motion.div>
               )}
               {phase === "idle" && !result && (

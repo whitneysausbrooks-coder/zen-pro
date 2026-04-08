@@ -1,6 +1,6 @@
 import React from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone, Globe, TrendingUp, Users } from "lucide-react"
+import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone, Globe, TrendingUp, Users, Share2 } from "lucide-react"
 import { UserAuthButton } from "@/components/user-auth-button"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
@@ -219,6 +219,32 @@ export default function Dashboard() {
                   <span className="font-serif font-semibold text-primary">{profile.title}</span>
                 </div>
                 <div className="w-px h-8 bg-white/20 mx-2" />
+                <LuxuryButton
+                  variant="ghost"
+                  size="icon"
+                  title="Share Profile"
+                  onClick={async () => {
+                    const streakText = streak && streak.streak_count > 0 ? ` | ${streak.streak_count}-day streak` : ""
+                    const text = `🧠 My NeuroQuest Profile\n\n⚡ ${(profile.neural_energy ?? 0).toLocaleString()} Neural Energy™\n♡ ${(profile.compassion_points ?? 0).toLocaleString()} Compassion Points\n🏅 Level ${profile.level} — ${profile.title}${streakText}\n\nTrain your mind. Feed the world.\n#NeuroQuest #MindAndSpirit`
+                    const url = typeof window !== "undefined" ? window.location.origin + BASE : ""
+                    const copyFallback = async () => {
+                      try {
+                        await navigator.clipboard.writeText(`${text}\n\n${url}`)
+                        toast({ title: "Copied!", description: "Your profile has been copied to clipboard. Share it anywhere!" })
+                      } catch {
+                        toast({ title: "Share Profile", description: text })
+                      }
+                    }
+                    if (navigator.share) {
+                      try { await navigator.share({ title: "My NeuroQuest Profile", text, url }) }
+                      catch (e: any) { if (e?.name !== "AbortError") await copyFallback() }
+                    } else {
+                      await copyFallback()
+                    }
+                  }}
+                >
+                  <Share2 className="w-5 h-5 opacity-70 hover:opacity-100 transition-opacity" />
+                </LuxuryButton>
                 <LuxuryButton 
                   variant="ghost" 
                   size="icon" 
