@@ -2,6 +2,7 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useState } from "react";
 import {
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -60,21 +61,20 @@ const ENTERPRISE_FEATURES = [
   { icon: "git-branch", title: "Team Challenges", desc: "Custom team exercises designed by organizational psychologists" },
   { icon: "bar-chart", title: "Burnout Detection", desc: "AI-powered early warning system for employee burnout" },
   { icon: "heart-circle", title: "CSR Impact Reports", desc: "Branded reports showing your company's charitable impact" },
-  { icon: "lock-closed", title: "HIPAA Compliant", desc: "SOC 2 Type II certified, GDPR ready, data residency options" },
+  { icon: "lock-closed", title: "Enterprise Security", desc: "Designed with privacy-first principles and data protection in mind" },
   { icon: "calendar", title: "Dedicated Success", desc: "Named customer success manager and onboarding support" },
 ];
 
-const ENTERPRISE_CLIENTS = [
-  { name: "Fortune 500", count: "12 companies" },
-  { name: "Employees", count: "48,000+" },
-  { name: "Avg. ROI", count: "340%" },
-  { name: "Retention", count: "94%" },
+const ENTERPRISE_BENEFITS = [
+  { name: "Engagement", count: "Higher" },
+  { name: "Team Cohesion", count: "Stronger" },
+  { name: "Burnout Awareness", count: "Better" },
+  { name: "Retention", count: "Improved" },
 ];
 
 export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState("pro");
-  const [purchased, setPurchased] = useState<string | null>(null);
 
   const handleSelect = useCallback((id: string) => {
     if (nd) Haptics.selectionAsync();
@@ -82,8 +82,12 @@ export default function ShopScreen() {
   }, []);
 
   const handlePurchase = useCallback((id: string) => {
-    if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setPurchased(id);
+    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      "Subscription",
+      "In-app purchases are processed securely through the App Store. This feature will be available when the app launches on the App Store.",
+      [{ text: "Got it", style: "default" }]
+    );
   }, []);
 
   return (
@@ -106,7 +110,7 @@ export default function ShopScreen() {
           <Text style={styles.eyebrow}>ELEVATE YOUR PRACTICE</Text>
           <Text style={styles.title}>Invest in Your Mind</Text>
           <Text style={styles.subtitle}>
-            Every purchase funds real charitable donations to verified partners worldwide
+            A portion of every subscription supports verified charity partners
           </Text>
         </View>
 
@@ -117,25 +121,24 @@ export default function ShopScreen() {
           />
           <View style={styles.impactRow}>
             <View style={styles.impactStat}>
-              <Text style={styles.impactNum}>$847K</Text>
-              <Text style={styles.impactLabel}>Donated from{"\n"}subscriptions</Text>
-            </View>
-            <View style={styles.impactDivider} />
-            <View style={styles.impactStat}>
               <Text style={styles.impactNum}>30%</Text>
               <Text style={styles.impactLabel}>Of revenue to{"\n"}charity</Text>
             </View>
             <View style={styles.impactDivider} />
             <View style={styles.impactStat}>
-              <Text style={styles.impactNum}>12</Text>
+              <Text style={styles.impactNum}>6</Text>
               <Text style={styles.impactLabel}>Verified{"\n"}partners</Text>
+            </View>
+            <View style={styles.impactDivider} />
+            <View style={styles.impactStat}>
+              <Text style={styles.impactNum}>6</Text>
+              <Text style={styles.impactLabel}>Global{"\n"}causes</Text>
             </View>
           </View>
         </GlassCard>
 
         {PLANS.map((plan) => {
           const isSelected = selectedPlan === plan.id;
-          const isPurchased = purchased === plan.id;
 
           return (
             <Pressable
@@ -193,32 +196,25 @@ export default function ShopScreen() {
                   onPress={() => handlePurchase(plan.id)}
                   style={({ pressed }) => [pressed && { opacity: 0.85 }]}
                 >
-                  {isPurchased ? (
-                    <View style={styles.activeBadge}>
-                      <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
-                      <Text style={styles.activeText}>Active</Text>
-                    </View>
-                  ) : (
-                    <LinearGradient
-                      colors={
-                        isSelected
-                          ? [Colors.goldLight, Colors.gold, Colors.goldDim]
-                          : [Colors.whiteAlpha10, Colors.whiteAlpha05]
-                      }
-                      style={styles.planButton}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
+                  <LinearGradient
+                    colors={
+                      isSelected
+                        ? [Colors.goldLight, Colors.gold, Colors.goldDim]
+                        : [Colors.whiteAlpha10, Colors.whiteAlpha05]
+                    }
+                    style={styles.planButton}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text
+                      style={[
+                        styles.planButtonText,
+                        !isSelected && styles.planButtonTextAlt,
+                      ]}
                     >
-                      <Text
-                        style={[
-                          styles.planButtonText,
-                          !isSelected && styles.planButtonTextAlt,
-                        ]}
-                      >
-                        {plan.cta}
-                      </Text>
-                    </LinearGradient>
-                  )}
+                      {plan.cta}
+                    </Text>
+                  </LinearGradient>
                 </Pressable>
               </GlassCard>
             </Pressable>
@@ -237,6 +233,7 @@ export default function ShopScreen() {
             <Pressable
               onPress={() => {
                 if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                Alert.alert("Extra Spins", "In-app purchases will be available through the App Store when the app launches.", [{ text: "Got it" }]);
               }}
               style={({ pressed }) => [styles.spinsButton, pressed && { opacity: 0.8 }]}
             >
@@ -272,7 +269,7 @@ export default function ShopScreen() {
           </View>
 
           <View style={styles.enterpriseMetrics}>
-            {ENTERPRISE_CLIENTS.map((c) => (
+            {ENTERPRISE_BENEFITS.map((c) => (
               <View key={c.name} style={styles.entMetric}>
                 <Text style={styles.entMetricVal}>{c.count}</Text>
                 <Text style={styles.entMetricLabel}>{c.name}</Text>
@@ -297,6 +294,7 @@ export default function ShopScreen() {
           <Pressable
             onPress={() => {
               if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              Alert.alert("Enterprise Wellness", "Contact our team at enterprise@neuroquestapp.com to schedule a demo and learn about volume pricing.", [{ text: "Got it" }]);
             }}
             style={({ pressed }) => [pressed && { opacity: 0.85 }]}
           >
@@ -345,24 +343,10 @@ export default function ShopScreen() {
           </View>
         </GlassCard>
 
-        <Text style={styles.paymentEyebrow}>PAYMENT METHODS</Text>
-        <View style={styles.paymentRow}>
-          {[
-            { icon: "card", label: "Card" },
-            { icon: "logo-apple", label: "Apple Pay" },
-            { icon: "logo-bitcoin", label: "Bitcoin" },
-          ].map((m) => (
-            <View key={m.label} style={styles.paymentMethod}>
-              <Ionicons name={m.icon as any} size={20} color={Colors.whiteAlpha60} />
-              <Text style={styles.paymentLabel}>{m.label}</Text>
-            </View>
-          ))}
-        </View>
-
         <Text style={styles.disclaimer}>
-          Subscriptions auto-renew until cancelled. 30% of all revenue is donated
-          to verified charity partners. For entertainment & mindfulness only.
-          Cancel anytime in App Store settings.
+          Subscriptions auto-renew until cancelled. Manage or cancel anytime in your
+          device's App Store or Play Store settings. 30% of all revenue is donated
+          to verified charity partners. Prices may vary by region.
         </Text>
       </ScrollView>
     </View>
@@ -549,22 +533,6 @@ const styles = StyleSheet.create({
   planButtonTextAlt: {
     color: Colors.whiteAlpha60,
   },
-  activeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 16,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: Colors.success,
-    backgroundColor: "rgba(76, 175, 110, 0.08)",
-  },
-  activeText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 15,
-    color: Colors.success,
-  },
   spinsCard: {
     padding: 20,
     gap: 14,
@@ -610,27 +578,6 @@ const styles = StyleSheet.create({
     fontFamily: "PlayfairDisplay_700Bold",
     fontSize: 16,
     color: Colors.gold,
-  },
-  paymentEyebrow: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 10,
-    color: Colors.whiteAlpha30,
-    letterSpacing: 3,
-    textAlign: "center",
-  },
-  paymentRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 32,
-  },
-  paymentMethod: {
-    alignItems: "center",
-    gap: 6,
-  },
-  paymentLabel: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 11,
-    color: Colors.whiteAlpha30,
   },
   disclaimer: {
     fontFamily: "Inter_400Regular",

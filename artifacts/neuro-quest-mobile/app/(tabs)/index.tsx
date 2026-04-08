@@ -82,9 +82,10 @@ export default function HomeScreen() {
   const [neuralEnergy, setNeuralEnergy] = useState(0);
   const [totalDonated, setTotalDonated] = useState(0);
   const [spinsLeft, setSpinsLeft] = useState(5);
-  const [streakCount, setStreakCount] = useState(7);
+  const [streakCount, setStreakCount] = useState(0);
   const [gratitudeLog, setGratitudeLog] = useState<{text: string; date: string}[]>([]);
   const [todayGratitude, setTodayGratitude] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const bloomFadeAnim = useRef(new Animated.Value(0)).current;
   const bloomScaleAnim = useRef(new Animated.Value(0.8)).current;
   const rewardAnim = useRef(new Animated.Value(0)).current;
@@ -118,7 +119,7 @@ export default function HomeScreen() {
       if (energy) setNeuralEnergy(parseInt(energy, 10) || 0);
       if (donations) setTotalDonated(parseFloat(donations) || 0);
       setSpinsLeft(spins ? (parseInt(spins, 10) || 5) : 5);
-      if (streak) setStreakCount(parseInt(streak, 10) || 7);
+      if (streak) setStreakCount(parseInt(streak, 10) || 0);
       if (logStr) {
         const parsed = JSON.parse(logStr);
         setGratitudeLog(parsed.slice(0, 5));
@@ -127,6 +128,7 @@ export default function HomeScreen() {
         if (todayEntry) setTodayGratitude(todayEntry.text);
       }
     } catch {}
+    setIsLoading(false);
   }, []);
 
   useFocusEffect(
@@ -184,7 +186,11 @@ export default function HomeScreen() {
       const newEnergy = neuralEnergy + 20;
       setNeuralEnergy(newEnergy);
       await AsyncStorage.setItem(NEURAL_ENERGY_KEY, String(newEnergy));
-    } catch {}
+    } catch {
+      setIsSubmittingBloom(false);
+      Alert.alert("Oops", "Could not save your gratitude entry. Please try again.");
+      return;
+    }
     setBloomSubmitted(true);
     setTodayGratitude(gratitudeText.trim());
     Animated.timing(rewardAnim, { toValue: 1, duration: 800, useNativeDriver: nd }).start();
@@ -351,11 +357,13 @@ export default function HomeScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View style={{ opacity: fadeIn }}>
+        <Animated.View style={{ opacity: isLoading ? 0 : fadeIn }}>
           <View style={styles.topBar}>
             <View>
-              <Text style={styles.greeting}>WELCOME BACK</Text>
-              <Text style={styles.username}>NeuroQuest{"\n"}Wellness Hub</Text>
+              <Text style={styles.greeting}>{streakCount > 0 ? "WELCOME BACK" : "BEGIN YOUR JOURNEY"}</Text>
+              <Text style={styles.username}>{streakCount > 1
+                ? `Day ${streakCount}${"\n"}Your mind remembers`
+                : `NeuroQuest${"\n"}Wellness Hub`}</Text>
             </View>
             <View style={styles.topRight}>
               <Pressable onPress={handleShare} style={styles.shareBtn}>
@@ -756,9 +764,15 @@ export default function HomeScreen() {
             {!bloomSubmitted ? (
               <>
                 <Text style={bloomStyles.eyebrow}>MORNING BLOOM</Text>
-                <Text style={bloomStyles.title}>What are you grateful for today?</Text>
+                <Text style={bloomStyles.title}>
+                  {streakCount > 1
+                    ? `Day ${streakCount}. What fills your heart today?`
+                    : "What are you grateful for today?"}
+                </Text>
                 <Text style={bloomStyles.subtitle}>
-                  Daily gratitude rewires your prefrontal cortex for positivity and resilience
+                  {streakCount > 7
+                    ? `${streakCount} days of showing up. Your prefrontal cortex is transforming.`
+                    : "Daily gratitude rewires your brain for positivity and resilience"}
                 </Text>
 
                 <View style={bloomStyles.inputWrap}>
@@ -843,9 +857,9 @@ export default function HomeScreen() {
                 ]}
               >
                 <Text style={bloomStyles.successEmoji}>✨</Text>
-                <Text style={bloomStyles.successTitle}>Beautiful!</Text>
+                <Text style={bloomStyles.successTitle}>You showed up today.</Text>
                 <Text style={bloomStyles.successSub}>
-                  Your gratitude strengthens neural pathways
+                  That matters. Your gratitude is rewiring your brain for resilience and joy.
                 </Text>
                 <View style={bloomStyles.rewardBadge}>
                   <Ionicons name="flash" size={18} color={Colors.balanceAmber} />

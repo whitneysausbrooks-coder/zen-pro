@@ -130,10 +130,12 @@ export default function PlayScreen() {
 
   const handleBuySpins = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const newSpins = spinsLeft + 10;
-    setSpinsLeft(newSpins);
-    await AsyncStorage.setItem(SPINS_KEY, String(newSpins));
-  }, [spinsLeft]);
+    Alert.alert(
+      "Extra Spins",
+      "In-app purchases will be processed securely through your device's app store. This feature will be available at launch.",
+      [{ text: "Got it" }]
+    );
+  }, []);
 
   const handlePremiumResult = useCallback(
     (won: boolean, _donationCents: number) => {
@@ -160,9 +162,8 @@ export default function PlayScreen() {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const msg =
       `I've earned ${totalWins} win${totalWins !== 1 ? "s" : ""} on NeuroQuest! 🧠\n\n` +
-      "Every interaction trains my brain AND funds real charities.\n" +
-      "30% of all revenue donated to verified partners worldwide.\n\n" +
-      "Train your mind. Feed the world. → neuroquest.app";
+      "Every interaction trains my brain through neuroplasticity exercises.\n" +
+      "Compassion-focused brain training. → neuroquest.app";
     if (Platform.OS === "web") {
       try {
         await Clipboard.setStringAsync(msg);
@@ -177,7 +178,7 @@ export default function PlayScreen() {
 
   const resultConfig =
     result === "win"
-      ? { title: "You Won!", subtitle: "A donation goes to your chosen cause", color: Colors.gold }
+      ? { title: "You Won!", subtitle: "A compassion milestone reached", color: Colors.gold }
       : result === "lose"
       ? { title: "Keep Going", subtitle: "Every spin strengthens your mind", color: Colors.whiteAlpha50 }
       : null;
@@ -241,7 +242,7 @@ export default function PlayScreen() {
             </View>
             <View style={styles.donationTag}>
               <View style={styles.donationDot} />
-              <Text style={styles.donationText}>Real donations</Text>
+              <Text style={styles.donationText}>Impact tracked</Text>
             </View>
           </View>
         </GlassCard>
@@ -263,7 +264,7 @@ export default function PlayScreen() {
             end={{ x: 1, y: 1 }}
           />
           <Text style={styles.microEyebrow}>MICRO-DONATIONS</Text>
-          <Text style={styles.microSubtitle}>Every spin generates a real charitable donation</Text>
+          <Text style={styles.microSubtitle}>Track your compassion impact from spinning</Text>
 
           <View style={styles.microStats}>
             <View style={styles.microStatMain}>
@@ -318,7 +319,7 @@ export default function PlayScreen() {
             >
               <View style={styles.lastDonationDot} />
               <Text style={styles.lastDonationText}>
-                ${lastDonation.amount.toFixed(2)} donated to {lastDonation.cause}
+                ${lastDonation.amount.toFixed(2)} impact tracked for {lastDonation.cause}
               </Text>
             </Animated.View>
           )}
@@ -360,7 +361,7 @@ export default function PlayScreen() {
                 end={{ x: 1, y: 1 }}
               >
                 <Ionicons name="add-circle" size={18} color={Colors.forestDeep} />
-                <Text style={styles.buyButtonText}>Get 10 Extra Spins — $2.99</Text>
+                <Text style={styles.buyButtonText}>Get More Spins</Text>
               </LinearGradient>
             </Pressable>
           </GlassCard>
@@ -387,8 +388,8 @@ export default function PlayScreen() {
           <Text style={styles.howEyebrow}>HOW IT WORKS</Text>
           {[
             { icon: "🧠", text: "Each spin trains neuroplasticity through pattern recognition" },
-            { icon: "🌍", text: "Match 3 symbols to trigger a real charitable donation" },
-            { icon: "❤️", text: "30% of all revenue is donated to verified charity partners" },
+            { icon: "🌍", text: "Match 3 symbols to trigger a compassion milestone" },
+            { icon: "❤️", text: "30% of subscription revenue goes to verified charity partners" },
           ].map((item, i) => (
             <View key={i} style={styles.howRow}>
               <Text style={styles.howIcon}>{item.icon}</Text>
