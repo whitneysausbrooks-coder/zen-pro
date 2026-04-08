@@ -351,30 +351,46 @@ export default function Dashboard() {
                 </div>
                 <div className="w-px h-8 bg-white/20 mx-2" />
                 <LuxuryButton
-                  variant="ghost"
+                  variant="outline"
                   size="icon"
                   title="Share Profile"
+                  className="border-primary/30 hover:border-primary/60"
                   onClick={async () => {
                     const streakText = streak && streak.streak_count > 0 ? ` | ${streak.streak_count}-day streak` : ""
                     const text = `🧠 My NeuroQuest Profile\n\n⚡ ${(profile.neural_energy ?? 0).toLocaleString()} Neural Energy™\n♡ ${(profile.compassion_points ?? 0).toLocaleString()} Compassion Points\n🏅 Level ${profile.level} — ${profile.title}${streakText}\n\nTrain your mind. Feed the world.\n#NeuroQuest #MindAndSpirit`
                     const url = typeof window !== "undefined" ? window.location.origin + BASE : ""
-                    const copyFallback = async () => {
+                    const fullText = `${text}\n\n${url}`
+                    let shared = false
+                    if (typeof navigator.share === "function") {
                       try {
-                        await navigator.clipboard.writeText(`${text}\n\n${url}`)
-                        toast({ title: "Copied!", description: "Your profile has been copied to clipboard. Share it anywhere!" })
-                      } catch {
-                        toast({ title: "Share Profile", description: text })
+                        await navigator.share({ title: "My NeuroQuest Profile", text, url })
+                        shared = true
+                      } catch (e: any) {
+                        if (e?.name === "AbortError") return
                       }
                     }
-                    if (navigator.share) {
-                      try { await navigator.share({ title: "My NeuroQuest Profile", text, url }) }
-                      catch (e: any) { if (e?.name !== "AbortError") await copyFallback() }
-                    } else {
-                      await copyFallback()
+                    if (!shared) {
+                      try {
+                        await navigator.clipboard.writeText(fullText)
+                        toast({ title: "Copied!", description: "Your profile has been copied to clipboard. Share it anywhere!" })
+                      } catch {
+                        const textArea = document.createElement("textarea")
+                        textArea.value = fullText
+                        textArea.style.cssText = "position:fixed;left:-9999px;top:-9999px"
+                        document.body.appendChild(textArea)
+                        textArea.select()
+                        try {
+                          document.execCommand("copy")
+                          toast({ title: "Copied!", description: "Your profile has been copied to clipboard. Share it anywhere!" })
+                        } catch {
+                          toast({ title: "Your Profile", description: `⚡ ${(profile.neural_energy ?? 0).toLocaleString()} Neural Energy™ · ♡ ${(profile.compassion_points ?? 0).toLocaleString()} Compassion Points · Level ${profile.level} ${profile.title}` })
+                        }
+                        document.body.removeChild(textArea)
+                      }
                     }
                   }}
                 >
-                  <Share2 className="w-5 h-5 opacity-70 hover:opacity-100 transition-opacity" />
+                  <Share2 className="w-5 h-5" />
                 </LuxuryButton>
                 <LuxuryButton 
                   variant="ghost" 
