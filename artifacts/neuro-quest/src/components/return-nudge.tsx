@@ -29,12 +29,6 @@ export function ReturnNudge() {
 
   if (!nudge || dismissed) return null
 
-  const hourLabel = nudge.hours_since_play !== null
-    ? nudge.hours_since_play >= 48
-      ? `${Math.floor(nudge.hours_since_play / 24)} days away`
-      : `${nudge.hours_since_play}h away`
-    : "A while away"
-
   return (
     <AnimatePresence>
       {!dismissed && (
@@ -59,9 +53,8 @@ export function ReturnNudge() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400">
-                  Welcome back, {nudge.level_title}
+                  Welcome back
                 </span>
-                <span className="text-[10px] text-muted-foreground/50">· {hourLabel}</span>
               </div>
               <p className="text-sm font-medium text-foreground leading-snug mb-3">
                 {nudge.nudge_message}
@@ -87,7 +80,7 @@ export function ReturnNudge() {
                   onClick={() => navigate("/brain-game")}
                   className="inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border bg-amber-400/15 border-amber-400/35 text-amber-300 hover:bg-amber-400/25 transition-colors"
                 >
-                  <Zap className="w-3 h-3" /> Train Now
+                  <Zap className="w-3 h-3" /> Continue Training
                 </button>
                 <button
                   onClick={() => navigate("/wellness")}

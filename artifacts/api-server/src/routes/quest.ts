@@ -123,17 +123,17 @@ router.post("/game-complete", async (req, res) => {
   const yesterday = yesterdayUTC();
   const lastDate = profile.last_game_date;
 
+  const previousStreak = profile.streak_count;
+  const previousLevel = profile.level;
   let newStreak: number;
   const alreadyPlayedToday = lastDate === today;
+  const streakBroken = !alreadyPlayedToday && lastDate !== yesterday && previousStreak > 1;
 
   if (alreadyPlayedToday) {
-    // Played again today — keep streak, still award energy
     newStreak = profile.streak_count;
   } else if (lastDate === yesterday) {
-    // Consecutive day — extend streak!
     newStreak = profile.streak_count + 1;
   } else {
-    // First game or streak broken
     newStreak = 1;
   }
 
@@ -169,6 +169,11 @@ router.post("/game-complete", async (req, res) => {
     streak: streakInfo,
     streak_changed: streakChanged,
     streak_extended: !alreadyPlayedToday && lastDate === yesterday,
+    streak_broken: streakBroken,
+    previous_streak: previousStreak,
+    level_changed: level !== previousLevel,
+    new_level: level,
+    new_title: title,
   });
 });
 
@@ -447,7 +452,22 @@ router.post("/complete-task", async (req, res) => {
     amount: awardedAmount,
   });
 
-  return res.json({ profile: GetProfileResponse.parse(updated), task_id, completed: true });
+  const previousLevel = profile.level;
+  const levelChanged = updated.level !== previousLevel;
+  const mealsFromCompassion = task.type === "compassion" ? Math.round(awardedAmount * 0.01 * 100) / 100 : 0;
+
+  return res.json({
+    profile: GetProfileResponse.parse(updated),
+    task_id,
+    completed: true,
+    awarded_amount: awardedAmount,
+    task_type: task.type,
+    level_changed: levelChanged,
+    new_level: updated.level,
+    new_title: updated.title,
+    meals_contributed: mealsFromCompassion,
+    total_compassion: updated.compassion_points,
+  });
 });
 
 router.post("/reset", async (req, res) => {

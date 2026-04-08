@@ -6,6 +6,7 @@ import { Brain, Eye, ArrowLeft, Zap, RefreshCw, HelpCircle, Share2 } from "lucid
 import { getGetProfileQueryKey, getGetActivitiesQueryKey, useGetProfile } from "@workspace/api-client-react"
 import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/glass-card"
 import { LuxuryButton } from "@/components/ui/luxury-button"
+import { CelebrationOverlay } from "@/components/celebration-overlay"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
@@ -117,6 +118,9 @@ export default function Blackjack() {
   const [result, setResult] = useState<GameResult | null>(null)
   const [netChange, setNetChange] = useState(0)
   const [sessionTotal, setSessionTotal] = useState(0)
+  const [celebration, setCelebration] = useState<{
+    type: "energy"; amount?: number; title: string; subtitle: string
+  } | null>(null)
 
   const dealCards = useCallback(() => {
     if (!profile || profile.neural_energy < bet) {
@@ -218,6 +222,16 @@ export default function Blackjack() {
         })
         queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
         queryClient.invalidateQueries({ queryKey: getGetActivitiesQueryKey() })
+        if (change > 0) {
+          setCelebration({
+            type: "energy",
+            amount: change,
+            title: gameResult === "blackjack" ? "Blackjack!" : predicted ? "Mind Read Win!" : "You won!",
+            subtitle: predicted
+              ? "Your prediction was right. Intuition and strategy working together."
+              : "Pattern recognition and probability — your brain's natural strengths.",
+          })
+        }
       } catch {}
     } else {
       // Push: still deducted cost, so need to refund
@@ -252,6 +266,7 @@ export default function Blackjack() {
 
   return (
     <div className="min-h-screen relative overflow-hidden pb-20">
+      <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} />
       <div className="relative z-10 max-w-lg mx-auto px-4 pt-10">
         {/* Back */}
         <button onClick={() => navigate("/")} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-8 group">

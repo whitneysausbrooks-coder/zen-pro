@@ -11,6 +11,7 @@ import { ReturnNudge } from "@/components/return-nudge"
 import { GrowthChart } from "@/components/growth-chart"
 import { GlobalImpactBanner } from "@/components/global-impact-banner"
 import { CopyrightFooter } from "@/components/copyright-footer"
+import { CelebrationOverlay, type CelebrationType } from "@/components/celebration-overlay"
 
 import { 
   useGetProfile, 
@@ -67,6 +68,9 @@ export default function Dashboard() {
   const [reflectionModal, setReflectionModal] = React.useState<{ taskId: string; label: string; amount: number; type: "energy" | "compassion" } | null>(null)
   const [reflectionText, setReflectionText] = React.useState("")
   const [isSubmittingTask, setIsSubmittingTask] = React.useState(false)
+  const [celebration, setCelebration] = React.useState<{
+    type: CelebrationType; amount?: number; title: string; subtitle: string; impactLine?: string
+  } | null>(null)
 
   React.useEffect(() => {
     fetch(`${BASE}/api/quest/task-status`, { credentials: "include" })
@@ -107,11 +111,32 @@ export default function Dashboard() {
       }
       setTaskCompletions(prev => ({ ...prev, [reflectionModal.taskId]: { done: true, response: reflectionText.trim() } }))
       invalidateQueries()
-      toast({
-        title: reflectionModal.type === "energy" ? "Neural Energy gained." : "Compassion earned.",
-        description: reflectionModal.type === "energy" ? "Your mind sharpens." : "Your spirit warms.",
-      })
       setReflectionModal(null)
+
+      if (data.level_changed) {
+        setCelebration({
+          type: "level-up",
+          title: `Level ${data.new_level} — ${data.new_title}`,
+          subtitle: "Your consistent practice is reshaping your neural pathways.",
+        })
+      } else if (reflectionModal.type === "compassion" && data.meals_contributed > 0) {
+        setCelebration({
+          type: "compassion",
+          amount: data.awarded_amount,
+          title: "Compassion earned.",
+          subtitle: "Your spirit grows stronger with every act of kindness.",
+          impactLine: `+${data.meals_contributed} meals closer to ending hunger`,
+        })
+      } else {
+        setCelebration({
+          type: "energy",
+          amount: data.awarded_amount ?? reflectionModal.amount,
+          title: reflectionModal.type === "energy" ? "Neural pathways strengthened." : "Compassion deepened.",
+          subtitle: reflectionModal.type === "energy"
+            ? "Each session builds on the last. Your mind remembers."
+            : "Connection and empathy — the foundation of growth.",
+        })
+      }
     } catch {
       toast({ title: "Error", description: "Something went wrong.", variant: "destructive" })
     } finally {
@@ -154,6 +179,8 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen relative overflow-hidden pb-20">
+      <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} />
+
       <AnimatePresence>
         {showGratitudeModal && (
           <MorningBloomModal onComplete={() => {

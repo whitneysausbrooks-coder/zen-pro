@@ -6,6 +6,7 @@ import { ArrowLeft, Trophy, RefreshCw, Zap, Brain, Share2, Layers, Timer, Target
 import { getGetProfileQueryKey, getGetActivitiesQueryKey } from "@workspace/api-client-react"
 import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/glass-card"
 import { LuxuryButton } from "@/components/ui/luxury-button"
+import { CelebrationOverlay } from "@/components/celebration-overlay"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
@@ -73,6 +74,9 @@ export default function PatternPulse() {
   const [startTime, setStartTime] = useState(0)
   const [elapsedMs, setElapsedMs] = useState(0)
   const [energyAwarded, setEnergyAwarded] = useState(0)
+  const [celebration, setCelebration] = useState<{
+    type: "energy" | "level-up"; amount?: number; title: string; subtitle: string
+  } | null>(null)
 
   const demoIdxRef = useRef(0)
   const demoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -188,14 +192,47 @@ export default function PatternPulse() {
 
   const awardEnergy = async (amount: number) => {
     try {
-      await fetch(`${BASE}/api/quest/earn-energy`, {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ activity: "Pattern Pulse Training", amount }),
-      })
+      const [gameRes] = await Promise.all([
+        fetch(`${BASE}/api/quest/game-complete`, { method: "POST", credentials: "include" }),
+        amount > 50 ? fetch(`${BASE}/api/quest/earn-energy`, {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ activity: "Pattern Pulse Bonus", amount: amount - 50 }),
+        }) : Promise.resolve(null),
+      ])
       queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
       queryClient.invalidateQueries({ queryKey: getGetActivitiesQueryKey() })
-      toast({ title: `+${amount} Neural Energy`, description: "Visual-spatial pathways strengthened." })
+
+      const data = await gameRes.json()
+      const levelsReached = currentLevel + 1
+
+      if (data.level_changed) {
+        setCelebration({
+          type: "level-up",
+          title: `Level ${data.new_level} — ${data.new_title}`,
+          subtitle: "Your visual-spatial practice is building new neural pathways.",
+        })
+      } else if (data.streak_broken && data.previous_streak > 1) {
+        setCelebration({
+          type: "energy",
+          amount,
+          title: "Welcome back.",
+          subtitle: `You built a ${data.previous_streak}-day streak before. That growth is still in you. Day 1 starts now.`,
+        })
+      } else {
+        setCelebration({
+          type: levelsReached >= LEVELS.length ? "level-up" : "energy",
+          amount,
+          title: levelsReached >= LEVELS.length
+            ? "All 7 levels mastered."
+            : `Level ${levelsReached} reached.`,
+          subtitle: levelsReached >= LEVELS.length
+            ? "Peak visual-spatial performance. Your working memory is elite."
+            : data.streak_extended
+            ? `${data.streak.streak_count}-day streak — your brain is adapting.`
+            : "Your visual-spatial pathways grow stronger with each pattern.",
+        })
+      }
     } catch {}
   }
 
@@ -203,6 +240,8 @@ export default function PatternPulse() {
 
   return (
     <div className="min-h-screen relative overflow-hidden pb-20">
+      <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} />
+
       <div
         className="absolute inset-0 z-0 opacity-40 mix-blend-overlay pointer-events-none bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${import.meta.env.BASE_URL}images/zen-bg.png)` }}

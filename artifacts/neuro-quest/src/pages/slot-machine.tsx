@@ -9,6 +9,7 @@ import {
   CreditCard, Loader2
 } from "lucide-react"
 import { playReelStop, playWinChime, playJackpotFanfare } from "@/hooks/use-sound"
+import { CelebrationOverlay } from "@/components/celebration-overlay"
 import confetti from "canvas-confetti"
 import {
   useEarnEnergy,
@@ -700,6 +701,9 @@ export default function SlotMachine() {
   const [totalWon, setTotalWon]     = useState(0)
   const [showPay, setShowPay]       = useState(false)
   const [showJackpot, setShowJackpot] = useState(false)
+  const [celebration, setCelebration] = useState<{
+    type: "compassion" | "compassion-milestone" | "energy"; amount?: number; title: string; subtitle: string; impactLine?: string
+  } | null>(null)
   const [showNearMiss, setShowNearMiss] = useState(false)
   const [showBreathing, setShowBreathing] = useState(false)
   const [breathingPhase, setBreathingPhase] = useState<"inhale" | "hold" | "exhale">("inhale")
@@ -784,7 +788,14 @@ export default function SlotMachine() {
         if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400])
         setTimeout(() => setShowJackpot(true), 500)
         earnCompassion({ data: { activity: "Compassion Impact – 3× Heart", amount: COMPASSION_JACKPOT } })
-        toast({ title: "♡ Compassion Impact!", description: `+${COMPASSION_JACKPOT} Compassion Points` })
+        const mealsFromImpact = Math.round(COMPASSION_JACKPOT * 0.01 * 100) / 100
+        setCelebration({
+          type: "compassion",
+          amount: COMPASSION_JACKPOT,
+          title: "Compassion Impact!",
+          subtitle: "Three hearts aligned. Your compassion creates real-world change.",
+          impactLine: `+${mealsFromImpact} meals contributed to hunger relief`,
+        })
 
       } else if (res.heartCount === 2) {
         // Near-miss with 2 hearts
@@ -800,11 +811,13 @@ export default function SlotMachine() {
           const label = res.tier === "jackpot" ? "GRAND MATCH" : res.tier === "three" ? `3× ${res.symbolId}` : `2× ${res.symbolId}`
           earnEnergy({ data: { activity: `Compassion Wheel – ${label}`, amount: boosted + SPIN_COST } })
           setTotalWon(w => w + boosted)
-          toast({
-            title: res.tier === "jackpot" ? "⚡ Grand Match!" : res.tier === "three" ? "Triple Match!" : "Double Match!",
-            description: streak.is_electric_blue && boosted !== res.payout
-              ? `+${boosted} Neural Energy (${streak.multiplier.toFixed(2)}× boost!)`
-              : `+${boosted} Neural Energy`,
+          setCelebration({
+            type: "energy",
+            amount: boosted,
+            title: res.tier === "jackpot" ? "Grand Match!" : res.tier === "three" ? "Triple Match!" : "Double Match!",
+            subtitle: streak.is_electric_blue && boosted !== res.payout
+              ? `${streak.multiplier.toFixed(2)}× streak boost applied. Your consistency pays off.`
+              : "Pattern matched. Your focus is sharpening.",
           })
         } else {
           toast({ title: "No match", description: `–${SPIN_COST} Neural Energy` })
@@ -842,6 +855,8 @@ export default function SlotMachine() {
 
   return (
     <div className="min-h-screen relative overflow-hidden pb-20">
+      <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} />
+
       <div
         className="absolute inset-0 z-0 opacity-40 mix-blend-overlay pointer-events-none bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${import.meta.env.BASE_URL}images/zen-bg.png)` }}

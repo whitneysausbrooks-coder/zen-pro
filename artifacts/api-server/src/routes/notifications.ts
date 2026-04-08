@@ -170,12 +170,12 @@ router.get("/quest/nudge-status", async (req, res) => {
 
   const should_nudge = hoursSince !== null && hoursSince >= 24;
 
-  const nudgeMsg = !nextTitle ? `Keep shining, ${title}.` :
+  const nudgeMsg = !nextTitle ? `You've reached ${title}. Every session from here deepens your mastery.` :
     pctRemaining <= 10
-      ? `Your focus score is ${pctRemaining}% away from ${nextTitle}. Ready to hit the floor?`
+      ? `You're ${pctRemaining}% away from ${nextTitle}. You're so close — one more session could do it.`
       : hoursSince && hoursSince >= 48
-        ? `${title}, it's been ${Math.floor(hoursSince / 24)} days. One session keeps your edge sharp.`
-        : `Your Brain Health Level (${title}) is waiting to grow. Jump back in.`;
+        ? `Welcome back, ${title}. Your neural pathways remember you. Pick up right where you left off.`
+        : `You're building toward ${nextTitle}. Your next session adds to everything you've already built.`;
 
   return res.json({
     should_nudge,

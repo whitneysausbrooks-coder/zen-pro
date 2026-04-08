@@ -50,6 +50,10 @@ The monorepo uses TypeScript composite projects (`composite: true`) with project
 - **Brain Games:** StroopGame (30s color-ink test), MemoryGrid (progressive 4×4 working memory), BreathingPacer (4-7-8 animated circle with haptics).
 - **Compassion Wheel:** Staggered stops 800/1300/1800ms, `winRef.current` avoids stale closures, interval-based symbol cycling, spring bounce on landing. Route: `/wellness`.
 - **5-Tab Navigation:** Home, Train, Play, Zen Pro, Profile. NativeTabs (iOS 26+) and ClassicTabs (Expo BlurView).
+- **Behavioral Design Patterns:**
+  - **Dopamine Triggers:** `CelebrationOverlay` component shows particle-burst celebrations on task completions, game wins, level-ups, and streak milestones (3/7/14/30 days). Replaces plain toasts with visual reward moments. Used across all game pages and dashboard.
+  - **Compassion Loops:** Every compassion action immediately connects to real-world impact ("Your 30 points = 0.3 meals closer to ending hunger"). Compassion Wheel jackpots show meal contributions. `complete-task` API returns `meals_contributed` for display.
+  - **No-Shame Loops:** Return nudge uses warm language ("Welcome back. Your neural pathways remember you."). Streak breaks are acknowledged gracefully ("You built a X-day streak. That growth is still in you. Day 1 starts now."). No guilt, no shame, no "you lost your streak" messaging. Button text: "Continue Training" not "Train Now".
 
 **Color Palette (constants/colors.ts):**
 - Forest: #0A1A10, #14271A, #1B3022, #2A4A35

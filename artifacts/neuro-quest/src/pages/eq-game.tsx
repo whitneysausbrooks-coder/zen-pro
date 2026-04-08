@@ -6,6 +6,7 @@ import { Brain, Zap, ArrowLeft, Trophy, RefreshCw, Clock } from "lucide-react"
 import { getGetProfileQueryKey, getGetActivitiesQueryKey } from "@workspace/api-client-react"
 import { GlassCard, GlassCardContent, GlassCardHeader, GlassCardTitle } from "@/components/ui/glass-card"
 import { LuxuryButton } from "@/components/ui/luxury-button"
+import { CelebrationOverlay } from "@/components/celebration-overlay"
 import { cn } from "@/lib/utils"
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
@@ -60,6 +61,9 @@ export default function EQGame() {
   const [timerPct, setTimerPct] = useState(100)
   const [lastResult, setLastResult] = useState<boolean | null>(null)
   const [totalEnergy, setTotalEnergy] = useState(0)
+  const [celebration, setCelebration] = useState<{
+    type: "energy" | "level-up"; amount?: number; title: string; subtitle: string
+  } | null>(null)
 
   const roundStartRef = useRef<number>(Date.now())
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -124,14 +128,48 @@ export default function EQGame() {
   // Award energy on complete
   useEffect(() => {
     if (phase !== "complete" || totalEnergy <= 0) return
-    fetch(`${BASE}/api/quest/earn-energy`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ activity: "Emotional EQ Game", amount: totalEnergy }),
-    }).then(() => {
+    const accuracy = Math.round((rounds.filter(r => r.correct).length / ROUNDS) * 100)
+
+    Promise.all([
+      fetch(`${BASE}/api/quest/game-complete`, { method: "POST", credentials: "include" }),
+      totalEnergy > 50 ? fetch(`${BASE}/api/quest/earn-energy`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activity: "Emotional EQ Bonus", amount: totalEnergy - 50 }),
+      }) : Promise.resolve(),
+    ]).then(([gameRes]) => {
       queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
       queryClient.invalidateQueries({ queryKey: getGetActivitiesQueryKey() })
+
+      if (gameRes) {
+        gameRes.json().then((data: any) => {
+          if (data.level_changed) {
+            setCelebration({
+              type: "level-up",
+              title: `Level ${data.new_level} — ${data.new_title}`,
+              subtitle: "Your emotional intelligence practice is creating real neural change.",
+            })
+          } else if (data.streak_broken && data.previous_streak > 1) {
+            setCelebration({
+              type: "energy",
+              amount: totalEnergy,
+              title: "Welcome back.",
+              subtitle: `You built a ${data.previous_streak}-day streak before. That growth is still in you. Day 1 starts now.`,
+            })
+          } else {
+            setCelebration({
+              type: accuracy >= 90 ? "level-up" : "energy",
+              amount: totalEnergy,
+              title: accuracy >= 90 ? "Empath Elite" : accuracy >= 70 ? "Emotionally Sharp" : "EQ Training Complete",
+              subtitle: accuracy >= 90
+                ? "Exceptional emotional intelligence. You read people with rare precision."
+                : accuracy >= 70
+                ? "Strong emotional awareness. Your empathy muscles are growing."
+                : "Every face you read trains your emotional pathways. Keep going.",
+            })
+          }
+        }).catch(() => {})
+      }
     }).catch(() => {})
   }, [phase, totalEnergy])
 
@@ -144,6 +182,7 @@ export default function EQGame() {
 
     return (
       <div className="min-h-screen flex items-center justify-center px-4 py-12">
+        <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} />
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm text-center">
           <Trophy className="w-14 h-14 text-primary mx-auto mb-4 drop-shadow-[0_0_16px_rgba(212,175,55,0.6)]" />
           <h2 className="text-3xl font-serif font-bold text-gradient-gold mb-1">EQ Complete</h2>
@@ -170,7 +209,7 @@ export default function EQGame() {
 
           <div className="flex gap-3">
             <LuxuryButton variant="outline" className="flex-1 gap-2" onClick={() => {
-              setPhase("idle"); setRounds([]); setCurrentRound(0); setTotalEnergy(0)
+              setPhase("idle"); setRounds([]); setCurrentRound(0); setTotalEnergy(0); setCelebration(null)
             }}>
               <RefreshCw className="w-4 h-4" /> Play Again
             </LuxuryButton>
@@ -185,6 +224,7 @@ export default function EQGame() {
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-10 relative overflow-hidden">
+      <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} />
       <div className="w-full max-w-sm">
         {/* Back */}
         <button onClick={() => navigate("/")} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-6 group">

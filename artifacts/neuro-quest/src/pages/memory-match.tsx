@@ -10,6 +10,7 @@ import {
 import { getGetProfileQueryKey, getGetActivitiesQueryKey } from "@workspace/api-client-react"
 import { GlassCard, GlassCardContent } from "@/components/ui/glass-card"
 import { LuxuryButton } from "@/components/ui/luxury-button"
+import { CelebrationOverlay, type CelebrationType } from "@/components/celebration-overlay"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
@@ -84,6 +85,9 @@ export default function MemoryMatch() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const [streakResult, setStreakResult] = useState<{ streak_count: number; is_electric_blue: boolean; multiplier: number } | null>(null)
+  const [celebration, setCelebration] = useState<{
+    type: CelebrationType; amount?: number; title: string; subtitle: string; impactLine?: string
+  } | null>(null)
 
   const getDiffConfig = () => DIFFICULTIES.find(d => d.id === difficulty) ?? DIFFICULTIES[0]
 
@@ -110,21 +114,41 @@ export default function MemoryMatch() {
       queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
       queryClient.invalidateQueries({ queryKey: getGetActivitiesQueryKey() })
 
-      const energyLabel = `+${diff.energy} Neural Energy!`
-      if (data.streak_extended) {
-        toast({
-          title: `🔥 ${data.streak.streak_count}-Day Streak!`,
-          description: data.streak.is_electric_blue
-            ? `⚡ Electric Blue unlocked — ${data.streak.multiplier.toFixed(2)}× reward boost active!`
-            : `Lucky Gold active — ${data.streak.multiplier.toFixed(2)}× reward boost!`,
+      if (data.level_changed) {
+        setCelebration({
+          type: "level-up",
+          title: `Level ${data.new_level} — ${data.new_title}`,
+          subtitle: "Your practice is paying off. New neural pathways unlocked.",
         })
-      } else if (data.streak_changed) {
-        toast({ title: energyLabel, description: "Streak started! Come back tomorrow to grow it." })
+      } else if (data.streak_extended && [3, 7, 14, 30].includes(data.streak.streak_count)) {
+        setCelebration({
+          type: "streak-milestone",
+          title: `${data.streak.streak_count}-Day Streak`,
+          subtitle: data.streak.is_electric_blue
+            ? `Electric Blue active — ${data.streak.multiplier.toFixed(2)}× boost. You're in a flow state.`
+            : `${data.streak.streak_count} days of consistent growth. Your brain is adapting.`,
+        })
+      } else if (data.streak_broken && data.previous_streak > 1) {
+        setCelebration({
+          type: "energy",
+          amount: diff.energy,
+          title: "Welcome back.",
+          subtitle: `You built a ${data.previous_streak}-day streak before. That growth is still in you. Day 1 of your next streak starts now.`,
+        })
       } else {
-        toast({ title: energyLabel, description: `${diff.label} Memory Matrix complete.` })
+        setCelebration({
+          type: "energy",
+          amount: diff.energy,
+          title: `${diff.label} Memory Matrix complete.`,
+          subtitle: data.streak_extended
+            ? `${data.streak.streak_count}-day streak — ${data.streak.multiplier.toFixed(2)}× boost active.`
+            : data.streak_changed
+            ? "Day 1 of a new streak. Come back tomorrow to keep building."
+            : "Every round strengthens your pattern recognition.",
+        })
       }
     } catch {
-      toast({ title: `+${diff.energy} Neural Energy!`, description: "Memory Matrix complete." })
+      toast({ title: `+${diff.energy} Neural Energy`, description: "Memory Matrix complete." })
     }
   }
 
@@ -208,6 +232,8 @@ export default function MemoryMatch() {
 
   return (
     <div className="min-h-screen relative overflow-hidden pb-20">
+      <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} />
+
       <div
         className="absolute inset-0 z-0 opacity-40 mix-blend-overlay pointer-events-none bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${import.meta.env.BASE_URL}images/zen-bg.png)` }}
