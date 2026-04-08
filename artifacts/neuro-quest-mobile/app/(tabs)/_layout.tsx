@@ -19,7 +19,7 @@ function NativeTabLayout() {
         <Label>Train</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="play">
-        <Icon sf={{ default: "suit.club", selected: "suit.club.fill" }} />
+        <Icon sf={{ default: "gamecontroller", selected: "gamecontroller.fill" }} />
         <Label>Play</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="shop">
@@ -91,7 +91,7 @@ function ClassicTabLayout() {
         options={{
           title: "Play",
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="cards-club" size={size} color={color} />
+            <Ionicons name="game-controller" size={size} color={color} />
           ),
         }}
       />

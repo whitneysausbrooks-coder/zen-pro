@@ -126,7 +126,10 @@ export default function HomeScreen() {
       ]);
       if (energy) setNeuralEnergy(parseInt(energy, 10) || 0);
       if (donations) setTotalDonated(parseFloat(donations) || 0);
-      setSpinsLeft(spins ? (parseInt(spins, 10) || 5) : 5);
+      if (spins !== null) {
+        const parsed = parseInt(spins, 10);
+        setSpinsLeft(Number.isNaN(parsed) ? 5 : parsed);
+      }
       if (streak) setStreakCount(parseInt(streak, 10) || 0);
       if (logStr) {
         const parsed = JSON.parse(logStr);
@@ -660,7 +663,7 @@ export default function HomeScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <MaterialCommunityIcons name="cards-club" size={22} color={Colors.forestDeep} />
+                <Ionicons name="game-controller" size={22} color={Colors.forestDeep} />
                 <Text style={styles.primaryText}>Spin for Good</Text>
               </LinearGradient>
             </Pressable>

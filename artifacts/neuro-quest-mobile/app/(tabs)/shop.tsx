@@ -145,6 +145,9 @@ export default function ShopScreen() {
               key={plan.id}
               onPress={() => handleSelect(plan.id)}
               style={({ pressed }) => [pressed && { opacity: 0.95 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Select ${plan.title} plan, ${plan.price} ${plan.period}`}
+              accessibilityState={{ selected: isSelected }}
             >
               <GlassCard
                 style={[styles.planCard, isSelected && styles.planCardSelected]}
@@ -195,6 +198,8 @@ export default function ShopScreen() {
                 <Pressable
                   onPress={() => handlePurchase(plan.id)}
                   style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${plan.cta} for ${plan.title}`}
                 >
                   <LinearGradient
                     colors={
@@ -224,7 +229,7 @@ export default function ShopScreen() {
         <GlassCard style={styles.spinsCard} borderColor={Colors.glassBorderLight}>
           <View style={styles.spinsTop}>
             <View style={styles.spinsIconWrap}>
-              <MaterialCommunityIcons name="cards-club" size={24} color={Colors.gold} />
+              <Ionicons name="game-controller" size={24} color={Colors.gold} />
             </View>
             <View style={styles.spinsInfo}>
               <Text style={styles.spinsTitle}>Extra Spins</Text>
@@ -236,6 +241,8 @@ export default function ShopScreen() {
                 Alert.alert("Extra Spins", "In-app purchases will be available through the App Store when the app launches.", [{ text: "Got it" }]);
               }}
               style={({ pressed }) => [styles.spinsButton, pressed && { opacity: 0.8 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Buy 10 extra spins for $2.99"
             >
               <Text style={styles.spinsPrice}>$2.99</Text>
             </Pressable>
@@ -297,6 +304,8 @@ export default function ShopScreen() {
               Alert.alert("Enterprise Wellness", "Contact our team at enterprise@neuroquestapp.com to schedule a demo and learn about volume pricing.", [{ text: "Got it" }]);
             }}
             style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Request enterprise demo"
           >
             <LinearGradient
               colors={[Colors.mindfulBlue, "#4A8FE0", "#3A7BD5"]}

@@ -66,8 +66,10 @@ The monorepo leverages TypeScript composite projects with project references for
 - **Raid Mode:** Admin-toggled global event doubling compassion points.
 - **Auth & Paywall:** Replit Auth integration with `AuthGate` and `PaywallGate` for subscription access.
 - **Legal:** In-app legal screen (Mobile) and dedicated `/copyright` page (Web) covering policies, disclosures, and compliance.
-- **Accessibility (Mobile):** Extensive use of accessibility roles, labels, states, and `accessibilityLiveRegion="polite"` on all dynamic result announcements (win/lose toasts, game outcomes). All interactive buttons have `accessibilityRole="button"` with descriptive labels. Diamond Reward reels have individual reel labels for screen readers.
-- **Anti-Exploit:** Premium spin lock with 15-second fail-safe timeout prevents stuck states on interrupted flows. Result toast is positioned as a fixed overlay above scroll content for reliable visibility across devices.
+- **Accessibility (Mobile):** Extensive use of accessibility roles, labels, states, and `accessibilityLiveRegion="polite"` on all dynamic result announcements (win/lose toasts, game outcomes). All interactive buttons have `accessibilityRole="button"` with descriptive labels. Diamond Reward reels have individual reel labels for screen readers. Shop plan cards use `accessibilityState={{ selected }}`. Legal screen uses proper `tablist`/`tab` roles with selected state.
+- **Anti-Exploit:** Premium spin lock with 15-second fail-safe timeout prevents stuck states on interrupted flows. Result toast is positioned as a fixed overlay above scroll content for reliable visibility across devices. Home screen spins rehydration uses `Number.isNaN` guard to preserve valid zero-spin state.
+- **Apple Compliance (Icons):** All gambling-associated icons removed — Play tab uses `gamecontroller`/`game-controller` (SF Symbol + Ionicons), replacing `cards-club`/`suit.club`. No playing card imagery anywhere in the app.
+- **Not Found Screen:** Custom celestial-themed 404 page with gradient background, Playfair Display typography, and gold CTA button matching the app's design language.
 
 ## External Dependencies
 

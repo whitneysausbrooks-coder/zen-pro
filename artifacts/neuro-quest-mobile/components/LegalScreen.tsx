@@ -30,17 +30,20 @@ export function LegalScreen({ initialTab = "privacy", onClose }: Props) {
       />
 
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={onClose} style={styles.backBtn}>
+        <Pressable onPress={onClose} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
           <Feather name="arrow-left" size={20} color={Colors.white} />
         </Pressable>
         <Text style={styles.headerTitle}>Legal</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <View style={styles.tabRow}>
+      <View style={styles.tabRow} accessibilityRole="tablist" accessibilityLabel="Legal document tabs">
         <Pressable
           onPress={() => setActiveTab("privacy")}
           style={[styles.tab, activeTab === "privacy" && styles.tabActive]}
+          accessibilityRole="tab"
+          accessibilityLabel="Privacy Policy"
+          accessibilityState={{ selected: activeTab === "privacy" }}
         >
           <Text style={[styles.tabText, activeTab === "privacy" && styles.tabTextActive]}>
             Privacy Policy
@@ -49,6 +52,9 @@ export function LegalScreen({ initialTab = "privacy", onClose }: Props) {
         <Pressable
           onPress={() => setActiveTab("terms")}
           style={[styles.tab, activeTab === "terms" && styles.tabActive]}
+          accessibilityRole="tab"
+          accessibilityLabel="Terms of Use"
+          accessibilityState={{ selected: activeTab === "terms" }}
         >
           <Text style={[styles.tabText, activeTab === "terms" && styles.tabTextActive]}>
             Terms of Use
