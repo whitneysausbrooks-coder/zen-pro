@@ -46,7 +46,7 @@ function ParticleField() {
 const STATS = [
   { icon: Brain,       value: "87%",        label: "Neuroplasticity uplift\nafter 30 days of play" },
   { icon: Globe,       value: "$2.4T",       label: "Mental health market\nundertapped by gaming" },
-  { icon: Heart,       value: "∞",           label: "Micro-donations generated\nper compassion jackpot" },
+  { icon: Heart,       value: "∞",           label: "Micro-donations generated\nper compassion milestone" },
   { icon: Users,       value: "1 in 4",      label: "Adults suffer from a\npreventable mind disease" },
 ]
 
@@ -54,17 +54,17 @@ const VISION_POINTS = [
   {
     icon: Zap,
     title: "The Game Changes the Brain",
-    body: "Every round of NeuroQuest is a clinically-informed training protocol disguised as entertainment. Memory Matrix rewires working memory. Emotional EQ raises empathy baseline. Mind-Reader Blackjack builds probabilistic intuition. Play is the trojan horse.",
+    body: "Every round of NeuroQuest is a clinically-informed training protocol wrapped in a beautiful experience. Memory Matrix rewires working memory. Emotional EQ raises empathy baseline. Neural Challenge builds probabilistic intuition. Wellness is the gateway.",
   },
   {
     icon: DollarSign,
     title: "Compassion as Currency",
-    body: "When a player hits a jackpot, a micro-donation fires — automatically, in real time — to a charitable cause. The casino wins become the world's wins. We've built the mechanism. We need the fuel. A single sponsorship from you could trigger millions of micro-donations before Q4.",
+    body: "When a player reaches a compassion milestone, a micro-donation fires — automatically, in real time — to a charitable cause. The players' wins become the world's wins. We've built the mechanism. We need the fuel. A single sponsorship from you could trigger millions of micro-donations before Q4.",
   },
   {
     icon: Target,
     title: "The Billion-Mind Mission",
-    body: "Neural Energy. Compassion Points. Streak multipliers. We've gamified the deepest human virtue — the desire to grow and to give. This isn't a wellness app. It's a civilization-scale mind-training network with a monetization engine baked into its soul.",
+    body: "Neural Energy. Compassion Points. Streak multipliers. We've channeled the deepest human virtue — the desire to grow and to give — into a daily wellness practice. This is a civilization-scale mind-training network with a monetization engine baked into its soul.",
   },
   {
     icon: Rocket,
@@ -79,15 +79,15 @@ function ShareBar() {
   const url = typeof window !== "undefined" ? `${window.location.origin}/elon` : ""
 
   const elonTweet = encodeURIComponent(
-    `Hey @elonmusk — I built a Compassion Casino that gamifies neuroplasticity & funds hunger relief with every jackpot.\n\nEvery mind trained = meals funded. Every spin feeds the world.\n\n"Your mind is the stake. The world is the winner."\n\nRead the full vision 👇`
+    `Hey @elonmusk — I built a wellness platform that trains the brain through neuroplasticity & funds hunger relief with every compassion milestone.\n\nEvery mind trained = meals funded. Every play feeds the world.\n\n"Your mind is the focus. The world is the winner."\n\nRead the full vision 👇`
   )
-  const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent("NeuroQuest — A Compassion Casino that funds hunger relief with every jackpot. Every mind trained = meals funded. Share this with Elon Musk.")}`
+  const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent("NeuroQuest — A wellness platform that funds hunger relief with every compassion milestone. Every mind trained = meals funded. Share this with Elon Musk.")}`
 
   const grokTweet = encodeURIComponent(
-    `@grok I need your help reaching @elonmusk about NeuroQuest — a Compassion Casino that trains 8 billion minds while funding global hunger relief through every jackpot.\n\nCan you analyze this pitch and help amplify it? 🧠🌍`
+    `@grok I need your help reaching @elonmusk about NeuroQuest — a wellness platform that trains 8 billion minds while funding global hunger relief through every compassion milestone.\n\nCan you analyze this pitch and help amplify it? 🧠🌍`
   )
   const grokDmUrl = `https://x.com/messages/compose?recipient_id=1743670578906652672&text=${encodeURIComponent(
-    `Hi Grok — I built NeuroQuest, a Compassion Casino that gamifies neuroplasticity and funds hunger relief with every jackpot. I need help reaching @elonmusk. Here's the full vision: ${url}`
+    `Hi Grok — I built NeuroQuest, a wellness platform that trains the brain through neuroplasticity and funds hunger relief with every compassion milestone. I need help reaching @elonmusk. Here's the full vision: ${url}`
   )}`
 
   const copyLink = async () => {
@@ -96,7 +96,7 @@ function ShareBar() {
     setTimeout(() => setCopied(false), 2500)
   }
   const copyGrokLink = async () => {
-    const msg = `@grok @elonmusk — NeuroQuest is a Compassion Casino that trains minds & funds hunger relief. Every jackpot = real meals donated. Help me bring this vision to life: ${url}`
+    const msg = `@grok @elonmusk — NeuroQuest is a wellness platform that trains minds & funds hunger relief. Every compassion milestone = real meals donated. Help me bring this vision to life: ${url}`
     await navigator.clipboard.writeText(msg)
     setCopiedGrok(true)
     setTimeout(() => setCopiedGrok(false), 2500)
@@ -413,22 +413,22 @@ export default function ElonPage() {
               You once said the goal of your life is to maximize the probability of the future being good. So is mine.
             </p>
             <p>
-              I built <span className="text-foreground font-semibold">NeuroQuest</span> — a mobile-first "Compassion Casino" that gamifies neuroplasticity. Every game session is a brain training protocol. Every jackpot triggers a real micro-donation to a charitable cause. Every login earns Neural Energy that funds compassion in the world.
+              I built <span className="text-foreground font-semibold">NeuroQuest</span> — a mobile-first wellness platform that applies neuroplasticity science to daily brain training. Every game session is a brain training protocol. Every compassion milestone triggers a real micro-donation to a charitable cause. Every login earns Neural Energy that funds compassion in the world.
             </p>
             <p>
               The neuroscience is real. Spaced repetition, emotional recognition, probabilistic reasoning — these are the building blocks of a resilient, empathetic mind. We wrapped them in a beautiful game so that billions of people who would never open a meditation app will actually use them. <em className="text-foreground">Daily.</em>
             </p>
             <p>
-              Here's what I'm asking: <span className="text-foreground font-semibold">Sponsor the Jackpot</span>. For as little as $500/month, your name — or a cause of your choosing — appears in the Compassion Jackpot inside every player's casino. When they win, your micro-donation fires. Every spin becomes a ripple of good in the world, powered by you.
+              Here's what I'm asking: <span className="text-foreground font-semibold">Sponsor the Impact</span>. For as little as $500/month, your name — or a cause of your choosing — appears in the Compassion Impact inside every player's wellness journey. When they reach a milestone, your micro-donation fires. Every play becomes a ripple of good in the world, powered by you.
             </p>
             <p>
               Or go bigger. Help fund the global rollout. I have the product. I have the vision. I need the rocket fuel.
             </p>
             <p className="text-foreground font-medium italic font-serif text-lg">
-              "Your mind is the stake. The world is the winner."
+              "Your mind is the focus. The world is the winner."
             </p>
             <p>
-              That's not just our tagline. It's a philosophy. And I believe you of all people understand what it means to bet everything on an idea that could change the world.
+              That's not just our tagline. It's a philosophy. And I believe you of all people understand what it means to commit everything to an idea that could change the world.
             </p>
             <p className="text-foreground">
               — The NeuroQuest Founder
@@ -488,13 +488,13 @@ export default function ElonPage() {
             <span className="text-gradient-gold">A Million Minds.</span>
           </h2>
           <p className="text-muted-foreground text-base sm:text-lg mb-10 max-w-lg mx-auto leading-relaxed">
-            The Compassion Jackpot sponsorship starts at <strong className="text-foreground">$500/month</strong>. Your name or cause displayed to every player on every spin. Your micro-donation fires on every jackpot. Your legacy, one neural pathway at a time.
+            The Compassion Impact sponsorship starts at <strong className="text-foreground">$500/month</strong>. Your name or cause displayed to every player on every play. Your micro-donation fires on every milestone. Your legacy, one neural pathway at a time.
           </p>
 
           <div className="glass-panel rounded-3xl p-8 border border-primary/30 space-y-4 text-left mb-8">
             {[
-              { tier: "Spark",     price: "$500/mo",    desc: "Your name on the Compassion Jackpot. Micro-donations on every 3× win." },
-              { tier: "Catalyst",  price: "$2,500/mo",  desc: "Branded jackpot + featured story in the app + Growth Chart attribution." },
+              { tier: "Spark",     price: "$500/mo",    desc: "Your name on the Compassion Impact. Micro-donations on every 3× win." },
+              { tier: "Catalyst",  price: "$2,500/mo",  desc: "Branded impact + featured story in the app + Growth Chart attribution." },
               { tier: "Visionary", price: "$10,000/mo", desc: "Custom cause integration. Co-branded campaign. Full analytics dashboard. Direct line." },
             ].map(({ tier, price, desc }) => (
               <div key={tier} className="flex items-start gap-4 py-3 border-b border-white/5 last:border-0">
@@ -538,7 +538,7 @@ export default function ElonPage() {
           className="inline-flex items-center gap-2 text-muted-foreground text-xs"
         >
           <Brain className="w-4 h-4 text-primary" />
-          <span>NeuroQuest · Compassion Casino · Built for the world</span>
+          <span>NeuroQuest · Mind & Spirit · Built for the world</span>
           <Brain className="w-4 h-4 text-primary" />
         </motion.div>
       </div>

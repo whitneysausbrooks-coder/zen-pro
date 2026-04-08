@@ -2,7 +2,7 @@
 
 ## Overview
 
-NeuroQuest is a pnpm monorepo using TypeScript, designed to be a brain-training and wellness application that gamifies cognitive exercises and promotes mental well-being. It aims to engage users through interactive games, a unique reward system based on "Neural Energy," and social features, while also incorporating monetization tiers and charitable contributions. The project includes features for user monetization, enterprise solutions, and sponsored jackpots that trigger donations, positioning itself in the digital wellness and casual gaming markets.
+NeuroQuest is a pnpm monorepo using TypeScript, designed to be a brain-training and wellness application that applies neuroplasticity science to daily cognitive exercises and promotes mental well-being. It engages users through interactive games (Memory Match / Neural Challenge, Emotional EQ, Compassion Wheel, Neural Card Challenge), a dual-currency reward system (Neural Energy + Compassion Points), and social features, while also incorporating monetization tiers and charitable contributions. Compassion milestones trigger real micro-donations to the World Hunger Relief Fund. The project includes features for user monetization, enterprise solutions, and sponsored impact partnerships, positioning itself as a Health & Fitness / Lifestyle wellness app compliant with Apple App Store guidelines (no gambling terminology or casino framing).
 
 ## User Preferences
 
@@ -46,7 +46,7 @@ The monorepo uses TypeScript composite projects (`composite: true`) with project
 - **Share System:** Native Share API integration on Home (share impact), Play (share wins), and Profile (share journey) screens. Purple-themed share cards with cosmic gradients.
 - **GlassCard:** Accepts `style?: ViewStyle | ViewStyle[]` and `elevated?: boolean` prop for luxury glassmorphism.
 - **Brain Games:** StroopGame (30s color-ink test), MemoryGrid (progressive 4×4 working memory), BreathingPacer (4-7-8 animated circle with haptics).
-- **Slot Machine:** Staggered stops 800/1300/1800ms, `winRef.current` avoids stale closures, interval-based symbol cycling, spring bounce on landing.
+- **Compassion Wheel:** Staggered stops 800/1300/1800ms, `winRef.current` avoids stale closures, interval-based symbol cycling, spring bounce on landing. Route: `/wellness`.
 - **5-Tab Navigation:** Home, Train, Play, Zen Pro, Profile. NativeTabs (iOS 26+) and ClassicTabs (Expo BlurView).
 
 **Color Palette (constants/colors.ts):**

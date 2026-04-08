@@ -141,7 +141,7 @@ router.post("/stripe/daily-pass-checkout", async (req: any, res) => {
           unit_amount: 500,
           product_data: {
             name: "NeuroQuest Daily Pass",
-            description: `${hours} hours of unlimited access to all games & Compassion Jackpot™`,
+            description: `${hours} hours of unlimited access to all games & Compassion Impact™`,
             images: [],
           },
         },
@@ -200,16 +200,16 @@ router.post("/stripe/extra-spins-checkout", async (req: any, res) => {
           currency: "usd",
           unit_amount: 299,
           product_data: {
-            name: `NeuroQuest — ${spins} Extra Spins`,
-            description: `Adds ${energy} Neural Energy to your account (${spins} casino spins at 10 energy each)`,
+            name: `NeuroQuest — ${spins} Extra Plays`,
+            description: `Adds ${energy} Neural Energy to your account (${spins} plays at 10 energy each)`,
           },
         },
         quantity: 1,
       }],
       mode: "payment",
       metadata: { nq_session: sessionId, spins: String(spins), energy: String(energy), type: "extra_spins" },
-      success_url: `${baseUrl}/casino?spins_success=1`,
-      cancel_url: `${baseUrl}/casino`,
+      success_url: `${baseUrl}/wellness?spins_success=1`,
+      cancel_url: `${baseUrl}/wellness`,
     });
 
     return res.json({ url: checkoutSession.url });

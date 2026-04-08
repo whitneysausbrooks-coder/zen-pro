@@ -304,7 +304,7 @@ export function PaywallGate({ children, gameName = "this game" }: PaywallGatePro
             </motion.div>
             <h2 className="font-serif text-2xl font-bold text-gradient-gold mb-1">Unlock Full Access</h2>
             <p className="text-sm text-white/50 leading-relaxed">
-              Play all games, spin the Compassion Jackpot™, and fund lives worldwide.
+              Play all games, reach Compassion Milestones, and fund lives worldwide.
             </p>
           </div>
 
@@ -341,7 +341,7 @@ export function PaywallGate({ children, gameName = "this game" }: PaywallGatePro
             <div className="space-y-1.5">
               {[
                 { icon: "🧠", text: "All 4 neuroplasticity games unlocked" },
-                { icon: "♡", text: "Compassion Jackpot™ spins — fund real hunger relief" },
+                { icon: "♡", text: "Compassion Impact™ plays — fund real hunger relief" },
                 { icon: "⚡", text: tier === "pro" ? "2× Neural Energy (Pro exclusive)" : "Full Neural Energy rewards" },
                 { icon: "🌍", text: "Every session tracked in Global Impact Chronicle" },
               ].map((item, i) => (

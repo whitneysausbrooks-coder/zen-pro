@@ -17,20 +17,20 @@ const SHARE_CONFIGS = [
     icon: Star,
     color: "text-primary",
     config: {
-      title: "NeuroQuest — Compassion Casino",
-      description: "I'm training my mind & funding hunger relief with every spin. Your mind is the stake. The world is the winner.",
-      hashtags: ["NeuroQuest", "CompassionCasino", "Neuroplasticity", "GlobalAbundance"],
+      title: "NeuroQuest — Mind & Spirit Wellness",
+      description: "I'm training my mind & funding hunger relief with every play. Your mind is the focus. The world is the winner.",
+      hashtags: ["NeuroQuest", "MindAndSpirit", "Neuroplasticity", "GlobalAbundance"],
     },
   },
   {
     id: "jackpot",
-    label: "Jackpot Win",
+    label: "Compassion Impact",
     icon: Heart,
     color: "text-rose-400",
     config: {
-      title: "I just hit the Compassion Jackpot on NeuroQuest!",
-      description: "3 hearts aligned and a real meal was funded in my name. This is the most meaningful win I've ever had in any game. 💚",
-      hashtags: ["CompassionJackpot", "NeuroQuestImpact", "NeuroQuest", "GivingBack"],
+      title: "I just reached a Compassion Milestone on NeuroQuest!",
+      description: "3 hearts aligned and a real meal was funded in my name. This is the most meaningful moment I've ever had in any app. 💚",
+      hashtags: ["CompassionImpact", "NeuroQuestImpact", "NeuroQuest", "GivingBack"],
     },
   },
   {
@@ -40,8 +40,8 @@ const SHARE_CONFIGS = [
     color: "text-cyan-400",
     config: {
       title: "I challenge you to NeuroQuest",
-      description: "Can you beat my Neural Energy score? NeuroQuest trains your brain AND funds hunger relief. Join me — first spin is free.",
-      hashtags: ["NeuroQuest", "BrainChallenge", "Neuroplasticity", "CompassionCasino"],
+      description: "Can you beat my Neural Energy score? NeuroQuest trains your brain AND funds hunger relief. Join me — first play is free.",
+      hashtags: ["NeuroQuest", "BrainChallenge", "Neuroplasticity", "MindAndSpirit"],
     },
   },
   {
@@ -51,7 +51,7 @@ const SHARE_CONFIGS = [
     color: "text-amber-400",
     config: {
       title: "My NeuroQuest streak is unstoppable",
-      description: "Daily brain training + compassion jackpots. I'm building mental resilience and funding world hunger relief simultaneously. Come join the mission.",
+      description: "Daily brain training + compassion milestones. I'm building mental resilience and funding world hunger relief simultaneously. Come join the mission.",
       hashtags: ["NeuroQuest", "NeuralStreak", "ElectricBlue", "MindAndSpirit"],
     },
   },
@@ -169,7 +169,7 @@ export default function SharePage() {
             <h1 className="text-3xl font-serif font-bold text-gradient-gold">Share NeuroQuest</h1>
           </div>
           <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-            Every share spreads the Compassion Jackpot to a new mind.
+            Every share spreads the Compassion Impact to a new mind.
             Choose your platform — your link is ready.
           </p>
         </motion.div>
@@ -235,7 +235,7 @@ export default function SharePage() {
                 <div>
                   <h3 className="font-serif font-semibold text-base mb-1">Every Share Funds a Life</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Every new player you bring to NeuroQuest adds another spin to the Compassion Jackpot pool.
+                    Every new player you bring to NeuroQuest adds another turn to the Compassion Impact pool.
                     More players = more micro-donations = more meals funded worldwide.
                   </p>
                 </div>

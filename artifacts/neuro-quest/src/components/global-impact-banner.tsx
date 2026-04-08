@@ -100,7 +100,7 @@ export function GlobalImpactBanner({ compassionPoints }: { compassionPoints?: nu
           />
         </div>
         <p className="text-[10px] text-muted-foreground/70 text-center">
-          100 Compassion Points = 1 simulated meal · Sponsor a jackpot to make it real
+          100 Compassion Points = 1 simulated meal · Sponsor an impact milestone to make it real
         </p>
       </div>
     </div>

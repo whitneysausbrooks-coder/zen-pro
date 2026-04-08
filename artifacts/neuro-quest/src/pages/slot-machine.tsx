@@ -43,15 +43,15 @@ async function buyExtraSpins(): Promise<string | null> {
 const CURRENT_SPONSOR = {
   brand: "World Hunger Relief Fund",
   prize: "10 Meals Donated",
-  tagline: "Every spin feeds a mind. Every jackpot feeds the world.",
-  donationBlurb: "Your jackpot just funded 10 real meals for families in need — powered by NeuroQuest's Global Abundance Mission.",
+  tagline: "Every play feeds a mind. Every milestone feeds the world.",
+  donationBlurb: "Your compassion just funded 10 real meals for families in need — powered by NeuroQuest's Global Abundance Mission.",
 }
 
 /* ── Impact Stories (shown on Compassion Jackpot) ────────────────────────── */
 const IMPACT_STORIES = [
   {
     emoji: "🧒🏿", name: "Ibrahim", age: 7, country: "Niger", region: "West Africa",
-    story: "Ibrahim walks 4 miles to school each day on an empty stomach. Your jackpot pays for his lunch — and the energy to dream.",
+    story: "Ibrahim walks 4 miles to school each day on an empty stomach. Your compassion pays for his lunch — and the energy to dream.",
     stat: "1 in 3 children in Niger are chronically hungry",
     color: "from-amber-500/25 to-orange-600/10", accent: "#F59E0B",
   },
@@ -81,7 +81,7 @@ const IMPACT_STORIES = [
   },
   {
     emoji: "👨🏿", name: "Kwame", age: 22, country: "Ghana", region: "West Africa",
-    story: "Kwame studies at night after farming all day. He can't afford dinner. Your jackpot changes that tonight.",
+    story: "Kwame studies at night after farming all day. He can't afford dinner. Your compassion changes that tonight.",
     stat: "Youth hunger in Ghana rises during drought seasons",
     color: "from-yellow-500/25 to-amber-600/10", accent: "#EAB308",
   },
@@ -101,14 +101,14 @@ const IMPACT_STORIES = [
 
 /* ── Pre-Spin Affirmations ───────────────────────────────────────────────── */
 const AFFIRMATIONS = [
-  "Your next spin could change a life.",
+  "Your next play could change a life.",
   "The universe rewards a generous heart.",
   "Three hearts = a meal on someone's table.",
-  "Play with purpose. Win with compassion.",
-  "Every reel is a ripple in the world.",
-  "You are one spin away from becoming someone's miracle.",
-  "Generosity is the highest form of luck.",
-  "The reels remember kind hearts.",
+  "Play with purpose. Grow with compassion.",
+  "Every turn is a ripple in the world.",
+  "You are one play away from becoming someone's miracle.",
+  "Generosity is the highest form of wellness.",
+  "The wheel remembers kind hearts.",
 ]
 
 /* ── Social Proof Winners ────────────────────────────────────────────────── */
@@ -184,7 +184,7 @@ function generateImpactBadge(storyName: string, country: string, levelTitle: str
   ctx.shadowBlur = 24; ctx.shadowColor = "rgba(251,113,133,0.7)"
   ctx.font = "bold 130px serif"; ctx.textAlign = "center"; ctx.fillStyle = "#fb7185"; ctx.fillText("♥", 400, 365)
   ctx.shadowColor = "rgba(212,175,55,0.5)"; ctx.shadowBlur = 18
-  ctx.font = "bold 54px Georgia, serif"; ctx.fillStyle = "#D4AF37"; ctx.fillText("COMPASSION JACKPOT", 400, 530)
+  ctx.font = "bold 54px Georgia, serif"; ctx.fillStyle = "#D4AF37"; ctx.fillText("COMPASSION IMPACT", 400, 530)
   ctx.shadowBlur = 0; ctx.font = "22px Georgia, serif"; ctx.fillStyle = "rgba(255,255,255,0.5)"
   ctx.fillText(`A meal was funded for ${storyName} in ${country}`, 400, 578)
   ctx.font = "bold 32px Georgia, serif"; ctx.fillStyle = "#fb7185"; ctx.fillText(`+${compassionPoints} Compassion Points`, 400, 630)
@@ -280,7 +280,7 @@ function SocialProofTicker() {
       >
         <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse shrink-0" />
         <span>
-          <span className="font-bold text-rose-300">{winner.name}</span> in {winner.city} hit a Compassion Jackpot
+          <span className="font-bold text-rose-300">{winner.name}</span> in {winner.city} reached a Compassion Milestone
           <span className="text-white/30 ml-1.5">{winner.time}</span>
         </span>
       </motion.div>
@@ -389,7 +389,7 @@ function NearMissOverlay({ onDismiss, onSpin, canSpin }: { onDismiss: () => void
             </div>
           </div>
           <p className="text-xs text-white/50 leading-relaxed mb-4">
-            The third heart is listening. One more spin and a family somewhere eats tonight.
+            The third heart is listening. One more play and a family somewhere eats tonight.
           </p>
           <div className="flex gap-2">
             <button
@@ -397,7 +397,7 @@ function NearMissOverlay({ onDismiss, onSpin, canSpin }: { onDismiss: () => void
               disabled={!canSpin}
               className="flex-1 rounded-xl bg-rose-500/80 hover:bg-rose-500 border border-rose-400/50 text-white text-sm font-bold py-2.5 transition-all disabled:opacity-40"
             >
-              Spin Again ♡
+              Play Again ♡
             </button>
             <button onClick={onDismiss} className="px-4 rounded-xl border border-white/15 text-white/40 hover:text-white/60 text-sm transition-colors">
               Wait
@@ -472,7 +472,7 @@ function CompassionJackpotOverlay({ onClose, sponsor, profile, spinCount }: Comp
                 className="text-3xl font-serif font-bold leading-tight"
                 style={{ background: "linear-gradient(135deg, #FF6B9D, #FFE066, #FF3D7F)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
               >
-                Compassion Jackpot
+                Compassion Impact
               </motion.h2>
               <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="text-sm font-medium text-rose-200/80">
                 A micro-donation was made in your name.
@@ -657,7 +657,7 @@ function PayTable() {
           <div className="flex items-center gap-1.5">
             {[0,1,2].map(i => <Heart key={i} className="w-4 h-4 text-rose-400 fill-rose-400" />)}
           </div>
-          <span className="text-rose-300 font-bold text-xs tracking-wide">COMPASSION JACKPOT</span>
+          <span className="text-rose-300 font-bold text-xs tracking-wide">COMPASSION IMPACT</span>
           <span className="text-rose-400 font-bold text-xs">+{COMPASSION_JACKPOT} ♡</span>
         </div>
         <div className="space-y-1.5 text-sm pt-1">
@@ -678,7 +678,7 @@ function PayTable() {
           ))}
         </div>
         <p className="text-muted-foreground text-xs pt-2 border-t border-white/10">
-          Spin costs <span className="text-primary font-bold">−{SPIN_COST}</span> Neural Energy. ⚡ = Energy · ♡ = Compassion
+          Play costs <span className="text-primary font-bold">−{SPIN_COST}</span> Neural Energy. ⚡ = Energy · ♡ = Compassion
         </p>
       </GlassCardContent>
     </GlassCard>
@@ -719,7 +719,7 @@ export default function SlotMachine() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get("spins_success") === "1") {
-      toast({ title: "10 Spins Added!", description: "+100 Neural Energy has been loaded to your account. Let's spin!", duration: 6000 })
+      toast({ title: "10 Plays Added!", description: "+100 Neural Energy has been loaded to your account. Let's go!", duration: 6000 })
       queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
       window.history.replaceState({}, "", window.location.pathname)
     }
@@ -772,7 +772,7 @@ export default function SlotMachine() {
     setResult(res)
     setPhase("spinning")
     setShowNearMiss(false)
-    earnEnergy({ data: { activity: "Slot Machine Spin", amount: -SPIN_COST } })
+    earnEnergy({ data: { activity: "Compassion Wheel Play", amount: -SPIN_COST } })
 
     setTimeout(() => {
       setPhase("result")
@@ -783,8 +783,8 @@ export default function SlotMachine() {
         playJackpotFanfare()
         if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400])
         setTimeout(() => setShowJackpot(true), 500)
-        earnCompassion({ data: { activity: "Compassion Jackpot – 3× Heart", amount: COMPASSION_JACKPOT } })
-        toast({ title: "♡ Compassion Jackpot!", description: `+${COMPASSION_JACKPOT} Compassion Points` })
+        earnCompassion({ data: { activity: "Compassion Impact – 3× Heart", amount: COMPASSION_JACKPOT } })
+        toast({ title: "♡ Compassion Impact!", description: `+${COMPASSION_JACKPOT} Compassion Points` })
 
       } else if (res.heartCount === 2) {
         // Near-miss with 2 hearts
@@ -797,11 +797,11 @@ export default function SlotMachine() {
         if (res.payout > 0) {
           playWinChime()
           const boosted = streak.is_electric_blue ? Math.floor(res.payout * streak.multiplier) : res.payout
-          const label = res.tier === "jackpot" ? "JACKPOT" : res.tier === "three" ? `3× ${res.symbolId}` : `2× ${res.symbolId}`
-          earnEnergy({ data: { activity: `Slot Machine – ${label}`, amount: boosted + SPIN_COST } })
+          const label = res.tier === "jackpot" ? "GRAND MATCH" : res.tier === "three" ? `3× ${res.symbolId}` : `2× ${res.symbolId}`
+          earnEnergy({ data: { activity: `Compassion Wheel – ${label}`, amount: boosted + SPIN_COST } })
           setTotalWon(w => w + boosted)
           toast({
-            title: res.tier === "jackpot" ? "⚡ JACKPOT!" : res.tier === "three" ? "Triple Match!" : "Double Match!",
+            title: res.tier === "jackpot" ? "⚡ Grand Match!" : res.tier === "three" ? "Triple Match!" : "Double Match!",
             description: streak.is_electric_blue && boosted !== res.payout
               ? `+${boosted} Neural Energy (${streak.multiplier.toFixed(2)}× boost!)`
               : `+${boosted} Neural Energy`,
@@ -816,8 +816,8 @@ export default function SlotMachine() {
   }, [canSpin, streak, earnEnergy, earnCompassion, toast])
 
   const tierLabel: Record<WinTier, string> = {
-    compassion_jackpot: "♡ Compassion Jackpot!",
-    jackpot:            "⚡ JACKPOT",
+    compassion_jackpot: "♡ Compassion Impact!",
+    jackpot:            "⚡ GRAND MATCH",
     three:              "Triple Match!",
     two:                "Double Match!",
     none:               "No Match",
@@ -918,7 +918,7 @@ export default function SlotMachine() {
               <Moon className="w-5 h-5 text-indigo-300 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-indigo-200">Meditation Lounge is open</p>
-                <p className="text-xs text-indigo-300/60">It's late. Center your mind before you spin.</p>
+                <p className="text-xs text-indigo-300/60">It's late. Center your mind before you play.</p>
               </div>
             </div>
             <button onClick={startBreathing} disabled={showBreathing}
@@ -933,12 +933,12 @@ export default function SlotMachine() {
         <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-6">
           <div className="inline-flex items-center gap-3 mb-1.5">
             <Sparkles className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-serif font-bold text-gradient-gold">The Casino</h1>
+            <h1 className="text-3xl font-serif font-bold text-gradient-gold">Compassion Wheel</h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            Each spin costs <span className="text-primary font-bold">−10 Neural Energy</span>
+            Each play costs <span className="text-primary font-bold">−10 Neural Energy</span>
             <span className="mx-2 text-white/20">·</span>
-            <span className="text-rose-400 font-semibold">3× ♡ = Compassion Jackpot</span>
+            <span className="text-rose-400 font-semibold">3× ♡ = Compassion Impact</span>
           </p>
         </motion.div>
 
@@ -976,7 +976,7 @@ export default function SlotMachine() {
         <div className="flex items-center justify-center gap-2 mb-4 px-4 py-2 rounded-2xl bg-white/3 border border-white/8 mx-auto max-w-sm">
           <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">For Entertainment Only</span>
           <span className="text-white/15">·</span>
-          <span className="text-[10px] text-white/25">No real money gambling · Neural Energy has no cash value</span>
+          <span className="text-[10px] text-white/25">For wellness purposes · Neural Energy has no cash value</span>
         </div>
 
         {/* Balances */}
@@ -1004,7 +1004,7 @@ export default function SlotMachine() {
               <div className="flex items-center gap-3">
                 <div className="p-1.5 bg-cyan-400/20 rounded-lg shrink-0"><Gift className="w-4 h-4 text-cyan-400" /></div>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">Compassion Jackpot — Sponsored</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">Compassion Impact — Sponsored</p>
                   <p className="text-sm font-semibold text-foreground">
                     <span className="text-rose-300">3× ♡</span> → micro-donation by <span className="text-cyan-300">{CURRENT_SPONSOR.brand}</span>
                   </p>
@@ -1085,7 +1085,7 @@ export default function SlotMachine() {
                     </p>
                   )}
                   {isNearMissResult && (
-                    <p className="text-sm text-rose-300/70">The third heart was listening… spin again.</p>
+                    <p className="text-sm text-rose-300/70">The third heart was listening… play again.</p>
                   )}
                   {result.tier === "compassion_jackpot" && (
                     <p className="text-sm font-medium text-rose-300">+{COMPASSION_JACKPOT} Compassion Points</p>
@@ -1094,7 +1094,7 @@ export default function SlotMachine() {
               )}
               {phase === "idle" && !result && (
                 <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center mb-6 text-muted-foreground text-sm">
-                  Pull the lever. Trust the mind.
+                  Focus your energy. Trust the mind.
                 </motion.div>
               )}
               {phase === "spinning" && (
@@ -1102,7 +1102,7 @@ export default function SlotMachine() {
                   animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 0.8 }}
                   className="text-center mb-6 text-primary text-sm font-medium tracking-widest uppercase"
                 >
-                  Spinning…
+                  Playing…
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1131,8 +1131,8 @@ export default function SlotMachine() {
                 >
                   <Heart className={cn("w-5 h-5", isNearMissResult ? "fill-white" : "")} />
                   {phase === "result" && !showJackpot
-                    ? (isNearMissResult ? "Spin Again ♡" : "Spin Again")
-                    : `Spin (–${SPIN_COST})`
+                    ? (isNearMissResult ? "Play Again ♡" : "Play Again")
+                    : `Play (–${SPIN_COST})`
                   }
                 </LuxuryButton>
               </motion.div>
@@ -1145,7 +1145,7 @@ export default function SlotMachine() {
                   <div>
                     <p className="font-serif text-base font-bold text-rose-300">Recharge Your Mind</p>
                     <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-                      You need {SPIN_COST} Neural Energy to spin. Earn more free or grab 10 instant spins.
+                      You need {SPIN_COST} Neural Energy to play. Earn more free or grab 10 instant plays.
                     </p>
                   </div>
 
@@ -1157,7 +1157,7 @@ export default function SlotMachine() {
                   >
                     {buyingSpins
                       ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Redirecting…</>
-                      : <><CreditCard className="w-3.5 h-3.5" /> Buy 10 Spins — $2.99</>
+                      : <><CreditCard className="w-3.5 h-3.5" /> Buy 10 Plays — $2.99</>
                     }
                   </LuxuryButton>
 
@@ -1184,7 +1184,7 @@ export default function SlotMachine() {
             className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5"
           >
             <Crown className="w-3.5 h-3.5" />
-            {showPay ? "Hide" : "View"} Pay Table
+            {showPay ? "Hide" : "View"} Rewards Table
           </button>
         </div>
         <AnimatePresence>
@@ -1203,10 +1203,10 @@ export default function SlotMachine() {
           <div className="flex items-start gap-3">
             <Users className="w-4 h-4 text-rose-400/70 mt-0.5 shrink-0" />
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-rose-400/60 mb-1">How Compassion Jackpots Work</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-rose-400/60 mb-1">How Compassion Impact Works</p>
               <p className="text-xs text-white/40 leading-relaxed">
                 Sponsored brands fund the donation pool. When you land 3× ♡, a real micro-donation is triggered automatically in your name.
-                No extra cost to you — your generosity is built into every spin.
+                No extra cost to you — your generosity is built into every play.
               </p>
             </div>
           </div>

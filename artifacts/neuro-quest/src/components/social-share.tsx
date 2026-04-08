@@ -13,9 +13,9 @@ export interface ShareConfig {
 
 const DEFAULT_CONFIG: ShareConfig = {
   url: typeof window !== "undefined" ? window.location.href : "https://neuroquest.app",
-  title: "NeuroQuest — Compassion Casino",
-  description: "I'm training my mind & funding hunger relief with every spin. Train your mind. Feed the world.",
-  hashtags: ["NeuroQuest", "CompassionCasino", "Neuroplasticity", "GlobalAbundance"],
+  title: "NeuroQuest — Mind & Spirit Wellness",
+  description: "I'm training my mind & funding hunger relief with every play. Train your mind. Feed the world.",
+  hashtags: ["NeuroQuest", "MindAndSpirit", "Neuroplasticity", "GlobalAbundance"],
   via: "NeuroQuestApp",
 }
 
@@ -414,7 +414,7 @@ export function FloatingShareButton({ config }: { config?: ShareConfig }) {
               <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/8">
                 <div>
                   <h2 className="font-serif font-bold text-lg text-primary">Share NeuroQuest</h2>
-                  <p className="text-xs text-white/40 mt-0.5">Spread the Compassion Jackpot</p>
+                  <p className="text-xs text-white/40 mt-0.5">Spread the Compassion Impact</p>
                 </div>
                 <button onClick={() => setOpen(false)} className="p-2 rounded-full hover:bg-white/8 transition-colors">
                   <X className="w-4 h-4 text-white/50" />

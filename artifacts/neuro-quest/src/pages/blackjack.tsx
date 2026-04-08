@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
-const BET_OPTIONS = [10, 25, 50]
+const FOCUS_OPTIONS = [10, 25, 50]
 const MIND_READ_BONUS = 0.6 // 60% extra on payout if prediction correct
 
 /* ── Card types ─────────────────────────────────────────────────────────── */
@@ -108,6 +108,7 @@ export default function Blackjack() {
 
   const [phase, setPhase] = useState<GamePhase>("bet")
   const [bet, setBet] = useState(10)
+  // Note: "bet" is used internally only; UI says "Focus Energy"
   const [deck, setDeck] = useState<Card[]>([])
   const [playerHand, setPlayerHand] = useState<Card[]>([])
   const [dealerHand, setDealerHand] = useState<Card[]>([])
@@ -289,11 +290,11 @@ export default function Blackjack() {
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
             <GlassCard glow>
               <GlassCardHeader>
-                <GlassCardTitle className="text-xl">Place Your Bet</GlassCardTitle>
+                <GlassCardTitle className="text-xl">Set Your Focus</GlassCardTitle>
               </GlassCardHeader>
               <GlassCardContent className="space-y-6 pb-8">
                 <div className="flex gap-3 justify-center">
-                  {BET_OPTIONS.map(b => (
+                  {FOCUS_OPTIONS.map(b => (
                     <button
                       key={b}
                       onClick={() => setBet(b)}
@@ -308,7 +309,7 @@ export default function Blackjack() {
                     </button>
                   ))}
                 </div>
-                <p className="text-center text-xs text-muted-foreground">Neural Energy at stake</p>
+                <p className="text-center text-xs text-muted-foreground">Neural Energy to focus</p>
 
                 <div className="rounded-2xl bg-cyan-400/5 border border-cyan-400/20 px-4 py-3 flex items-start gap-3">
                   <HelpCircle className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
@@ -473,8 +474,8 @@ export default function Blackjack() {
                   <LuxuryButton variant="outline" className="flex-1 gap-2" onClick={resetBet}>
                     <RefreshCw className="w-4 h-4" /> Play Again
                   </LuxuryButton>
-                  <LuxuryButton className="flex-1 gap-2" onClick={() => navigate("/casino")}>
-                    The Casino
+                  <LuxuryButton className="flex-1 gap-2" onClick={() => navigate("/wellness")}>
+                    Compassion Wheel
                   </LuxuryButton>
                 </div>
               </GlassCardContent>

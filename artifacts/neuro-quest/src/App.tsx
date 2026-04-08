@@ -74,10 +74,10 @@ function Router() {
         <Switch location={location}>
           <Route path="/"            component={Dashboard}   />
           <Route path="/onboarding"  component={Onboarding}  />
-          <Route path="/brain-game"  component={() => <ProtectedGame component={MemoryMatch}  name="Neural Stake" />} />
-          <Route path="/blackjack"   component={() => <ProtectedGame component={Blackjack}    name="Mind-Reader Blackjack" />} />
+          <Route path="/brain-game"  component={() => <ProtectedGame component={MemoryMatch}  name="Neural Challenge" />} />
+          <Route path="/blackjack"   component={() => <ProtectedGame component={Blackjack}    name="Mind-Reader Challenge" />} />
           <Route path="/eq-game"     component={() => <ProtectedGame component={EQGame}       name="Emotional EQ" />} />
-          <Route path="/casino"      component={() => <ProtectedGame component={SlotMachine}  name="Compassion Jackpot" />} />
+          <Route path="/wellness"    component={() => <ProtectedGame component={SlotMachine}  name="Compassion Wheel" />} />
           <Route path="/subscribe"   component={Subscribe}   />
           <Route path="/enterprise"  component={Enterprise}  />
           <Route path="/sponsor"     component={Sponsor}     />

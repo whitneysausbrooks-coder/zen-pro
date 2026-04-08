@@ -1,12 +1,12 @@
 import React from "react"
 import { useLocation, Link } from "wouter"
-import { Home, Brain, Dices, Crown, Sparkles } from "lucide-react"
+import { Home, Brain, Heart, Crown, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const TABS = [
   { href: "/",           Icon: Home,     label: "Home"    },
   { href: "/brain-game", Icon: Brain,    label: "Brain"   },
-  { href: "/casino",     Icon: Dices,    label: "Casino"  },
+  { href: "/wellness",   Icon: Heart,    label: "Wellness"},
   { href: "/blackjack",  Icon: Crown,    label: "Cards"   },
   { href: "/eq-game",    Icon: Sparkles, label: "EQ"      },
 ]

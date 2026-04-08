@@ -53,7 +53,7 @@ export function AuthGate({ children }: AuthGateProps) {
                 NeuroQuest™
               </h1>
               <p className="text-sm text-white/50 leading-relaxed">
-                Sign in to train your mind, spin the Compassion Jackpot, and change lives worldwide.
+                Sign in to train your mind, reach Compassion Milestones, and change lives worldwide.
               </p>
             </div>
 
@@ -62,7 +62,7 @@ export function AuthGate({ children }: AuthGateProps) {
               <div className="space-y-2.5 mb-6">
                 {[
                   { icon: "🧠", text: "Neuroplasticity games that rewire your brain" },
-                  { icon: "♡", text: "Compassion Jackpot™ — wins fund real hunger relief" },
+                  { icon: "♡", text: "Compassion Impact™ — milestones fund real hunger relief" },
                   { icon: "⚡", text: "Build Neural Energy & unlock higher levels" },
                   { icon: "🌍", text: "Every session creates global impact" },
                 ].map((item, i) => (

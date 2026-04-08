@@ -59,7 +59,7 @@ const PERKS = [
   {
     icon: <Dices className="w-5 h-5" />,
     label: "Exclusive Gold Slot Skins",
-    sub: "The casino floor in pure 24-karat style",
+    sub: "The wellness experience in pure 24-karat style",
     color: "text-yellow-400",
     bg: "bg-yellow-400/10 border-yellow-400/25",
   },
@@ -157,13 +157,13 @@ function DailyPassCard() {
           </div>
 
           <p className="text-sm text-white/55 leading-relaxed mb-5">
-            Try everything before committing. 24 hours of full, unlimited play across all 4 games, Compassion Jackpot™ spins, and Neural Energy rewards.
+            Try everything before committing. 24 hours of full, unlimited play across all 4 games, Compassion Impact™ milestones, and Neural Energy rewards.
           </p>
 
           {/* What's included */}
           <div className="grid grid-cols-2 gap-2 mb-5">
             {[
-              { icon: "🎰", text: "Compassion Jackpot™" },
+              { icon: "♡", text: "Compassion Impact™" },
               { icon: "🧠", text: "All 4 brain games" },
               { icon: "⚡", text: "Full Neural Energy" },
               { icon: "🌍", text: "Global impact tracking" },
@@ -403,10 +403,10 @@ export default function Subscribe() {
             Zen Pro — Tier 1
           </div>
           <h1 className="font-serif text-5xl md:text-6xl text-gradient-gold leading-tight">
-            Elevate Your<br />Compassion Casino
+            Elevate Your<br />Wellness Journey
           </h1>
           <p className="text-muted-foreground text-lg max-w-lg mx-auto leading-relaxed">
-            The premium layer of NeuroQuest. Infinite access, amplified power, and a casino floor dressed in gold.
+            The premium layer of NeuroQuest. Infinite access, amplified power, and a wellness experience dressed in gold.
           </p>
         </motion.div>
 

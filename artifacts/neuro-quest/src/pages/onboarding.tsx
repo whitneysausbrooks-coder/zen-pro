@@ -307,7 +307,7 @@ function ResultsStep({ score, responseMs }: { score: number; responseMs: number[
             <div className="text-left">
               <p className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Welcome Gift</p>
               <p className="font-serif font-bold text-xl text-primary">+{WELCOME_GIFT} Neural Energy</p>
-              <p className="text-xs text-muted-foreground">Ready for your first spin</p>
+              <p className="text-xs text-muted-foreground">Ready for your first play</p>
             </div>
           </div>
         </motion.div>

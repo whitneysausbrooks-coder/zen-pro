@@ -78,7 +78,7 @@ function DashSocialProofTicker() {
       <motion.span key={idx} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} transition={{ duration: 0.35 }}
         className="text-xs text-rose-300/60"
       >
-        <span className="font-bold text-rose-300/80">{w.name}</span> in {w.city} just hit a Compassion Jackpot ♡
+        <span className="font-bold text-rose-300/80">{w.name}</span> in {w.city} just reached a Compassion Milestone ♡
       </motion.span>
     </AnimatePresence>
   )
@@ -200,7 +200,7 @@ export default function Dashboard() {
             <div>
               <h1 className="text-3xl font-serif font-bold text-gradient-gold">NeuroQuest</h1>
               <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest mt-1">
-                Compassion Casino
+                Mind & Spirit
               </p>
             </div>
           </motion.div>
@@ -259,7 +259,7 @@ export default function Dashboard() {
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {streak.is_electric_blue
-                        ? "Don't break it — Electric Blue jackpot boost active!"
+                        ? "Don't break it — Electric Blue wellness boost active!"
                         : "Keep going — one more day unlocks Electric Blue!"}
                     </p>
                   </div>
@@ -321,7 +321,7 @@ export default function Dashboard() {
               </GlassCardContent>
             </GlassCard>
 
-            {/* Neural Stake — Brain Game */}
+            {/* Neural Challenge — Brain Game */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -338,7 +338,7 @@ export default function Dashboard() {
                       <Gamepad2 className="w-7 h-7 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-serif font-semibold text-lg text-foreground">Neural Stake</h3>
+                      <h3 className="font-serif font-semibold text-lg text-foreground">Neural Challenge</h3>
                       <p className="text-sm text-muted-foreground">4×4 Memory Match · Train pattern recognition</p>
                     </div>
                   </div>
@@ -378,7 +378,7 @@ export default function Dashboard() {
               </GlassCard>
             </motion.div>
 
-            {/* Casino — Compassion Jackpot Hero */}
+            {/* Compassion Wheel — Wellness Hero */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -386,7 +386,7 @@ export default function Dashboard() {
             >
               <GlassCard
                 className="cursor-pointer group hover:border-rose-400/50 transition-all duration-300 relative overflow-hidden slot-machine-glow"
-                onClick={() => navigate("/casino")}
+                onClick={() => navigate("/wellness")}
               >
                 {/* Ambient gradient */}
                 <div className="absolute inset-0 bg-gradient-to-br from-rose-500/8 via-transparent to-orange-400/5 pointer-events-none" />
@@ -428,9 +428,9 @@ export default function Dashboard() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-0.5">
-                          <h3 className="font-serif font-semibold text-lg text-foreground">The Casino</h3>
+                          <h3 className="font-serif font-semibold text-lg text-foreground">Compassion Wheel</h3>
                           <span className="text-[9px] font-bold uppercase tracking-widest bg-rose-400/15 text-rose-300 border border-rose-400/30 rounded-full px-2 py-0.5">
-                            Compassion Jackpot
+                            Compassion Impact
                           </span>
                         </div>
                         <p className="text-sm text-muted-foreground">3× ♡ = real micro-donation funded · Sponsored</p>
@@ -453,7 +453,7 @@ export default function Dashboard() {
                   <div className="px-5 pb-4 flex items-center gap-2">
                     <TrendingUp className="w-3.5 h-3.5 text-rose-400/50 shrink-0" />
                     <p className="text-[11px] text-white/35 leading-relaxed">
-                      Every jackpot triggers a real donation to <span className="text-rose-300/60 font-semibold">World Hunger Relief Fund</span> — at no extra cost to you.
+                      Every milestone triggers a real donation to <span className="text-rose-300/60 font-semibold">World Hunger Relief Fund</span> — at no extra cost to you.
                     </p>
                   </div>
                 </GlassCardContent>
@@ -505,7 +505,7 @@ export default function Dashboard() {
                     <h3 className="font-serif font-semibold text-lg text-foreground flex items-baseline gap-2">
                       Total Lives Impacted
                     </h3>
-                    <p className="text-xs text-muted-foreground">Increases every time anyone hits a Heart Jackpot</p>
+                    <p className="text-xs text-muted-foreground">Increases every time anyone reaches a Compassion Milestone</p>
                   </div>
                   <div className="text-right shrink-0">
                     {livesImpacted === null ? (
@@ -605,10 +605,10 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-serif font-semibold text-lg text-foreground">Sponsored Jackpots</h3>
+                        <h3 className="font-serif font-semibold text-lg text-foreground">Sponsored Impact</h3>
                         <span className="text-[10px] font-bold uppercase tracking-widest bg-cyan-400/15 text-cyan-400 border border-cyan-400/30 rounded-full px-2 py-0.5">Tier 3</span>
                       </div>
-                      <p className="text-sm text-muted-foreground">Brands sponsor prizes · Players win real rewards</p>
+                      <p className="text-sm text-muted-foreground">Brands sponsor wellness · Players earn real rewards</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 bg-cyan-400/10 border border-cyan-400/25 rounded-full px-4 py-2 shrink-0 group-hover:bg-cyan-400/15 transition-colors">
@@ -695,9 +695,9 @@ export default function Dashboard() {
 
     <FloatingShareButton config={{
       url: typeof window !== "undefined" ? window.location.origin + BASE : "",
-      title: "NeuroQuest — Compassion Casino",
-      description: "I'm training my mind & funding hunger relief with every spin. Your mind is the stake. The world is the winner.",
-      hashtags: ["NeuroQuest", "CompassionCasino", "Neuroplasticity"],
+      title: "NeuroQuest — Mind & Spirit",
+      description: "I'm training my mind & funding hunger relief with every wellness milestone. Your mind is the focus. The world is the winner.",
+      hashtags: ["NeuroQuest", "MindAndSpirit", "Neuroplasticity"],
     }} />
     </>
   )

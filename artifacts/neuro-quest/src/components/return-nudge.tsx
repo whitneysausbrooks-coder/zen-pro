@@ -104,12 +104,12 @@ export function ReturnNudge() {
                   <Zap className="w-3 h-3" /> Train Now
                 </button>
                 <button
-                  onClick={() => navigate("/casino")}
+                  onClick={() => navigate("/wellness")}
                   className={cn(
                     "inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl text-muted-foreground hover:text-foreground transition-colors"
                   )}
                 >
-                  The Casino <ChevronRight className="w-3 h-3" />
+                  Compassion Wheel <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
             </div>

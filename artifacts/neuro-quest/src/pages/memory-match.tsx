@@ -115,8 +115,8 @@ export default function MemoryMatch() {
         toast({
           title: `🔥 ${data.streak.streak_count}-Day Streak!`,
           description: data.streak.is_electric_blue
-            ? `⚡ Electric Blue unlocked — ${data.streak.multiplier.toFixed(2)}× jackpot boost active!`
-            : `Lucky Gold active — ${data.streak.multiplier.toFixed(2)}× jackpot boost!`,
+            ? `⚡ Electric Blue unlocked — ${data.streak.multiplier.toFixed(2)}× reward boost active!`
+            : `Lucky Gold active — ${data.streak.multiplier.toFixed(2)}× reward boost!`,
         })
       } else if (data.streak_changed) {
         toast({ title: energyLabel, description: "Streak started! Come back tomorrow to grow it." })
@@ -233,7 +233,7 @@ export default function MemoryMatch() {
         >
           <div className="inline-flex items-center gap-3 mb-3">
             <Brain className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-serif font-bold text-gradient-gold">Neural Stake</h1>
+            <h1 className="text-3xl font-serif font-bold text-gradient-gold">Neural Challenge</h1>
           </div>
           <p className="text-muted-foreground text-sm max-w-xs mx-auto">
             Match all pairs to earn up to{" "}
@@ -315,7 +315,7 @@ export default function MemoryMatch() {
 
             <LuxuryButton size="lg" onClick={startGame} className="gap-3 px-10">
               <Brain className="w-5 h-5" />
-              Begin Neural Stake
+              Begin Neural Challenge
             </LuxuryButton>
           </motion.div>
         )}

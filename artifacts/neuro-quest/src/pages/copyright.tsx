@@ -57,7 +57,7 @@ export default function CopyrightPage() {
             <h1 className="text-3xl font-serif font-bold text-gradient-gold">Legal & IP</h1>
           </div>
           <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-            Intellectual property, Terms of Use, and Privacy Policy for NeuroQuest™ — Compassion Casino™.
+            Intellectual property, Terms of Use, and Privacy Policy for NeuroQuest™ — Mind & Spirit™.
           </p>
         </motion.div>
 
@@ -74,7 +74,7 @@ export default function CopyrightPage() {
               <p>
                 Whitney Shauntaye is the sole original author and intellectual property owner of the NeuroQuest
                 concept, platform, all associated game mechanics, branding, marketing copy, visual design language
-                ("Luxury Zen" aesthetic), and the Compassion Casino™ business model.
+                ("Luxury Zen" aesthetic), and the Mind & Spirit™ wellness model.
               </p>
               <p>
                 This work was independently created and has not been derived from any prior art.
@@ -91,11 +91,11 @@ export default function CopyrightPage() {
               <ul className="space-y-2 mt-2">
                 {[
                   ["NeuroQuest™", "The platform name and brand identity"],
-                  ["Compassion Casino™", "The branded game category combining neuroplasticity training with charitable impact"],
-                  ["Compassion Jackpot™", "The proprietary mechanic linking slot machine wins to real-world micro-donations"],
-                  ["Neural Stake™", "The branded memory challenge game concept"],
+                  ["Mind & Spirit™", "The branded wellness category combining neuroplasticity training with charitable impact"],
+                  ["Compassion Impact™", "The proprietary mechanic linking wellness milestones to real-world micro-donations"],
+                  ["Neural Challenge™", "The branded cognitive card challenge game concept"],
                   ["Global Abundance Mission™", "The impact-focused brand narrative and donation framework"],
-                  ["Mind & Spirit™", "The wellness and mindfulness positioning sub-brand"],
+                  ["Compassion Wheel™", "The wellness and mindfulness compassion game experience"],
                 ].map(([mark, desc]) => (
                   <li key={mark} className="flex items-start gap-3 pl-2">
                     <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
@@ -112,12 +112,12 @@ export default function CopyrightPage() {
               <p>The following elements are protected by copyright and/or trade secret law:</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                 {[
-                  "The Compassion Jackpot™ mechanic (linking slot-style game spins to charitable micro-donations)",
+                  "The Compassion Impact™ mechanic (linking wellness milestones to charitable micro-donations)",
                   "The dual-currency system (Neural Energy ⚡ + Compassion Points ♡)",
                   "The 'Luxury Zen' visual design system and glassmorphism aesthetic",
                   "All original marketing copy, taglines, and pitch narratives",
                   "The neuroplasticity-to-entertainment bridge concept",
-                  "The Sponsored Jackpot B2B monetization model",
+                  "The Sponsored Impact B2B monetization model",
                   "The Corporate Wellness gamification framework",
                   "All impact stories, game writing, and in-app copy",
                   "The streak-multiplier compassion reward architecture",
@@ -157,8 +157,8 @@ export default function CopyrightPage() {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
             <Section icon={<FileText className="w-4 h-4" />} title="Commercial & Enterprise Licensing">
               <p>
-                Businesses interested in licensing the NeuroQuest platform, the Compassion Casino™ concept,
-                or the Compassion Jackpot™ mechanic for commercial purposes must obtain a written commercial
+                Businesses interested in licensing the NeuroQuest platform, the Mind & Spirit™ concept,
+                or the Compassion Impact™ mechanic for commercial purposes must obtain a written commercial
                 license from Whitney Shauntaye.
               </p>
               <p>
@@ -167,7 +167,7 @@ export default function CopyrightPage() {
                 IP or the ability to replicate the concept independently.
               </p>
               <p>
-                Sponsored Jackpot partnerships are commercial arrangements governed by separate sponsorship
+                Sponsored Impact partnerships are commercial arrangements governed by separate sponsorship
                 agreements and do not constitute ownership or co-authorship of any NeuroQuest IP.
               </p>
             </Section>
@@ -210,7 +210,7 @@ export default function CopyrightPage() {
                 <div>
                   <p className="font-serif font-bold text-primary mb-1">Proof of Prior Art</p>
                   <p className="text-xs text-white/50 leading-relaxed">
-                    The NeuroQuest concept, including the Compassion Casino™ and Compassion Jackpot™ mechanics,
+                    The NeuroQuest concept, including the Mind & Spirit™ and Compassion Impact™ mechanics,
                     was conceived and first developed by Whitney Shauntaye in {YEAR - 1}. Development history,
                     version control timestamps, design documents, and architectural plans constitute
                     verifiable proof of original authorship and priority of invention.
@@ -249,8 +249,8 @@ export default function CopyrightPage() {
                 do not use the platform.
               </p>
               <p>
-                <span className="text-white font-semibold">Entertainment Only.</span> NeuroQuest is a brain-training and
-                entertainment application. It is <span className="text-white font-semibold">not a gambling product</span>.
+                <span className="text-white font-semibold">Wellness & Entertainment.</span> NeuroQuest is a brain-training and
+                wellness application. It is <span className="text-white font-semibold">not a gambling product</span>.
                 Neural Energy (⚡) and Compassion Points (♡) are virtual, in-game currencies with no real-world monetary
                 value and cannot be redeemed for cash, prizes, or any tangible consideration.
               </p>
@@ -263,12 +263,12 @@ export default function CopyrightPage() {
                 <span className="text-white font-semibold">Subscriptions &amp; Billing.</span> Zen Pro ($9.99/month) and Daily Pass ($5.00/24 hours)
                 subscriptions are billed automatically at the stated frequency. Zen Pro subscriptions <span className="text-white font-semibold">auto-renew monthly</span>{" "}
                 until cancelled. You may cancel at any time from your account settings; cancellation takes effect at the end of the current billing period.
-                No refunds are issued for partial billing periods. Extra Spins ($2.99 per 10 spins) are a one-time purchase and non-refundable once used.
+                No refunds are issued for partial billing periods. Extra Plays ($2.99 per 10 plays) are a one-time purchase and non-refundable once used.
               </p>
               <p>
-                <span className="text-white font-semibold">Compassion Jackpot Donations.</span> When you trigger a Compassion Jackpot event, a charitable
+                <span className="text-white font-semibold">Compassion Impact Donations.</span> When you trigger a Compassion Impact event, a charitable
                 micro-donation is made in your name by our sponsoring brand partners. These are donations to third-party charities — not prizes, winnings, or
-                cash payments to you. No purchase is necessary to trigger a Compassion Jackpot.
+                cash payments to you. No purchase is necessary to trigger a Compassion Impact.
               </p>
               <p>
                 <span className="text-white font-semibold">Prohibited Conduct.</span> You agree not to reverse-engineer, scrape, reproduce, exploit commercially,
@@ -296,7 +296,7 @@ export default function CopyrightPage() {
               </p>
               <ul className="list-disc list-inside space-y-1 pl-2">
                 <li>Account information: your name and profile provided through Replit Auth (sign-in only — we do not store your password).</li>
-                <li>Usage data: game scores, spin history, Neural Energy balance, Compassion Points, and session activity.</li>
+                <li>Usage data: game scores, play history, Neural Energy balance, Compassion Points, and session activity.</li>
                 <li>Payment data: subscription and payment transactions are processed by Stripe. NeuroQuest does not store full card numbers.</li>
                 <li>Device data: browser type, operating system, and device identifiers for app functionality and analytics.</li>
                 <li>Age verification: a local flag stored on your device confirming you have verified your age (18+). This is stored only on your device and not transmitted to our servers.</li>

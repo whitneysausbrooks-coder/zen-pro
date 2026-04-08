@@ -24,8 +24,8 @@ const SPONSOR_TIERS = [
     accent: "text-cyan-400",
     badge: null,
     perks: [
-      "50 sponsored jackpot triggers per month",
-      "Jackpot banner in The Casino",
+      "50 sponsored impact triggers per month",
+      "Impact banner in the Compassion Wheel",
       "Brand name + logo in win overlay",
       "Monthly impressions report",
       "Email support",
@@ -37,13 +37,13 @@ const SPONSOR_TIERS = [
     price: "$2,500",
     period: "/month",
     prize_budget: "Up to $5,000 in charity donations/mo",
-    desc: "Exclusive branded jackpot symbol and priority placement across all sessions.",
+    desc: "Exclusive branded impact symbol and priority placement across all sessions.",
     color: "border-cyan-400/55",
     accent: "text-cyan-300",
     badge: "Most Popular",
     perks: [
-      "250 sponsored jackpot triggers per month",
-      "Exclusive Sponsored Jackpot symbol on the reels",
+      "250 sponsored impact triggers per month",
+      "Exclusive Sponsored Impact symbol on the wheel",
       "Full branded win overlay & animations",
       "Priority banner placement",
       "Weekly analytics dashboard",
@@ -56,13 +56,13 @@ const SPONSOR_TIERS = [
     price: "$10,000",
     period: "/month",
     prize_budget: "Unlimited donation pool",
-    desc: "Full Casino experience takeover — custom skin, symbol, and real-time dashboard.",
+    desc: "Full wellness experience takeover — custom skin, symbol, and real-time dashboard.",
     color: "border-fuchsia-400/40",
     accent: "text-fuchsia-300",
     badge: "Max Impact",
     perks: [
-      "Unlimited sponsored jackpot triggers",
-      "Full Casino UI skin & colour takeover",
+      "Unlimited sponsored impact triggers",
+      "Full Compassion Wheel UI skin & colour takeover",
       "Custom reel symbol (your brand icon)",
       "Real-time winner dashboard",
       "Co-branded press release on launch",
@@ -74,7 +74,7 @@ const SPONSOR_TIERS = [
 
 const STATS = [
   { value: "94%", label: "brand recall vs 23% for banner ads", icon: <Eye className="w-5 h-5" /> },
-  { value: "12 min", label: "average Casino session length", icon: <Target className="w-5 h-5" /> },
+  { value: "12 min", label: "average wellness session length", icon: <Target className="w-5 h-5" /> },
   { value: "0", label: "ad-blockers — native in-game placement", icon: <Shield className="w-5 h-5" /> },
   { value: "3.2×", label: "average ROI vs CPM advertising", icon: <TrendingUp className="w-5 h-5" /> },
 ]
@@ -83,7 +83,7 @@ const HOW_IT_WORKS = [
   {
     step: "01",
     icon: <Gift className="w-6 h-6" />,
-    title: "Fund the Compassion Jackpot",
+    title: "Fund the Compassion Impact",
     desc: "Commit a monthly micro-donation budget. When players hit 3× Hearts, your brand pays for a micro-donation made in the player's name — no fulfilment overhead.",
   },
   {
@@ -96,7 +96,7 @@ const HOW_IT_WORKS = [
     step: "03",
     icon: <BarChart3 className="w-6 h-6" />,
     title: "Measure Brand Impact",
-    desc: "Track jackpot impressions, donation count, banner clicks, and brand recall in your live sponsor dashboard. You pay per Compassion Jackpot won — pure performance marketing.",
+    desc: "Track impact impressions, donation count, banner clicks, and brand recall in your live sponsor dashboard. You pay per Compassion Impact triggered — pure performance marketing.",
   },
 ]
 
@@ -184,10 +184,10 @@ export default function Sponsor() {
           <h1 className="font-serif text-5xl md:text-6xl leading-tight">
             <span className="text-gradient-gold">Make Your Brand</span>
             <br />
-            <span className="text-foreground">the Jackpot</span>
+            <span className="text-foreground">the Impact</span>
           </h1>
           <p className="text-muted-foreground text-xl leading-relaxed">
-            Sponsor the <strong className="text-rose-300 font-semibold">Compassion Jackpot</strong>.
+            Sponsor the <strong className="text-rose-300 font-semibold">Compassion Impact</strong>.
             When a player hits 3× Hearts, your brand funds the micro-donation — and earns a
             heartfelt "Sponsored by {"{"}your brand{"}"}" shoutout on the winning screen.
             Zero banner blindness. No ad-blockers. Pure goodwill.
@@ -340,8 +340,8 @@ export default function Sponsor() {
             <GlassCardContent className="p-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
                 {[
-                  { icon: <Users className="w-6 h-6" />, label: "Active Casino Players / Month", value: "18,400+" },
-                  { icon: <DollarSign className="w-6 h-6" />, label: "Avg Charity Donation Per Jackpot Win", value: "$34" },
+                  { icon: <Users className="w-6 h-6" />, label: "Active Players / Month", value: "18,400+" },
+                  { icon: <DollarSign className="w-6 h-6" />, label: "Avg Charity Donation Per Compassion Impact", value: "$34" },
                   { icon: <Star className="w-6 h-6 fill-current" />, label: "Sponsor Satisfaction Score", value: "4.9 / 5" },
                 ].map(({ icon, label, value }) => (
                   <div key={label} className="space-y-2">

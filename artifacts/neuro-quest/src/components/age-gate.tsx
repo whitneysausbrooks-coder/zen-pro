@@ -26,7 +26,7 @@ export function AgeGate({ children }: { children: React.ReactNode }) {
           NeuroQuest is intended for users who are 18 years of age or older. You must meet this requirement to access the platform.
         </p>
         <p className="text-xs text-white/25">
-          This app contains casino-themed game content for entertainment purposes only. No real-money gambling is offered.
+          NeuroQuest is a brain-training and wellness app for entertainment and personal growth purposes only.
         </p>
       </div>
     )
@@ -66,11 +66,11 @@ export function AgeGate({ children }: { children: React.ReactNode }) {
             {/* Description */}
             <div className="space-y-2">
               <p className="text-sm text-white/55 leading-relaxed">
-                NeuroQuest contains casino-themed game content. Access is restricted to adults aged 18 and over.
+                NeuroQuest is a brain-training and wellness platform. Access is restricted to adults aged 18 and over.
               </p>
               <div className="rounded-xl bg-white/4 border border-white/8 px-4 py-3">
                 <p className="text-[11px] text-white/35 leading-relaxed">
-                  <strong className="text-white/50">For Entertainment Only.</strong> NeuroQuest is not a gambling product. No real money can be won. Neural Energy is a virtual, non-redeemable in-game currency.
+                  <strong className="text-white/50">For Wellness & Entertainment.</strong> NeuroQuest is a brain-training app. Neural Energy is a virtual, non-redeemable in-game currency used to track your wellness journey.
                 </p>
               </div>
             </div>
