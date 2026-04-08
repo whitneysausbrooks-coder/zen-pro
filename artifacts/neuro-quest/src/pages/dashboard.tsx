@@ -1,6 +1,6 @@
 import React from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone, Globe, TrendingUp, Users, Share2, Layers } from "lucide-react"
+import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone, Globe, TrendingUp, Users, Share2, Layers, CheckCircle2, X } from "lucide-react"
 import { UserAuthButton } from "@/components/user-auth-button"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
@@ -33,15 +33,15 @@ import { cn } from "@/lib/utils"
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
 
 const ENERGY_ACTIONS = [
-  { label: "Deep Work (1 hr)", amount: 50 },
-  { label: "Meditation (15 min)", amount: 20 },
-  { label: "Read a Chapter", amount: 15 },
+  { id: "deep-work",   label: "Deep Work (1 hr)", amount: 50 },
+  { id: "meditation",  label: "Meditation (15 min)", amount: 20 },
+  { id: "read-chapter", label: "Read a Chapter", amount: 15 },
 ]
 
 const COMPASSION_ACTIONS = [
-  { label: "Help a Colleague", amount: 30 },
-  { label: "Active Listening", amount: 20 },
-  { label: "Express Gratitude", amount: 10 },
+  { id: "help-colleague",    label: "Help a Colleague", amount: 30 },
+  { id: "active-listening",  label: "Active Listening", amount: 20 },
+  { id: "express-gratitude", label: "Express Gratitude", amount: 10 },
 ]
 
 const DASH_SOCIAL_PROOF = [
@@ -125,15 +125,63 @@ export default function Dashboard() {
     }
   })
 
-  const handleAction = (type: "energy" | "compassion", activity: string, amount: number) => {
-    if (type === "energy") {
-      earnEnergy({ data: { activity, amount } })
-    } else {
-      earnCompassion({ data: { activity, amount } })
+  const [taskCompletions, setTaskCompletions] = React.useState<Record<string, { done: boolean; response: string }>>({})
+  const [reflectionModal, setReflectionModal] = React.useState<{ taskId: string; label: string; amount: number; type: "energy" | "compassion" } | null>(null)
+  const [reflectionText, setReflectionText] = React.useState("")
+  const [isSubmittingTask, setIsSubmittingTask] = React.useState(false)
+
+  React.useEffect(() => {
+    fetch(`${BASE}/api/quest/task-status`, { credentials: "include" })
+      .then(r => r.json())
+      .then(data => setTaskCompletions(data.completions || {}))
+      .catch(() => {})
+  }, [])
+
+  const handleAction = (type: "energy" | "compassion", taskId: string, label: string, amount: number) => {
+    if (taskCompletions[taskId]?.done) return
+    setReflectionModal({ taskId, label, amount, type })
+    setReflectionText("")
+  }
+
+  const submitReflection = async () => {
+    if (!reflectionModal) return
+    if (reflectionText.trim().length < 15) {
+      toast({ title: "Too short", description: "Please write at least 15 characters about your session.", variant: "destructive" })
+      return
+    }
+    setIsSubmittingTask(true)
+    try {
+      const resp = await fetch(`${BASE}/api/quest/complete-task`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task_id: reflectionModal.taskId, response: reflectionText.trim() }),
+      })
+      const data = await resp.json()
+      if (!resp.ok) {
+        if (data.already_done) {
+          setTaskCompletions(prev => ({ ...prev, [reflectionModal.taskId]: { done: true, response: reflectionText.trim() } }))
+          toast({ title: "Already completed", description: "You have already finished this task today." })
+        } else {
+          toast({ title: "Error", description: data.error || "Could not complete task.", variant: "destructive" })
+        }
+        setReflectionModal(null)
+        return
+      }
+      setTaskCompletions(prev => ({ ...prev, [reflectionModal.taskId]: { done: true, response: reflectionText.trim() } }))
+      invalidateQueries()
+      toast({
+        title: reflectionModal.type === "energy" ? "Neural Energy gained." : "Compassion earned.",
+        description: reflectionModal.type === "energy" ? "Your mind sharpens." : "Your spirit warms.",
+      })
+      setReflectionModal(null)
+    } catch {
+      toast({ title: "Error", description: "Something went wrong.", variant: "destructive" })
+    } finally {
+      setIsSubmittingTask(false)
     }
   }
 
-  const isPending = isEnergyPending || isCompassionPending
+  const isPending = isEnergyPending || isCompassionPending || isSubmittingTask
 
   const [streak, setStreak] = React.useState<{
     streak_count: number
@@ -177,6 +225,89 @@ export default function Dashboard() {
             setShowGratitudeModal(false)
             invalidateQueries()
           }} />
+        )}
+      </AnimatePresence>
+
+      {/* Reflection Modal */}
+      <AnimatePresence>
+        {reflectionModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => !isSubmittingTask && setReflectionModal(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md"
+            >
+              <GlassCard glow>
+                <GlassCardContent className="p-6 space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-serif font-bold text-foreground">{reflectionModal.label}</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        +{reflectionModal.amount} {reflectionModal.type === "energy" ? "Neural Energy" : "Compassion Points"}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setReflectionModal(null)}
+                      disabled={isSubmittingTask}
+                      className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-foreground block mb-2">
+                      What did you do? Describe your session.
+                    </label>
+                    <textarea
+                      value={reflectionText}
+                      onChange={(e) => setReflectionText(e.target.value)}
+                      placeholder="e.g. I meditated for 15 minutes using guided breathing exercises..."
+                      rows={4}
+                      maxLength={500}
+                      className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 resize-none transition-colors"
+                      autoFocus
+                    />
+                    <div className="flex items-center justify-between mt-1.5">
+                      <p className={cn("text-[11px]", reflectionText.trim().length >= 15 ? "text-emerald-400" : "text-muted-foreground")}>
+                        {reflectionText.trim().length}/15 characters minimum
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {reflectionText.length}/500
+                      </p>
+                    </div>
+                  </div>
+
+                  <LuxuryButton
+                    className="w-full gap-2"
+                    onClick={submitReflection}
+                    disabled={isSubmittingTask || reflectionText.trim().length < 15}
+                  >
+                    {isSubmittingTask ? (
+                      <span className="flex items-center gap-2">
+                        <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>⟳</motion.span>
+                        Saving…
+                      </span>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        Complete & Earn +{reflectionModal.amount}
+                      </>
+                    )}
+                  </LuxuryButton>
+                </GlassCardContent>
+              </GlassCard>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -681,18 +812,33 @@ export default function Dashboard() {
                   <p className="text-sm text-muted-foreground mt-2">Cultivate neural pathways and deepen your concentration.</p>
                 </GlassCardHeader>
                 <GlassCardContent className="space-y-3">
-                  {ENERGY_ACTIONS.map((action) => (
-                    <LuxuryButton
-                      key={action.label}
-                      variant="outline"
-                      className="w-full justify-between"
-                      onClick={() => handleAction("energy", action.label, action.amount)}
-                      disabled={isPending}
-                    >
-                      <span>{action.label}</span>
-                      <span className="text-primary font-serif font-bold">+{action.amount}</span>
-                    </LuxuryButton>
-                  ))}
+                  {ENERGY_ACTIONS.map((action) => {
+                    const completed = taskCompletions[action.id]?.done
+                    return (
+                      <div key={action.id} className="space-y-1">
+                        <LuxuryButton
+                          variant="outline"
+                          className={cn("w-full justify-between", completed && "opacity-60 cursor-default")}
+                          onClick={() => handleAction("energy", action.id, action.label, action.amount)}
+                          disabled={isPending || completed}
+                        >
+                          <span className="flex items-center gap-2">
+                            {completed && <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />}
+                            {action.label}
+                          </span>
+                          {completed
+                            ? <span className="text-emerald-400 text-xs font-semibold">Done today</span>
+                            : <span className="text-primary font-serif font-bold">+{action.amount}</span>
+                          }
+                        </LuxuryButton>
+                        {completed && taskCompletions[action.id]?.response && (
+                          <p className="text-[11px] text-muted-foreground italic pl-7 truncate">
+                            "{taskCompletions[action.id].response}"
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
                 </GlassCardContent>
               </GlassCard>
 
@@ -703,18 +849,33 @@ export default function Dashboard() {
                   <p className="text-sm text-muted-foreground mt-2">Extend your compassion and connect with others.</p>
                 </GlassCardHeader>
                 <GlassCardContent className="space-y-3">
-                  {COMPASSION_ACTIONS.map((action) => (
-                    <LuxuryButton
-                      key={action.label}
-                      variant="glass"
-                      className="w-full justify-between border-rose-400/30 hover:border-rose-400/60"
-                      onClick={() => handleAction("compassion", action.label, action.amount)}
-                      disabled={isPending}
-                    >
-                      <span className="text-rose-100">{action.label}</span>
-                      <span className="text-rose-400 font-serif font-bold">+{action.amount}</span>
-                    </LuxuryButton>
-                  ))}
+                  {COMPASSION_ACTIONS.map((action) => {
+                    const completed = taskCompletions[action.id]?.done
+                    return (
+                      <div key={action.id} className="space-y-1">
+                        <LuxuryButton
+                          variant="glass"
+                          className={cn("w-full justify-between border-rose-400/30 hover:border-rose-400/60", completed && "opacity-60 cursor-default")}
+                          onClick={() => handleAction("compassion", action.id, action.label, action.amount)}
+                          disabled={isPending || completed}
+                        >
+                          <span className={cn("flex items-center gap-2", !completed && "text-rose-100")}>
+                            {completed && <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />}
+                            {action.label}
+                          </span>
+                          {completed
+                            ? <span className="text-emerald-400 text-xs font-semibold">Done today</span>
+                            : <span className="text-rose-400 font-serif font-bold">+{action.amount}</span>
+                          }
+                        </LuxuryButton>
+                        {completed && taskCompletions[action.id]?.response && (
+                          <p className="text-[11px] text-muted-foreground italic pl-7 truncate">
+                            "{taskCompletions[action.id].response}"
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
                 </GlassCardContent>
               </GlassCard>
             </div>

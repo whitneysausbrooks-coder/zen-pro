@@ -4,6 +4,7 @@ import {
   userProfilesTable,
   activitiesTable,
   globalSettingsTable,
+  taskCompletionsTable,
 } from "@workspace/db/schema";
 import {
   EarnEnergyBody,
@@ -174,8 +175,12 @@ router.post("/game-complete", async (req, res) => {
 router.post("/earn-energy", async (req, res) => {
   const sessionId = getOrCreateSessionId(req, res);
   const body = EarnEnergyBody.parse(req.body);
-  const profile = await getOrCreateProfile(sessionId);
 
+  if (DASHBOARD_TASK_LABELS.has(body.activity)) {
+    return res.status(400).json({ error: "Dashboard tasks must be completed through the reflection flow." });
+  }
+
+  const profile = await getOrCreateProfile(sessionId);
   const newEnergy = profile.neural_energy + body.amount;
   const { level, title } = computeLevel(newEnergy, profile.compassion_points);
 
@@ -198,8 +203,12 @@ router.post("/earn-energy", async (req, res) => {
 router.post("/earn-compassion", async (req, res) => {
   const sessionId = getOrCreateSessionId(req, res);
   const body = EarnCompassionBody.parse(req.body);
-  const profile = await getOrCreateProfile(sessionId);
 
+  if (DASHBOARD_TASK_LABELS.has(body.activity)) {
+    return res.status(400).json({ error: "Dashboard tasks must be completed through the reflection flow." });
+  }
+
+  const profile = await getOrCreateProfile(sessionId);
   const raidMultiplier = await getRaidMultiplier();
   const effectiveAmount = body.amount * raidMultiplier;
   const newCompassion = profile.compassion_points + effectiveAmount;
@@ -339,6 +348,106 @@ router.get("/access-status", async (req, res) => {
     return res.json({ has_access: true, access_type: "daily_pass", daily_pass_expires: profile.daily_pass_expires });
   }
   return res.json({ has_access: false, access_type: null, daily_pass_expires: null });
+});
+
+const VALID_TASKS: Record<string, { type: "energy" | "compassion"; amount: number; label: string }> = {
+  "deep-work":        { type: "energy",     amount: 50, label: "Deep Work (1 hr)" },
+  "meditation":       { type: "energy",     amount: 20, label: "Meditation (15 min)" },
+  "read-chapter":     { type: "energy",     amount: 15, label: "Read a Chapter" },
+  "help-colleague":   { type: "compassion", amount: 30, label: "Help a Colleague" },
+  "active-listening": { type: "compassion", amount: 20, label: "Active Listening" },
+  "express-gratitude":{ type: "compassion", amount: 10, label: "Express Gratitude" },
+};
+
+const DASHBOARD_TASK_LABELS = new Set(Object.values(VALID_TASKS).map(t => t.label));
+
+router.get("/task-status", async (req, res) => {
+  const sessionId = req.cookies?.["nq_session"];
+  if (!sessionId) return res.json({ completions: {} });
+
+  const today = todayUTC();
+  const rows = await db
+    .select({
+      task_id: taskCompletionsTable.task_id,
+      user_response: taskCompletionsTable.user_response,
+    })
+    .from(taskCompletionsTable)
+    .where(
+      and(
+        eq(taskCompletionsTable.session_id, sessionId),
+        eq(taskCompletionsTable.completion_date, today)
+      )
+    );
+
+  const completions: Record<string, { done: boolean; response: string }> = {};
+  for (const row of rows) {
+    completions[row.task_id] = { done: true, response: row.user_response };
+  }
+  return res.json({ completions });
+});
+
+router.post("/complete-task", async (req, res) => {
+  const sessionId = getOrCreateSessionId(req, res);
+  const { task_id, response } = req.body;
+
+  if (!task_id || typeof task_id !== "string" || !VALID_TASKS[task_id]) {
+    return res.status(400).json({ error: "Invalid task" });
+  }
+  if (!response || typeof response !== "string" || response.trim().length < 15) {
+    return res.status(400).json({ error: "Please describe your session (at least 15 characters)" });
+  }
+
+  const today = todayUTC();
+  const task = VALID_TASKS[task_id];
+
+  try {
+    await db.insert(taskCompletionsTable).values({
+      session_id: sessionId,
+      task_id,
+      completion_date: today,
+      user_response: response.trim(),
+      amount: task.amount,
+      type: task.type === "energy" ? "neural_energy" : "compassion_points",
+    });
+  } catch (err: any) {
+    if (err?.code === "23505" || err?.constraint?.includes("task_completions_unique_daily")) {
+      return res.status(409).json({ error: "Already completed today", already_done: true });
+    }
+    throw err;
+  }
+
+  const profile = await getOrCreateProfile(sessionId);
+
+  let updated;
+  let awardedAmount = task.amount;
+  if (task.type === "energy") {
+    const newEnergy = profile.neural_energy + task.amount;
+    const { level, title } = computeLevel(newEnergy, profile.compassion_points);
+    [updated] = await db
+      .update(userProfilesTable)
+      .set({ neural_energy: newEnergy, level, title, updated_at: new Date() })
+      .where(eq(userProfilesTable.session_id, sessionId))
+      .returning();
+  } else {
+    const raidMultiplier = await getRaidMultiplier();
+    awardedAmount = task.amount * raidMultiplier;
+    const newCompassion = profile.compassion_points + awardedAmount;
+    const { level, title } = computeLevel(profile.neural_energy, newCompassion);
+    [updated] = await db
+      .update(userProfilesTable)
+      .set({ compassion_points: newCompassion, level, title, updated_at: new Date() })
+      .where(eq(userProfilesTable.session_id, sessionId))
+      .returning();
+  }
+
+  await db.insert(activitiesTable).values({
+    session_id: sessionId,
+    type: task.type === "energy" ? "neural_energy" : "compassion_points",
+    activity: task.label,
+    amount: awardedAmount,
+  });
+
+  return res.json({ profile: GetProfileResponse.parse(updated), task_id, completed: true });
 });
 
 router.post("/reset", async (req, res) => {

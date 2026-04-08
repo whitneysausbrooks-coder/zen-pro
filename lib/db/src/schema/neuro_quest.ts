@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -67,6 +67,19 @@ export const sponsorLeadsTable = pgTable("sponsor_leads", {
   tier: text("tier").notNull().default("featured"),
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const taskCompletionsTable = pgTable("task_completions", {
+  id: serial("id").primaryKey(),
+  session_id: text("session_id").notNull(),
+  task_id: text("task_id").notNull(),
+  completion_date: text("completion_date").notNull(),
+  user_response: text("user_response").notNull(),
+  amount: integer("amount").notNull(),
+  type: text("type").notNull(),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("task_completions_unique_daily").on(table.session_id, table.task_id, table.completion_date),
+]);
 
 export const insertUserProfileSchema = createInsertSchema(userProfilesTable).omit({ id: true, updated_at: true });
 export const insertActivitySchema = createInsertSchema(activitiesTable).omit({ id: true, created_at: true });
