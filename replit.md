@@ -76,7 +76,8 @@ The monorepo uses TypeScript composite projects (`composite: true`) with project
 - **Enterprise Features:** Team Dashboard, ROI Analytics, SSO/SCIM, Team Challenges, Burnout Detection (AI-powered), CSR Impact Reports, privacy-first security design, Dedicated Success Manager. No unverified compliance certifications or Fortune 500 client claims in UI.
 - **Daily Mindful Tasks:** Focus & Mind (Deep Work, Meditation, Read a Chapter) and Heart & Spirit (Help a Colleague, Active Listening, Express Gratitude). Each task is once-per-day with required reflection input (min 15 chars). Server-side enforcement via `task_completions` table with unique constraint `(session_id, task_id, completion_date)`. Legacy `/earn-energy` and `/earn-compassion` endpoints blocked for dashboard tasks. Completed tasks show checkmark + disabled state + previous response.
 - **Games (Legacy):** Neural Stake (memory), The Casino (slots), Emotional EQ (reaction), Mind-Reader Blackjack (card game).
-- **Onboarding:** Splash screen, 30s Focus Test, Results with +50 Neural Energy welcome gift.
+- **Premium Onboarding (Mobile):** 4-step flow (Welcome → Value Props → Compassion → Begin Today) with spring animations, pulsing gradient orbs, dot indicators. Persists completion to `nq_onboarding_complete` AsyncStorage key. First-time users see onboarding; returning users skip to home.
+- **Onboarding (Web):** Splash screen, 30s Focus Test, Results with +50 Neural Energy welcome gift.
 - **Streak System:** `streak_count`, `last_game_date`, 1.1^streak multiplier (max 2.0), visual glow, casino win boost.
 - **Session Management:** Cookie-based (`nq_session`, httpOnly), no login required per browser.
 - **Morning Bloom Modal:** Daily gratitude entry, awards 20 Neural Energy.
@@ -87,6 +88,8 @@ The monorepo uses TypeScript composite projects (`composite: true`) with project
 - **Legal (Mobile):** In-app `LegalScreen.tsx` modal with Privacy Policy + Terms of Use tabs, accessible from Profile settings. Contact Support opens mailto with fallback. Reset All Data with destructive confirmation. Privacy contact: privacy@neuroquestapp.com.
 - **Legal (Web):** `/copyright` page with Terms of Use, Privacy Policy (CCPA/CPRA, GDPR, data retention, DNT), Disclosures (health disclaimer, no-gambling/sweepstakes, donation transparency, tax notice, in-app purchases, third-party services), IP details, App Store Compliance (age gate, disclaimers, etc.).
 - **Trademarks:** NeuroQuest™, Neural Energy™, Compassion Casino™, Cognitive Stakes™, Mind & Spirit™, Compassion Impact™, Compassion Wheel™, Neural Challenge™, Global Abundance Mission™.
+- **Accessibility (Mobile):** All tab screens have `accessibilityRole`, `accessibilityLabel` on interactive elements. Section headers announce expanded/collapsed state. Settings toggles use `accessibilityState`. Decorative emoji marked `accessibilityElementsHidden`. Onboarding dots hidden from screen readers with grouped progress label.
+- **Screen Entrance Animations (Mobile):** Home screen uses 4-phase staggered spring entrance (200/350/500/650ms delays). Train, Play, and Profile screens have fade-in animations triggered after AsyncStorage data loads. All animations use native driver where supported.
 - **Zero-Bug Policy:** All reported bugs must be triaged and fixed before any new feature work begins.
 
 ## External Dependencies

@@ -147,8 +147,10 @@ export default function ProfileScreen() {
     SETTINGS.reduce((acc, s) => ({ ...acc, [s.id]: s.value ?? false }), {} as Record<string, boolean>)
   );
   const [legalTab, setLegalTab] = useState<"privacy" | "terms" | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const starAnim = useRef(new Animated.Value(0)).current;
+  const fadeIn = useRef(new Animated.Value(0)).current;
 
   const loadData = useCallback(async () => {
     try {
@@ -182,7 +184,11 @@ export default function ProfileScreen() {
         totalSpinsUsed: safeInt(spinsUsed, 0),
       });
     } catch {}
-  }, []);
+    if (isLoading) {
+      setIsLoading(false);
+      Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: nd }).start();
+    }
+  }, [isLoading]);
 
   useFocusEffect(
     useCallback(() => {
@@ -321,6 +327,7 @@ export default function ProfileScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        <Animated.View style={{ opacity: isLoading ? 0 : fadeIn }}>
         <GlassCard style={styles.profileCard} borderColor={Colors.goldAlpha20} elevated>
           <LinearGradient
             colors={["rgba(90,61,143,0.08)", Colors.goldAlpha05, "transparent"]}
@@ -343,7 +350,7 @@ export default function ProfileScreen() {
             <MaterialCommunityIcons name="crown" size={12} color={Colors.forestDeep} />
             <Text style={styles.rankText}>Zen Rank {zen.rank} · {zen.label}</Text>
           </View>
-          <Pressable onPress={handleShare} style={styles.shareProfileBtn}>
+          <Pressable onPress={handleShare} style={styles.shareProfileBtn} accessibilityRole="button" accessibilityLabel="Share your profile">
             <Feather name="share-2" size={14} color={Colors.neuralPurple} />
             <Text style={styles.shareProfileText}>Share Profile</Text>
           </Pressable>
@@ -486,7 +493,7 @@ export default function ProfileScreen() {
           </View>
         </GlassCard>
 
-        <Pressable onPress={handleShare} style={({ pressed }) => [pressed && { opacity: 0.9 }]}>
+        <Pressable onPress={handleShare} style={({ pressed }) => [pressed && { opacity: 0.9 }]} accessibilityRole="button" accessibilityLabel="Share your journey and impact">
           <GlassCard style={styles.shareImpactCard} borderColor="rgba(167,139,250,0.2)">
             <LinearGradient
               colors={["rgba(167,139,250,0.08)", "rgba(244,114,182,0.06)", "transparent"]}
@@ -540,6 +547,9 @@ export default function ProfileScreen() {
               <Pressable
                 onPress={() => (s.toggle ? toggleSetting(s.id) : handleSettingPress(s.id))}
                 style={({ pressed }) => [styles.settingRow, pressed && { opacity: 0.7 }]}
+                accessibilityRole={s.toggle ? "switch" : "button"}
+                accessibilityLabel={s.label}
+                accessibilityState={s.toggle ? { checked: settings[s.id] } : undefined}
               >
                 <Feather
                   name={s.icon as any}
@@ -562,7 +572,8 @@ export default function ProfileScreen() {
           ))}
         </GlassCard>
 
-        <Text style={styles.version}>NeuroQuest v1.0.0 · Made with purpose</Text>
+        <Text style={styles.version} accessibilityRole="text">NeuroQuest v1.0.0 · Made with purpose</Text>
+        </Animated.View>
       </ScrollView>
 
       <Modal visible={legalTab !== null} animationType="slide" presentationStyle="fullScreen">

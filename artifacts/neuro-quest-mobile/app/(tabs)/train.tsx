@@ -3,6 +3,7 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Platform,
   Pressable,
   ScrollView,
@@ -376,6 +377,8 @@ export default function TrainScreen() {
   const [totalDonated, setTotalDonated] = useState(0);
   const [streakCount, setStreakCount] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const fadeIn = useRef(new Animated.Value(0)).current;
 
   const loadData = useCallback(async () => {
     try {
@@ -391,7 +394,11 @@ export default function TrainScreen() {
       setStreakCount(sc ? parseInt(sc, 10) : 0);
       setGamesPlayed(tw ? parseInt(tw, 10) : 0);
     } catch {}
-  }, []);
+    if (isLoading) {
+      setIsLoading(false);
+      Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: nd }).start();
+    }
+  }, [isLoading]);
 
   useEffect(() => { loadData(); }, []);
   useEffect(() => { if (activeGame === null) loadData(); }, [activeGame]);
@@ -469,7 +476,8 @@ export default function TrainScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
+        <Animated.View style={{ opacity: isLoading ? 0 : fadeIn }}>
+        <View style={styles.header} accessibilityRole="header">
           <Text style={styles.eyebrow}>NEUROSCIENCE-BACKED TRAINING</Text>
           <Text style={styles.title}>Train Your Mind</Text>
           <Text style={styles.subtitle}>
@@ -511,22 +519,22 @@ export default function TrainScreen() {
           </View>
           <View style={styles.impactGrid}>
             <View style={styles.impactItem}>
-              <Text style={styles.impactEmoji}>🌳</Text>
+              <Text style={styles.impactEmoji} accessibilityElementsHidden>🌳</Text>
               <Text style={styles.impactVal}>{Math.floor(totalDonated * 2)}</Text>
               <Text style={styles.impactLabel}>Trees Planted</Text>
             </View>
             <View style={styles.impactItem}>
-              <Text style={styles.impactEmoji}>🍽️</Text>
+              <Text style={styles.impactEmoji} accessibilityElementsHidden>🍽️</Text>
               <Text style={styles.impactVal}>{Math.floor(totalDonated * 4)}</Text>
               <Text style={styles.impactLabel}>Meals Funded</Text>
             </View>
             <View style={styles.impactItem}>
-              <Text style={styles.impactEmoji}>🧠</Text>
+              <Text style={styles.impactEmoji} accessibilityElementsHidden>🧠</Text>
               <Text style={styles.impactVal}>{Math.floor(totalDonated * 0.5)}</Text>
               <Text style={styles.impactLabel}>Research Hours</Text>
             </View>
             <View style={styles.impactItem}>
-              <Text style={styles.impactEmoji}>📚</Text>
+              <Text style={styles.impactEmoji} accessibilityElementsHidden>📚</Text>
               <Text style={styles.impactVal}>{Math.floor(totalDonated * 3)}</Text>
               <Text style={styles.impactLabel}>Students Helped</Text>
             </View>
@@ -561,7 +569,7 @@ export default function TrainScreen() {
         </GlassCard>
 
         {/* ── BRAIN GAMES ── */}
-        <Pressable onPress={() => toggleSection("games")} style={styles.sectionHeader}>
+        <Pressable onPress={() => toggleSection("games")} style={styles.sectionHeader} accessibilityRole="button" accessibilityLabel={`Brain Games section, ${expandedSection === "games" ? "expanded" : "collapsed"}`}>
           <View style={styles.sectionTitleRow}>
             <MaterialCommunityIcons name="brain" size={20} color={Colors.gold} />
             <Text style={styles.sectionTitle}>Brain Games</Text>
@@ -580,6 +588,8 @@ export default function TrainScreen() {
                 key={game.id}
                 onPress={() => openGame(game.id as ActiveGame)}
                 style={({ pressed }) => [pressed && { opacity: 0.8 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Play ${game.title}`}
               >
                 <GlassCard style={styles.gameCard} borderColor={Colors.glassBorder}>
                   <View style={styles.taskTop}>
@@ -603,7 +613,7 @@ export default function TrainScreen() {
         )}
 
         {/* ── MINDFUL TASKS ── */}
-        <Pressable onPress={() => toggleSection("tasks")} style={styles.sectionHeader}>
+        <Pressable onPress={() => toggleSection("tasks")} style={styles.sectionHeader} accessibilityRole="button" accessibilityLabel={`Mindful Tasks section, ${expandedSection === "tasks" ? "expanded" : "collapsed"}`}>
           <View style={styles.sectionTitleRow}>
             <Ionicons name="heart" size={20} color={Colors.gold} />
             <Text style={styles.sectionTitle}>Mindful Tasks</Text>
@@ -624,6 +634,8 @@ export default function TrainScreen() {
                   key={task.id}
                   onPress={() => toggleTask(task.id)}
                   style={({ pressed }) => [pressed && { opacity: 0.8 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${done ? "Completed" : "Mark complete"}: ${task.title}`}
                 >
                   <GlassCard
                     style={[styles.taskCard, done && styles.taskCardDone]}
@@ -668,7 +680,7 @@ export default function TrainScreen() {
         )}
 
         {/* ── DOPAMINE BOOSTERS ── */}
-        <Pressable onPress={() => toggleSection("dopamine")} style={styles.sectionHeader}>
+        <Pressable onPress={() => toggleSection("dopamine")} style={styles.sectionHeader} accessibilityRole="button" accessibilityLabel={`Dopamine Boosters section, ${expandedSection === "dopamine" ? "expanded" : "collapsed"}`}>
           <View style={styles.sectionTitleRow}>
             <Ionicons name="flash" size={20} color={Colors.gold} />
             <Text style={styles.sectionTitle}>Dopamine Boosters</Text>
@@ -689,6 +701,8 @@ export default function TrainScreen() {
                   key={booster.id}
                   onPress={() => toggleTask(booster.id)}
                   style={({ pressed }) => [pressed && { opacity: 0.8 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${done ? "Completed" : "Mark complete"}: ${booster.title}`}
                 >
                   <GlassCard
                     style={[styles.taskCard, done && styles.taskCardDone]}
@@ -726,7 +740,7 @@ export default function TrainScreen() {
         )}
 
         {/* ── TEAM BUILDING ── */}
-        <Pressable onPress={() => toggleSection("team")} style={styles.sectionHeader}>
+        <Pressable onPress={() => toggleSection("team")} style={styles.sectionHeader} accessibilityRole="button" accessibilityLabel={`Team Building section, ${expandedSection === "team" ? "expanded" : "collapsed"}`}>
           <View style={styles.sectionTitleRow}>
             <Ionicons name="people" size={20} color={Colors.gold} />
             <Text style={styles.sectionTitle}>Team Building</Text>
@@ -871,6 +885,7 @@ export default function TrainScreen() {
             to emotional regulation, discipline, and decision-making.
           </Text>
         </GlassCard>
+        </Animated.View>
       </ScrollView>
     </View>
   );

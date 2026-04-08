@@ -95,6 +95,14 @@ export default function HomeScreen() {
   const starAnim1 = useRef(new Animated.Value(0)).current;
   const starAnim2 = useRef(new Animated.Value(0)).current;
   const starAnim3 = useRef(new Animated.Value(0)).current;
+  const cardEnter1 = useRef(new Animated.Value(0)).current;
+  const cardEnter2 = useRef(new Animated.Value(0)).current;
+  const cardEnter3 = useRef(new Animated.Value(0)).current;
+  const cardEnter4 = useRef(new Animated.Value(0)).current;
+  const cardSlide1 = useRef(new Animated.Value(20)).current;
+  const cardSlide2 = useRef(new Animated.Value(20)).current;
+  const cardSlide3 = useRef(new Animated.Value(20)).current;
+  const cardSlide4 = useRef(new Animated.Value(20)).current;
   const bloomTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -227,11 +235,26 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
+    if (isLoading) return;
+
     Animated.timing(fadeIn, {
       toValue: 1,
-      duration: 1000,
+      duration: 600,
       useNativeDriver: nd,
     }).start();
+
+    const makeCardEntrance = (opacity: Animated.Value, slide: Animated.Value, delay: number) =>
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 1, duration: 500, delay, useNativeDriver: nd }),
+        Animated.spring(slide, { toValue: 0, friction: 8, tension: 50, delay, useNativeDriver: nd }),
+      ]);
+
+    Animated.stagger(0, [
+      makeCardEntrance(cardEnter1, cardSlide1, 200),
+      makeCardEntrance(cardEnter2, cardSlide2, 350),
+      makeCardEntrance(cardEnter3, cardSlide3, 500),
+      makeCardEntrance(cardEnter4, cardSlide4, 650),
+    ]).start();
 
     const glow = Animated.loop(
       Animated.sequence([
@@ -270,7 +293,7 @@ export default function HomeScreen() {
       s2.stop();
       s3.stop();
     };
-  }, []);
+  }, [isLoading]);
 
   const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.5] });
   const pulseScale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
@@ -358,18 +381,18 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={{ opacity: isLoading ? 0 : fadeIn }}>
-          <View style={styles.topBar}>
+          <View style={styles.topBar} accessibilityRole="header">
             <View>
-              <Text style={styles.greeting}>{streakCount > 0 ? "WELCOME BACK" : "BEGIN YOUR JOURNEY"}</Text>
-              <Text style={styles.username}>{streakCount > 1
+              <Text style={styles.greeting} accessibilityRole="text">{streakCount > 0 ? "WELCOME BACK" : "BEGIN YOUR JOURNEY"}</Text>
+              <Text style={styles.username} accessibilityRole="header">{streakCount > 1
                 ? `Day ${streakCount}${"\n"}Your mind remembers`
                 : `NeuroQuest${"\n"}Wellness Hub`}</Text>
             </View>
             <View style={styles.topRight}>
-              <Pressable onPress={handleShare} style={styles.shareBtn}>
+              <Pressable onPress={handleShare} style={styles.shareBtn} accessibilityRole="button" accessibilityLabel="Share your impact">
                 <Feather name="share" size={18} color={Colors.gold} />
               </Pressable>
-              <View style={styles.streakContainer}>
+              <View style={styles.streakContainer} accessibilityLabel={`${streakCount} day streak`} accessibilityRole="text">
                 <Animated.View style={[styles.streakBadge, { transform: [{ scale: pulseScale }] }]}>
                   <Text style={styles.streakNumber}>{streakCount}</Text>
                 </Animated.View>
@@ -378,6 +401,7 @@ export default function HomeScreen() {
             </View>
           </View>
 
+          <Animated.View style={{ opacity: cardEnter1, transform: [{ translateY: cardSlide1 }] }}>
           <GlassCard style={styles.heroBanner} borderColor={Colors.goldAlpha20} elevated>
             <LinearGradient
               colors={["rgba(90,61,143,0.08)", "rgba(212,175,55,0.12)", "rgba(90,61,143,0.04)"]}
@@ -387,8 +411,8 @@ export default function HomeScreen() {
             />
             <Animated.View style={[styles.heroGlow, { opacity: glowOpacity }]} />
 
-            <Text style={styles.heroEyebrow}>YOUR COMPASSION IMPACT</Text>
-            <Text style={styles.heroAmount}>${totalDonated > 0 ? totalDonated.toFixed(2) : "0.00"}</Text>
+            <Text style={styles.heroEyebrow} accessibilityRole="header">YOUR COMPASSION IMPACT</Text>
+            <Text style={styles.heroAmount} accessibilityLabel={`${totalDonated > 0 ? totalDonated.toFixed(2) : "zero"} dollars donated`}>${totalDonated > 0 ? totalDonated.toFixed(2) : "0.00"}</Text>
             <View style={styles.heroSubRow}>
               <View style={styles.heroDot} />
               <Text style={styles.heroSub}>Donated to verified charity partners</Text>
@@ -411,7 +435,9 @@ export default function HomeScreen() {
               </View>
             </View>
           </GlassCard>
+          </Animated.View>
 
+          <Animated.View style={{ opacity: cardEnter2, transform: [{ translateY: cardSlide2 }] }}>
           <View style={styles.personalStats}>
             <GlassCard style={styles.personalCard} borderColor={Colors.glassBorderLight}>
               <Text style={styles.personalValue}>${totalDonated > 0 ? totalDonated.toFixed(2) : "0.00"}</Text>
@@ -450,9 +476,9 @@ export default function HomeScreen() {
           )}
 
           {!todayGratitude && !showBloom && (
-            <Pressable onPress={openBloomModal} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+            <Pressable onPress={openBloomModal} style={({ pressed }) => [pressed && { opacity: 0.85 }]} accessibilityRole="button" accessibilityLabel="Morning Bloom. Tap to share what you're grateful for today and earn 20 Neural Energy">
               <GlassCard style={styles.gratitudePrompt} borderColor="rgba(244,114,182,0.15)">
-                <Text style={styles.gratitudeFlower}>🌸</Text>
+                <Text style={styles.gratitudeFlower} accessibilityElementsHidden>🌸</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.gratitudePromptTitle}>Morning Bloom</Text>
                   <Text style={styles.gratitudePromptSub}>Tap to share what you're grateful for today</Text>
@@ -464,7 +490,9 @@ export default function HomeScreen() {
               </GlassCard>
             </Pressable>
           )}
+          </Animated.View>
 
+          <Animated.View style={{ opacity: cardEnter3, transform: [{ translateY: cardSlide3 }] }}>
           <GlassCard style={styles.empathyCard} borderColor="rgba(167,139,250,0.2)" elevated>
             <LinearGradient
               colors={["rgba(90,61,143,0.12)", "rgba(26,39,68,0.08)", "transparent"]}
@@ -542,7 +570,9 @@ export default function HomeScreen() {
               ))}
             </View>
           </GlassCard>
+          </Animated.View>
 
+          <Animated.View style={{ opacity: cardEnter4, transform: [{ translateY: cardSlide4 }] }}>
           <Text style={styles.sectionEyebrow}>LIVES IMPACTED</Text>
           <Text style={styles.sectionTitle}>Your real-world footprint</Text>
           <View style={styles.livesGrid}>
@@ -716,6 +746,7 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
+          </Animated.View>
         </Animated.View>
       </ScrollView>
 

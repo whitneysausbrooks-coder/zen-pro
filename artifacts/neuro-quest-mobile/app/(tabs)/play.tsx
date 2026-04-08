@@ -44,9 +44,11 @@ export default function PlayScreen() {
   const [totalDonated, setTotalDonated] = useState(0);
   const [lastDonation, setLastDonation] = useState<{ amount: number; cause: string } | null>(null);
   const [result, setResult] = useState<ResultState>("idle");
+  const [isLoading, setIsLoading] = useState(true);
   const resultAnim = useRef(new Animated.Value(0)).current;
   const resultScale = useRef(new Animated.Value(0.8)).current;
   const donationPulse = useRef(new Animated.Value(0)).current;
+  const fadeIn = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -59,6 +61,8 @@ export default function PlayScreen() {
         if (w) setTotalWins(parseInt(w));
         if (d) setTotalDonated(parseFloat(d));
       } catch {}
+      setIsLoading(false);
+      Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: nd }).start();
     };
     load();
     return () => {
@@ -204,7 +208,8 @@ export default function PlayScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
+        <Animated.View style={{ opacity: isLoading ? 0 : fadeIn }}>
+        <View style={styles.header} accessibilityRole="header">
           <Text style={styles.eyebrow}>COMPASSION WHEEL</Text>
           <Text style={styles.title}>Spin for Good</Text>
           <Text style={styles.subtitle}>For entertainment & mindfulness only</Text>
@@ -353,7 +358,7 @@ export default function PlayScreen() {
             <Text style={styles.noSpinsBody}>
               Get more spins to keep training your mind and funding global causes.
             </Text>
-            <Pressable onPress={handleBuySpins} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+            <Pressable onPress={handleBuySpins} style={({ pressed }) => [pressed && { opacity: 0.85 }]} accessibilityRole="button" accessibilityLabel="Get more spins">
               <LinearGradient
                 colors={[Colors.goldLight, Colors.gold, Colors.goldDim]}
                 style={styles.buyButton}
@@ -367,7 +372,7 @@ export default function PlayScreen() {
           </GlassCard>
         )}
 
-        <Pressable onPress={handleShareWin} style={({ pressed }) => [pressed && { opacity: 0.9 }]}>
+        <Pressable onPress={handleShareWin} style={({ pressed }) => [pressed && { opacity: 0.9 }]} accessibilityRole="button" accessibilityLabel="Share your wins with friends">
           <GlassCard style={styles.shareCard} borderColor="rgba(167,139,250,0.2)">
             <LinearGradient
               colors={["rgba(167,139,250,0.08)", "rgba(244,114,182,0.06)", "transparent"]}
@@ -397,6 +402,7 @@ export default function PlayScreen() {
             </View>
           ))}
         </GlassCard>
+        </Animated.View>
       </ScrollView>
     </View>
   );
