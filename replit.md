@@ -71,7 +71,9 @@ The monorepo uses TypeScript composite projects (`composite: true`) with project
 - **Raid Mode:** Admin-toggled global event, doubles `earn-compassion` points, animated banner with live progress.
 - **Auth & Paywall:** Replit Auth integration, `AuthGate`, `PaywallGate` with Daily Pass ($5/24hrs) and Zen Pro options.
 - **Social Sharing:** 13 platforms, branded copy, PWA support.
-- **Legal:** `/copyright` page with Terms of Use, Privacy Policy, IP details, App Store Compliance (age gate, disclaimers, etc.).
+- **Legal:** `/copyright` page with Terms of Use, Privacy Policy (CCPA/CPRA, GDPR, data retention, DNT), Disclosures (health disclaimer, no-gambling/sweepstakes, donation transparency, tax notice, in-app purchases, third-party services), IP details, App Store Compliance (age gate, disclaimers, etc.). Dedicated privacy contact: privacy@neuroquestapp.com.
+- **Trademarks:** NeuroQuest™, Neural Energy™, Compassion Casino™, Cognitive Stakes™, Mind & Spirit™, Compassion Impact™, Compassion Wheel™, Neural Challenge™, Global Abundance Mission™.
+- **Zero-Bug Policy:** All reported bugs must be triaged and fixed before any new feature work begins.
 
 ## External Dependencies
 
