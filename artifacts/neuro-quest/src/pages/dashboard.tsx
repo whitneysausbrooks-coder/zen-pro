@@ -30,6 +30,28 @@ import { cn } from "@/lib/utils"
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
 
+function computeEmpathyIndex(profile: { compassion_points?: number; level?: number; neural_energy?: number }) {
+  const cp = profile.compassion_points ?? 0
+  const lvl = profile.level ?? 1
+  const compassionScore = Math.min(50, Math.sqrt(cp) * 2)
+  const levelScore = Math.min(30, lvl * 3)
+  const consistencyScore = Math.min(20, (cp > 0 && (profile.neural_energy ?? 0) > 0) ? 10 + Math.min(10, Math.log2(cp + 1) * 2) : 0)
+  return Math.round(Math.min(100, compassionScore + levelScore + consistencyScore))
+}
+
+function computeHBHS(profile: { neural_energy?: number; compassion_points?: number; level?: number }) {
+  const ne = profile.neural_energy ?? 0
+  const cp = profile.compassion_points ?? 0
+  const lvl = profile.level ?? 1
+  const brainScore = Math.min(40, Math.sqrt(ne) * 0.8)
+  const heartScore = Math.min(40, Math.sqrt(cp) * 1.2)
+  const balance = ne > 0 && cp > 0
+    ? 1 - Math.abs(Math.sqrt(ne) - Math.sqrt(cp)) / (Math.sqrt(ne) + Math.sqrt(cp))
+    : 0
+  const harmonyBonus = Math.min(20, balance * 15 + lvl * 0.5)
+  return Math.round(Math.min(100, brainScore + heartScore + harmonyBonus))
+}
+
 const ENERGY_ACTIONS = [
   { id: "deep-work",   label: "Deep Work (1 hr)", amount: 50 },
   { id: "meditation",  label: "Meditation (15 min)", amount: 20 },
@@ -295,40 +317,7 @@ export default function Dashboard() {
                   size="icon"
                   title="Share Profile"
                   className="border-primary/30 hover:border-primary/60"
-                  onClick={async () => {
-                    const streakText = streak && streak.streak_count > 0 ? ` | ${streak.streak_count}-day streak` : ""
-                    const text = `🧠 My NeuroQuest Profile\n\n⚡ ${(profile.neural_energy ?? 0).toLocaleString()} Neural Energy™\n♡ ${(profile.compassion_points ?? 0).toLocaleString()} Compassion Points\n🏅 Level ${profile.level} — ${profile.title}${streakText}\n\nTrain your mind. Feed the world.\n#NeuroQuest #MindAndSpirit`
-                    const url = typeof window !== "undefined" ? window.location.origin + BASE : ""
-                    const fullText = `${text}\n\n${url}`
-                    let shared = false
-                    if (typeof navigator.share === "function") {
-                      try {
-                        await navigator.share({ title: "My NeuroQuest Profile", text, url })
-                        shared = true
-                      } catch (e: any) {
-                        if (e?.name === "AbortError") return
-                      }
-                    }
-                    if (!shared) {
-                      try {
-                        await navigator.clipboard.writeText(fullText)
-                        toast({ title: "Copied!", description: "Your profile has been copied to clipboard. Share it anywhere!" })
-                      } catch {
-                        const textArea = document.createElement("textarea")
-                        textArea.value = fullText
-                        textArea.style.cssText = "position:fixed;left:-9999px;top:-9999px"
-                        document.body.appendChild(textArea)
-                        textArea.select()
-                        try {
-                          document.execCommand("copy")
-                          toast({ title: "Copied!", description: "Your profile has been copied to clipboard. Share it anywhere!" })
-                        } catch {
-                          toast({ title: "Your Profile", description: `⚡ ${(profile.neural_energy ?? 0).toLocaleString()} Neural Energy™ · ♡ ${(profile.compassion_points ?? 0).toLocaleString()} Compassion Points · Level ${profile.level} ${profile.title}` })
-                        }
-                        document.body.removeChild(textArea)
-                      }
-                    }
-                  }}
+                  onClick={() => navigate("/share")}
                 >
                   <Share2 className="w-5 h-5" />
                 </LuxuryButton>
@@ -517,90 +506,75 @@ export default function Dashboard() {
               </GlassCardContent>
             </GlassCard>
 
-            <GlassCard>
-              <GlassCardContent className="p-6 flex items-center gap-5">
-                <div className="p-3 bg-rose-400/15 rounded-2xl border border-rose-400/30 shrink-0">
-                  <Globe className="w-7 h-7 text-rose-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-rose-400/70 mb-0.5">Global Leaderboard</p>
-                  <h3 className="font-serif font-semibold text-lg text-foreground">
-                    Total Lives Impacted
-                  </h3>
-                  <p className="text-xs text-muted-foreground">Increases every time anyone reaches a Compassion Milestone</p>
-                </div>
-                <div className="text-right shrink-0">
-                  {livesImpacted === null ? (
-                    <div className="w-12 h-8 bg-white/5 rounded-lg animate-pulse" />
-                  ) : (
-                    <span className="font-serif font-bold text-3xl text-rose-400">
-                      {livesImpacted.toLocaleString()}
-                    </span>
-                  )}
-                  <p className="text-[10px] text-muted-foreground mt-0.5">micro-donations</p>
-                </div>
-              </GlassCardContent>
-            </GlassCard>
+            {profile && (() => {
+              const empathy = computeEmpathyIndex(profile)
+              const hbhs = computeHBHS(profile)
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <GlassCard>
+                    <GlassCardContent className="p-5">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-rose-400/15 rounded-xl border border-rose-400/25">
+                          <Heart className="w-5 h-5 text-rose-400" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-rose-400/70">Empathy Index</p>
+                          <p className="text-xs text-muted-foreground">Emotional awareness score</p>
+                        </div>
+                      </div>
+                      <div className="relative h-3 bg-white/5 rounded-full overflow-hidden mb-2">
+                        <div
+                          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-rose-500 to-rose-400 transition-all duration-700"
+                          style={{ width: `${empathy}%` }}
+                        />
+                      </div>
+                      <div className="flex items-end justify-between">
+                        <span className="font-serif font-bold text-2xl text-rose-400">{empathy}</span>
+                        <span className="text-[10px] text-muted-foreground">/ 100</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        {empathy >= 80 ? "Exceptional emotional resonance." :
+                         empathy >= 60 ? "Strong empathic awareness developing." :
+                         empathy >= 40 ? "Growing emotional intelligence." :
+                         "Building your empathy foundation."}
+                      </p>
+                    </GlassCardContent>
+                  </GlassCard>
 
-            <GlassCard
-              className="cursor-pointer group hover:border-primary/40 transition-colors"
-              onClick={() => navigate("/subscribe")}
-            >
-              <GlassCardContent className="p-6 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-primary/20 rounded-2xl border border-primary/40">
-                    <Crown className="w-7 h-7 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-serif font-semibold text-lg text-gradient-gold">Zen Pro</h3>
-                    <p className="text-sm text-muted-foreground">2× Energy · Gold skins · Unlimited games</p>
-                  </div>
+                  <GlassCard>
+                    <GlassCardContent className="p-5">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-gradient-to-br from-cyan-400/20 to-rose-400/20 rounded-xl border border-cyan-400/20">
+                          <Brain className="w-5 h-5 text-cyan-400" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400/70">Heart-Brain Score</p>
+                          <p className="text-xs text-muted-foreground">Mind + spirit harmony</p>
+                        </div>
+                      </div>
+                      <div className="relative h-3 bg-white/5 rounded-full overflow-hidden mb-2">
+                        <div
+                          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-cyan-500 via-violet-400 to-rose-400 transition-all duration-700"
+                          style={{ width: `${hbhs}%` }}
+                        />
+                      </div>
+                      <div className="flex items-end justify-between">
+                        <span className="font-serif font-bold text-2xl bg-gradient-to-r from-cyan-400 to-rose-400 bg-clip-text text-transparent">
+                          {hbhs}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">/ 100</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        {hbhs >= 80 ? "Remarkable mind-spirit integration." :
+                         hbhs >= 60 ? "Strong cognitive-emotional balance." :
+                         hbhs >= 40 ? "Building neural-heart coherence." :
+                         "The journey of integration begins here."}
+                      </p>
+                    </GlassCardContent>
+                  </GlassCard>
                 </div>
-                <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/30 rounded-full px-4 py-2 shrink-0">
-                  <span className="text-sm font-bold text-primary font-serif">$9.99/mo</span>
-                </div>
-              </GlassCardContent>
-            </GlassCard>
-
-            <GlassCard
-              className="cursor-pointer group hover:border-violet-400/40 transition-colors"
-              onClick={() => navigate("/enterprise")}
-            >
-              <GlassCardContent className="p-6 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-violet-400/15 rounded-2xl border border-violet-400/30">
-                    <Building2 className="w-7 h-7 text-violet-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-serif font-semibold text-lg text-foreground">Corporate Wellness</h3>
-                    <p className="text-sm text-muted-foreground">Team licences · Analytics · SSO · Custom branding</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 bg-violet-400/10 border border-violet-400/25 rounded-full px-4 py-2 shrink-0">
-                  <span className="text-sm font-bold text-violet-400 font-serif">From $299/mo</span>
-                </div>
-              </GlassCardContent>
-            </GlassCard>
-
-            <GlassCard
-              className="cursor-pointer group hover:border-cyan-400/40 transition-colors"
-              onClick={() => navigate("/sponsor")}
-            >
-              <GlassCardContent className="p-6 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-cyan-400/15 rounded-2xl border border-cyan-400/30">
-                    <Megaphone className="w-7 h-7 text-cyan-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-serif font-semibold text-lg text-foreground">Sponsored Impact</h3>
-                    <p className="text-sm text-muted-foreground">Brands sponsor wellness · Players earn real rewards</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 bg-cyan-400/10 border border-cyan-400/25 rounded-full px-4 py-2 shrink-0">
-                  <span className="text-sm font-bold text-cyan-400 font-serif">From $500/mo</span>
-                </div>
-              </GlassCardContent>
-            </GlassCard>
+              )
+            })()}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <GlassCard>
@@ -675,6 +649,91 @@ export default function Dashboard() {
                 </GlassCardContent>
               </GlassCard>
             </div>
+
+            <GlassCard>
+              <GlassCardContent className="p-6 flex items-center gap-5">
+                <div className="p-3 bg-rose-400/15 rounded-2xl border border-rose-400/30 shrink-0">
+                  <Globe className="w-7 h-7 text-rose-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-rose-400/70 mb-0.5">Global Leaderboard</p>
+                  <h3 className="font-serif font-semibold text-lg text-foreground">
+                    Total Lives Impacted
+                  </h3>
+                  <p className="text-xs text-muted-foreground">Increases every time anyone reaches a Compassion Milestone</p>
+                </div>
+                <div className="text-right shrink-0">
+                  {livesImpacted === null ? (
+                    <div className="w-12 h-8 bg-white/5 rounded-lg animate-pulse" />
+                  ) : (
+                    <span className="font-serif font-bold text-3xl text-rose-400">
+                      {livesImpacted.toLocaleString()}
+                    </span>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-0.5">micro-donations</p>
+                </div>
+              </GlassCardContent>
+            </GlassCard>
+
+            <GlassCard
+              className="cursor-pointer group hover:border-primary/40 transition-colors"
+              onClick={() => navigate("/subscribe")}
+            >
+              <GlassCardContent className="p-6 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-primary/20 rounded-2xl border border-primary/40">
+                    <Crown className="w-7 h-7 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-semibold text-lg text-gradient-gold">Zen Pro</h3>
+                    <p className="text-sm text-muted-foreground">2x Energy · Gold skins · Unlimited games</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/30 rounded-full px-4 py-2 shrink-0">
+                  <span className="text-sm font-bold text-primary font-serif">$9.99/mo</span>
+                </div>
+              </GlassCardContent>
+            </GlassCard>
+
+            <GlassCard
+              className="cursor-pointer group hover:border-violet-400/40 transition-colors"
+              onClick={() => navigate("/enterprise")}
+            >
+              <GlassCardContent className="p-6 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-violet-400/15 rounded-2xl border border-violet-400/30">
+                    <Building2 className="w-7 h-7 text-violet-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-semibold text-lg text-foreground">Corporate Wellness</h3>
+                    <p className="text-sm text-muted-foreground">Team licences · Analytics · SSO · Custom branding</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 bg-violet-400/10 border border-violet-400/25 rounded-full px-4 py-2 shrink-0">
+                  <span className="text-sm font-bold text-violet-400 font-serif">From $299/mo</span>
+                </div>
+              </GlassCardContent>
+            </GlassCard>
+
+            <GlassCard
+              className="cursor-pointer group hover:border-cyan-400/40 transition-colors"
+              onClick={() => navigate("/sponsor")}
+            >
+              <GlassCardContent className="p-6 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-cyan-400/15 rounded-2xl border border-cyan-400/30">
+                    <Megaphone className="w-7 h-7 text-cyan-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-semibold text-lg text-foreground">Sponsored Impact</h3>
+                    <p className="text-sm text-muted-foreground">Brands sponsor wellness · Players earn real rewards</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 bg-cyan-400/10 border border-cyan-400/25 rounded-full px-4 py-2 shrink-0">
+                  <span className="text-sm font-bold text-cyan-400 font-serif">From $500/mo</span>
+                </div>
+              </GlassCardContent>
+            </GlassCard>
           </div>
 
           <div className="lg:col-span-4 space-y-6">
