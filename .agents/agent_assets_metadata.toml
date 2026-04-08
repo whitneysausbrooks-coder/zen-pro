@@ -6,3 +6,51 @@ id = "wpWIJfZp3S9ptbGnfeCYJ"
 uri = "file://APP_STORE_SUBMISSION.md"
 type = "text"
 title = "NeuroQuest — App Store Submission Guide"
+
+[[outputs]]
+id = "tLUbqgjRLuYymRDmF3Nhd"
+uri = "file://screenshots/appstore/01_dashboard.jpg"
+type = "image"
+title = "1. Dashboard — Home Screen"
+
+[[outputs]]
+id = "kRGJeNC45Zy1rhB3ssbGC"
+uri = "file://screenshots/appstore/03_neural_challenge.jpg"
+type = "image"
+title = "2. Neural Challenge — Memory Match Game"
+
+[[outputs]]
+id = "nZZDGHPDBqTXq_rmKVUrW"
+uri = "file://screenshots/appstore/04_blackjack.jpg"
+type = "image"
+title = "3. Mind-Reader Blackjack"
+
+[[outputs]]
+id = "gy10Ze7Cd67G6N4CaDds6"
+uri = "file://screenshots/appstore/05_emotional_eq.jpg"
+type = "image"
+title = "4. Emotional EQ — Emotion Recognition"
+
+[[outputs]]
+id = "bMRVzVL4NySF0czEH_Onm"
+uri = "file://screenshots/appstore/06_compassion_wheel.jpg"
+type = "image"
+title = "5. Compassion Wheel — Wellness Rewards"
+
+[[outputs]]
+id = "gHpnts0Hs1oXXeYEPAKtk"
+uri = "file://screenshots/appstore/07_pattern_pulse.jpg"
+type = "image"
+title = "6. Pattern Pulse — Visual Memory"
+
+[[outputs]]
+id = "6p3Tg7iHX4BdNmbFjb_ye"
+uri = "file://screenshots/appstore/08_subscribe.jpg"
+type = "image"
+title = "7. Subscription — Zen Pro & Daily Pass"
+
+[[outputs]]
+id = "yJKbJ6exi8v3EWPieR4Vj"
+uri = "file://screenshots/appstore/10_copyright.jpg"
+type = "image"
+title = "8. Legal & IP — Copyright, Privacy"
