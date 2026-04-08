@@ -51,6 +51,9 @@ The monorepo uses TypeScript composite projects (`composite: true`) with project
 - **Brain Games:** StroopGame (30s color-ink test), MemoryGrid (progressive 4×4 working memory), BreathingPacer (4-7-8 animated circle with haptics).
 - **Compassion Wheel:** Staggered stops 800/1300/1800ms, `winRef.current` avoids stale closures, interval-based symbol cycling, spring bounce on landing. Route: `/wellness`.
 - **5-Tab Navigation:** Home, Train, Play, Zen Pro, Profile. NativeTabs (iOS 26+) and ClassicTabs (Expo BlurView).
+- **Mobile Empathy Index + HBHS:** Home screen computes both scores dynamically from AsyncStorage data (neuralEnergy, totalDonated, streakCount) using `computeEmpathyDimensions()` + `useMemo`. Profile screen already had live-computed values.
+- **Mobile Train Screen Order:** Brain Games section appears first (expanded by default), followed by Mindful Tasks, Dopamine Boosters, and Team Building.
+- **Apple Compliance (Mobile):** All gambling terminology replaced — "Compassion Casino" → "Compassion Wheel" / "Wellness Hub", "Jackpot" → "Win" / "Reward", share messages cleaned of gambling references.
 - **Behavioral Design Patterns:**
   - **Dopamine Triggers:** `CelebrationOverlay` component shows particle-burst celebrations on task completions, game wins, level-ups, and streak milestones (3/7/14/30 days). Replaces plain toasts with visual reward moments. Used across all game pages and dashboard.
   - **Compassion Loops:** Every compassion action immediately connects to real-world impact ("Your 30 points = 0.3 meals closer to ending hunger"). Compassion Wheel jackpots show meal contributions. `complete-task` API returns `meals_contributed` for display.

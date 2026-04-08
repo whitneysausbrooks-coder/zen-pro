@@ -326,7 +326,7 @@ export default function TrainScreen() {
   const insets = useSafeAreaInsets();
   const [completedToday, setCompletedToday] = useState<Set<string>>(new Set());
   const [activeGame, setActiveGame] = useState<ActiveGame>(null);
-  const [expandedSection, setExpandedSection] = useState<string | null>("tasks");
+  const [expandedSection, setExpandedSection] = useState<string | null>("games");
 
   useEffect(() => {
     const load = async () => {
@@ -462,6 +462,48 @@ export default function TrainScreen() {
           </View>
         </GlassCard>
 
+        {/* ── BRAIN GAMES ── */}
+        <Pressable onPress={() => toggleSection("games")} style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <MaterialCommunityIcons name="brain" size={20} color={Colors.gold} />
+            <Text style={styles.sectionTitle}>Brain Games</Text>
+          </View>
+          <Ionicons
+            name={expandedSection === "games" ? "chevron-up" : "chevron-down"}
+            size={20}
+            color={Colors.whiteAlpha50}
+          />
+        </Pressable>
+
+        {expandedSection === "games" && (
+          <View style={styles.tasksList}>
+            {BRAIN_GAMES.map((game) => (
+              <Pressable
+                key={game.id}
+                onPress={() => openGame(game.id as ActiveGame)}
+                style={({ pressed }) => [pressed && { opacity: 0.8 }]}
+              >
+                <GlassCard style={styles.gameCard} borderColor={Colors.glassBorder}>
+                  <View style={styles.taskTop}>
+                    <View style={styles.gameIconWrap}>
+                      <TaskIcon item={game} />
+                    </View>
+                    <View style={styles.taskInfo}>
+                      <Text style={styles.taskTitle}>{game.title}</Text>
+                      <Text style={styles.taskDesc}>{game.description}</Text>
+                    </View>
+                    <Ionicons name="play-circle" size={28} color={Colors.gold} />
+                  </View>
+                  <View style={styles.scienceRow}>
+                    <MaterialCommunityIcons name="brain" size={12} color={Colors.whiteAlpha20} />
+                    <Text style={styles.scienceText}>{game.science}</Text>
+                  </View>
+                </GlassCard>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
         {/* ── MINDFUL TASKS ── */}
         <Pressable onPress={() => toggleSection("tasks")} style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
@@ -582,48 +624,6 @@ export default function TrainScreen() {
                 </Pressable>
               );
             })}
-          </View>
-        )}
-
-        {/* ── BRAIN GAMES ── */}
-        <Pressable onPress={() => toggleSection("games")} style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <MaterialCommunityIcons name="brain" size={20} color={Colors.gold} />
-            <Text style={styles.sectionTitle}>Brain Games</Text>
-          </View>
-          <Ionicons
-            name={expandedSection === "games" ? "chevron-up" : "chevron-down"}
-            size={20}
-            color={Colors.whiteAlpha50}
-          />
-        </Pressable>
-
-        {expandedSection === "games" && (
-          <View style={styles.tasksList}>
-            {BRAIN_GAMES.map((game) => (
-              <Pressable
-                key={game.id}
-                onPress={() => openGame(game.id as ActiveGame)}
-                style={({ pressed }) => [pressed && { opacity: 0.8 }]}
-              >
-                <GlassCard style={styles.gameCard} borderColor={Colors.glassBorder}>
-                  <View style={styles.taskTop}>
-                    <View style={styles.gameIconWrap}>
-                      <TaskIcon item={game} />
-                    </View>
-                    <View style={styles.taskInfo}>
-                      <Text style={styles.taskTitle}>{game.title}</Text>
-                      <Text style={styles.taskDesc}>{game.description}</Text>
-                    </View>
-                    <Ionicons name="play-circle" size={28} color={Colors.gold} />
-                  </View>
-                  <View style={styles.scienceRow}>
-                    <MaterialCommunityIcons name="brain" size={12} color={Colors.whiteAlpha20} />
-                    <Text style={styles.scienceText}>{game.science}</Text>
-                  </View>
-                </GlassCard>
-              </Pressable>
-            ))}
           </View>
         )}
 

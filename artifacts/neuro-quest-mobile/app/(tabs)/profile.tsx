@@ -55,7 +55,7 @@ interface LiveData {
 }
 
 const ACHIEVEMENTS_DEF: Array<{ id: string; title: string; icon: string; condition: (d: LiveData) => boolean }> = [
-  { id: "first_jackpot", title: "First Jackpot", icon: "award", condition: (d) => d.totalWins >= 1 },
+  { id: "first_jackpot", title: "First Win", icon: "award", condition: (d) => d.totalWins >= 1 },
   { id: "7_streak", title: "7 Day Streak", icon: "zap", condition: (d) => d.streak >= 7 },
   { id: "100_spins", title: "100 Spins", icon: "repeat", condition: (d) => d.totalSpinsUsed >= 100 },
   { id: "zen_master", title: "Zen Master", icon: "star", condition: (d) => d.gratitudeCount >= 30 },
@@ -230,7 +230,7 @@ export default function ProfileScreen() {
       `Zen Rank: ${zen.rank} (${zen.label}) • HBHS: ${hbhsScore.toFixed(1)}\n` +
       `Empathy Index: ${empathyAvg}%\n` +
       `$${data.totalDonated.toFixed(2)} donated to charity\n` +
-      `${data.streak}-day streak 🔥 • ${data.totalWins} jackpots\n\n` +
+      `${data.streak}-day streak • ${data.totalWins} wins\n\n` +
       `Train your mind. Change the world.\n` +
       `neuroquest.app`;
     await shareText(msg, "My NeuroQuest Profile");
@@ -367,7 +367,7 @@ export default function ProfileScreen() {
         <View style={styles.impactGrid}>
           {[
             { label: "Total Donated", value: `$${data.totalDonated.toFixed(2)}`, icon: "heart" },
-            { label: "Jackpots Won", value: String(data.totalWins), icon: "trophy" },
+            { label: "Wins", value: String(data.totalWins), icon: "trophy" },
             { label: "Day Streak", value: String(data.streak), icon: "flame" },
             { label: "Neural Energy", value: String(data.neuralEnergy), icon: "flash" },
             { label: "Spins Left", value: String(data.spinsLeft), icon: "repeat" },

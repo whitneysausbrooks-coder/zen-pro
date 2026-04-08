@@ -62,14 +62,22 @@ const CHARITY_PARTNERS = [
   "Doctors Without Borders",
 ];
 
-const EMPATHY_DIMENSIONS = [
-  { label: "Compassion", value: 0.89, color: Colors.compassionPink },
-  { label: "Connection", value: 0.82, color: Colors.empathyGreen },
-  { label: "Mindfulness", value: 0.91, color: Colors.mindfulBlue },
-  { label: "Listening", value: 0.76, color: Colors.neuralPurple },
-  { label: "Emotional Safety", value: 0.84, color: Colors.balanceAmber },
-  { label: "Shared Purpose", value: 0.78, color: Colors.gold },
-];
+function computeEmpathyDimensions(energy: number, donations: number, streak: number) {
+  const compassion = Math.min(1, (donations * 10 + energy * 0.02) / 100);
+  const connection = Math.min(1, (streak * 3 + energy * 0.01) / 80);
+  const mindfulness = Math.min(1, (energy + streak * 5) / 200);
+  const listening = Math.min(1, (energy * 0.05 + streak) / 60);
+  const emotionalSafety = Math.min(1, (streak * 4 + donations * 2) / 80);
+  const sharedPurpose = Math.min(1, (donations * 15 + energy * 0.03) / 80);
+  return [
+    { label: "Compassion", value: compassion, color: Colors.compassionPink },
+    { label: "Connection", value: connection, color: Colors.empathyGreen },
+    { label: "Mindfulness", value: mindfulness, color: Colors.mindfulBlue },
+    { label: "Listening", value: listening, color: Colors.neuralPurple },
+    { label: "Emotional Safety", value: emotionalSafety, color: Colors.balanceAmber },
+    { label: "Shared Purpose", value: sharedPurpose, color: Colors.gold },
+  ];
+}
 
 const LIVES_IMPACTED = [
   { icon: "🌳", value: "15", label: "Trees Planted", color: Colors.empathyGreen },
@@ -299,14 +307,19 @@ export default function HomeScreen() {
     router.push("/train" as any);
   }, []);
 
+  const empathyDims = useMemo(() => computeEmpathyDimensions(neuralEnergy, totalDonated, streakCount), [neuralEnergy, totalDonated, streakCount]);
+  const empathyIndex = Math.round(empathyDims.reduce((sum, d) => sum + d.value, 0) / empathyDims.length * 100);
+  const hbhsScore = Math.min(100, (empathyIndex * 0.4 + Math.min(neuralEnergy / 10, 20) + Math.min(streakCount * 2, 20) + Math.min(totalDonated * 5, 20)));
+
   const handleShare = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const msg =
-      `I'm training my mind and changing lives with NeuroQuest! 🧠✨\n\n` +
-      `My Impact: $${totalDonated.toFixed(2)} donated • ${neuralEnergy} Neural Energy\n` +
-      `Empathy Index: ${empathyIndex}% • ${streakCount}-day streak 🔥\n\n` +
-      `Every spin funds real charities. 30% of revenue goes to verified partners worldwide.\n\n` +
-      `Join the Compassion Casino → neuroquest.app`;
+      `I'm training my mind and changing lives with NeuroQuest! 🧠\n\n` +
+      `My Impact: $${totalDonated.toFixed(2)} donated\n` +
+      `${neuralEnergy} Neural Energy · ${streakCount}-day streak\n` +
+      `Empathy Index: ${empathyIndex}%\n\n` +
+      `Train your mind. Feed the world.\n` +
+      `neuroquest.app`;
     if (Platform.OS === "web") {
       try {
         await Clipboard.setStringAsync(msg);
@@ -317,11 +330,7 @@ export default function HomeScreen() {
         await Share.share({ message: msg, title: "My NeuroQuest Impact" });
       } catch {}
     }
-  }, [totalDonated, neuralEnergy, streakCount]);
-
-  const empathyIndex = 87;
-  const hbhsScore = 100.0;
-  const hbhsChange = "+14%";
+  }, [totalDonated, neuralEnergy, streakCount, empathyIndex]);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.black }}>
@@ -366,7 +375,7 @@ export default function HomeScreen() {
           <View style={styles.topBar}>
             <View>
               <Text style={styles.greeting}>WELCOME BACK</Text>
-              <Text style={styles.username}>NeuroQuest{"\n"}Compassion Casino</Text>
+              <Text style={styles.username}>NeuroQuest{"\n"}Wellness Hub</Text>
             </View>
             <View style={styles.topRight}>
               <Pressable onPress={handleShare} style={styles.shareBtn}>
@@ -492,10 +501,10 @@ export default function HomeScreen() {
             </View>
             <View style={styles.empathyChangeRow}>
               <Ionicons name="trending-up" size={14} color={Colors.empathyGreen} />
-              <Text style={styles.empathyChangeText}>{hbhsChange} from last week</Text>
+              <Text style={styles.empathyChangeText}>Updated live</Text>
             </View>
             <View style={styles.empathyBars}>
-              {EMPATHY_DIMENSIONS.map((dim) => (
+              {empathyDims.map((dim) => (
                 <View key={dim.label} style={styles.empathyBarRow}>
                   <Text style={styles.empathyBarLabel}>{dim.label}</Text>
                   <View style={styles.empathyBarTrack}>

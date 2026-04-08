@@ -159,10 +159,10 @@ export default function PlayScreen() {
   const handleShareWin = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const msg =
-      `I just hit ${totalWins} jackpot${totalWins !== 1 ? "s" : ""} on NeuroQuest! 🎰✨\n\n` +
-      "Every spin trains my brain AND funds real charities.\n" +
+      `I've earned ${totalWins} win${totalWins !== 1 ? "s" : ""} on NeuroQuest! 🧠\n\n` +
+      "Every interaction trains my brain AND funds real charities.\n" +
       "30% of all revenue donated to verified partners worldwide.\n\n" +
-      "Join the Compassion Casino → neuroquest.app";
+      "Train your mind. Feed the world. → neuroquest.app";
     if (Platform.OS === "web") {
       try {
         await Clipboard.setStringAsync(msg);
@@ -170,14 +170,14 @@ export default function PlayScreen() {
       } catch {}
     } else {
       try {
-        await Share.share({ message: msg, title: "NeuroQuest Jackpot!" });
+        await Share.share({ message: msg, title: "My NeuroQuest Wins!" });
       } catch {}
     }
   }, [totalWins]);
 
   const resultConfig =
     result === "win"
-      ? { title: "Jackpot!", subtitle: "A donation goes to your chosen cause", color: Colors.gold }
+      ? { title: "You Won!", subtitle: "A donation goes to your chosen cause", color: Colors.gold }
       : result === "lose"
       ? { title: "Keep Going", subtitle: "Every spin strengthens your mind", color: Colors.whiteAlpha50 }
       : null;
@@ -204,7 +204,7 @@ export default function PlayScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>COMPASSION CASINO</Text>
+          <Text style={styles.eyebrow}>COMPASSION WHEEL</Text>
           <Text style={styles.title}>Spin for Good</Text>
           <Text style={styles.subtitle}>For entertainment & mindfulness only</Text>
         </View>
@@ -236,7 +236,7 @@ export default function PlayScreen() {
               <Ionicons name="trophy" size={18} color={Colors.gold} />
               <Text style={styles.winsText}>
                 <Text style={styles.winsNum}>{totalWins}</Text>{" "}
-                jackpot{totalWins !== 1 ? "s" : ""} triggered
+                win{totalWins !== 1 ? "s" : ""} triggered
               </Text>
             </View>
             <View style={styles.donationTag}>
@@ -289,7 +289,7 @@ export default function PlayScreen() {
             <View style={styles.microStatsRow}>
               <View style={styles.microStatItem}>
                 <Text style={styles.microStatVal}>{totalWins}</Text>
-                <Text style={styles.microStatLabel}>Jackpots</Text>
+                <Text style={styles.microStatLabel}>Wins</Text>
               </View>
               <View style={styles.microStatDivider} />
               <View style={styles.microStatItem}>

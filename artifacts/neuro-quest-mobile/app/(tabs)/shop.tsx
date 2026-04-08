@@ -27,7 +27,7 @@ const PLANS = [
     features: [
       "Unlimited daily spins",
       "All brain training games unlocked",
-      "Priority jackpot access",
+      "Priority reward access",
       "Exclusive Zen themes & sounds",
       "Monthly cause selection",
       "Advanced progress analytics",
@@ -322,7 +322,7 @@ export default function ShopScreen() {
           <View style={styles.sponsoredTop}>
             <MaterialCommunityIcons name="star-face" size={28} color={Colors.gold} />
             <View style={styles.sponsoredInfo}>
-              <Text style={styles.sponsoredTitle}>Sponsored Jackpots</Text>
+              <Text style={styles.sponsoredTitle}>Sponsored Rewards</Text>
               <Text style={styles.sponsoredSub}>Your brand. Real donations. Maximum visibility.</Text>
             </View>
           </View>
