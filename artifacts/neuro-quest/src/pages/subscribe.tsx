@@ -416,7 +416,7 @@ export default function Subscribe() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <GlassCard className="slot-machine-glow relative overflow-hidden">
+          <GlassCard className="accent-glow relative overflow-hidden">
             {/* Gold shimmer strip */}
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 

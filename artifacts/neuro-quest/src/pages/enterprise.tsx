@@ -45,7 +45,7 @@ const TIERS = [
     seats: "Up to 100 seats",
     perSeat: "100 seats × $50",
     desc: "Built for scaling teams that take cognitive performance seriously.",
-    color: "border-amber-400/50 slot-machine-glow",
+    color: "border-amber-400/50 accent-glow",
     accent: "text-amber-400",
     bg: "bg-amber-400/8",
     badge: "Most Popular",
@@ -419,7 +419,7 @@ export default function Enterprise() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
               >
-                <GlassCard className="slot-machine-glow">
+                <GlassCard className="accent-glow">
                   <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
                   <GlassCardHeader className="px-8 pt-8 pb-0">
                     <GlassCardTitle className="font-serif text-2xl">

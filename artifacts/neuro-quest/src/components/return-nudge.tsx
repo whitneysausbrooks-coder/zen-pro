@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { AnimatePresence, motion } from "framer-motion"
 import { Brain, Zap, X, ChevronRight } from "lucide-react"
 import { useLocation } from "wouter"
-import { cn } from "@/lib/utils"
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "")
 
@@ -40,14 +39,11 @@ export function ReturnNudge() {
     <AnimatePresence>
       {!dismissed && (
         <motion.div
-          initial={{ opacity: 0, x: 20, scale: 0.97 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          exit={{ opacity: 0, x: 20, scale: 0.97 }}
-          transition={{ type: "spring", stiffness: 220, damping: 22, delay: 0.5 }}
-          className="relative overflow-hidden rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/8 via-orange-400/5 to-transparent px-5 py-4"
-          style={{ boxShadow: "0 0 24px rgba(212,175,55,0.08)" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="relative rounded-2xl border border-amber-400/30 bg-amber-500/5 px-5 py-4"
         >
-          {/* Dismiss */}
           <button
             onClick={() => setDismissed(true)}
             className="absolute top-3 right-3 p-1 rounded-lg text-muted-foreground/40 hover:text-muted-foreground transition-colors"
@@ -56,13 +52,9 @@ export function ReturnNudge() {
           </button>
 
           <div className="flex items-start gap-4 pr-6">
-            <motion.div
-              animate={{ scale: [1, 1.08, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="p-2.5 bg-amber-400/15 rounded-xl border border-amber-400/25 shrink-0 mt-0.5"
-            >
+            <div className="p-2.5 bg-amber-400/15 rounded-xl border border-amber-400/25 shrink-0 mt-0.5">
               <Brain className="w-5 h-5 text-amber-400" />
-            </motion.div>
+            </div>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
@@ -75,19 +67,16 @@ export function ReturnNudge() {
                 {nudge.nudge_message}
               </p>
 
-              {/* Progress to next level */}
               {nudge.next_level_title && (
                 <div className="space-y-1 mb-3">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Progress to {nudge.next_level_title}</span>
                     <span className="font-semibold tabular-nums text-amber-400">{nudge.pct_to_next}%</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-white/5 border border-white/8 overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${nudge.pct_to_next}%` }}
-                      transition={{ duration: 1, delay: 0.8, ease: "easeOut" }}
+                  <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-amber-400"
+                      style={{ width: `${nudge.pct_to_next}%` }}
                     />
                   </div>
                 </div>
@@ -96,18 +85,13 @@ export function ReturnNudge() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => navigate("/brain-game")}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border transition-all duration-200",
-                    "bg-amber-400/15 border-amber-400/35 text-amber-300 hover:bg-amber-400/25"
-                  )}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border bg-amber-400/15 border-amber-400/35 text-amber-300 hover:bg-amber-400/25 transition-colors"
                 >
                   <Zap className="w-3 h-3" /> Train Now
                 </button>
                 <button
                   onClick={() => navigate("/wellness")}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl text-muted-foreground hover:text-foreground transition-colors"
-                  )}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Compassion Wheel <ChevronRight className="w-3 h-3" />
                 </button>

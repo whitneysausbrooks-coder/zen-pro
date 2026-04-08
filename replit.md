@@ -44,7 +44,9 @@ The monorepo uses TypeScript composite projects (`composite: true`) with project
 - **Heart-Brain Hybrid Score (HBHS):** Composite metric combining Emotional Intelligence (EI), Mental Performance (MP), and Neural Energy Boost (NEB) with formula display. HBHS = √{(EI · MP · NEB) × 1.2{Cohesion}}.
 - **Lives Impacted:** Tangible real-world impact metrics — trees planted, meals funded, students funded, therapy sessions. Displayed on Home and Profile screens.
 - **Share System:** Native Share API integration on Home (share impact), Play (share wins), and Profile (share journey) screens. Purple-themed share cards with cosmic gradients.
-- **GlassCard:** Accepts `style?: ViewStyle | ViewStyle[]` and `elevated?: boolean` prop for luxury glassmorphism.
+- **GlassCard:** Accepts `style?: ViewStyle | ViewStyle[]` and `elevated?: boolean` prop for luxury glassmorphism. No `glow` prop used on dashboard cards (intentionally clean).
+- **UI Philosophy:** "Intentional, clean, and focused" — no decorative-only animations, no fake social proof, no staggered entrance delays on dashboard cards. Every element serves a purpose. Page transitions handled by App.tsx `AnimatePresence`. Individual card animations removed.
+- **CSS Glow Classes:** `accent-glow` (static subtle gold border, used on enterprise/subscribe pages), `slot-machine-glow` (animated gold pulse, only used on Compassion Wheel game page).
 - **Brain Games:** StroopGame (30s color-ink test), MemoryGrid (progressive 4×4 working memory), BreathingPacer (4-7-8 animated circle with haptics).
 - **Compassion Wheel:** Staggered stops 800/1300/1800ms, `winRef.current` avoids stale closures, interval-based symbol cycling, spring bounce on landing. Route: `/wellness`.
 - **5-Tab Navigation:** Home, Train, Play, Zen Pro, Profile. NativeTabs (iOS 26+) and ClassicTabs (Expo BlurView).

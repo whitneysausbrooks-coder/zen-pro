@@ -177,6 +177,13 @@
   animation: slot-gold-pulse 2.8s ease-in-out infinite;
 }
 
+.accent-glow {
+  border: 1px solid rgba(212, 175, 55, 0.45) !important;
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 55, 0.3),
+    0 0 12px rgba(212, 175, 55, 0.1);
+}
+
 /* ── Electric Blue streak glow (3+ day streak) ──────────────────────────── */
 @keyframes streak-blue-pulse {
   0%, 100% {
