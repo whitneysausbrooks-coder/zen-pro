@@ -3,106 +3,80 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Easing,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import Svg, { Circle, G, Path, Text as SvgText } from "react-native-svg";
 import Colors from "@/constants/colors";
 
-const SYMBOLS = ["🌿", "☀️", "💧", "🌍", "❤️", "✨"];
-const SYMBOL_HEIGHT = 80;
 const nd = Platform.OS !== "web";
 
-interface ReelProps {
-  symbols: string[];
-  spinning: boolean;
-  finalSymbolIndex: number;
-  stopDelay: number;
-  onStopped: () => void;
+export type WheelSegment = {
+  value: number;
+  label: string;
+  color: string;
+  icon: string;
+};
+
+const WHEEL_SEGMENTS: WheelSegment[] = [
+  { value: 50, label: "50", color: "#2A4A35", icon: "🌿" },
+  { value: 15, label: "15", color: "#1A2744", icon: "💧" },
+  { value: 20, label: "20", color: "#3D2B6B", icon: "✨" },
+  { value: 75, label: "75", color: "#0D3B3B", icon: "🧠" },
+  { value: 15, label: "15", color: "#2A1F4E", icon: "💫" },
+  { value: 500, label: "500", color: "#8B6914", icon: "👑" },
+  { value: 25, label: "25", color: "#1B3022", icon: "🌍" },
+  { value: 100, label: "100", color: "#4A2D6B", icon: "💎" },
+  { value: 10, label: "10", color: "#14271A", icon: "🌱" },
+  { value: 0, label: "2x", color: "#6B3D2B", icon: "🔥" },
+  { value: 30, label: "30", color: "#0A1A10", icon: "☀️" },
+  { value: 200, label: "200", color: "#5A3D8F", icon: "🌟" },
+];
+
+const SEGMENT_COUNT = WHEEL_SEGMENTS.length;
+const SEGMENT_ANGLE = 360 / SEGMENT_COUNT;
+const WHEEL_RADIUS = 140;
+const CENTER = WHEEL_RADIUS + 10;
+const SVG_SIZE = CENTER * 2;
+
+function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
+  const rad = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-function Reel({ symbols, spinning, finalSymbolIndex, stopDelay, onStopped }: ReelProps) {
-  const [displayIndex, setDisplayIndex] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const bounceAnim = useRef(new Animated.Value(0)).current;
-  const hasStoppedRef = useRef(false);
-
-  useEffect(() => {
-    if (spinning) {
-      hasStoppedRef.current = false;
-      let tick = 0;
-      intervalRef.current = setInterval(() => {
-        tick++;
-        setDisplayIndex(tick % symbols.length);
-      }, 80);
-
-      timeoutRef.current = setTimeout(() => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        intervalRef.current = null;
-        setDisplayIndex(finalSymbolIndex);
-
-        bounceAnim.setValue(-12);
-        Animated.spring(bounceAnim, {
-          toValue: 0,
-          useNativeDriver: nd,
-          friction: 5,
-          tension: 150,
-        }).start(() => {
-          if (!hasStoppedRef.current) {
-            hasStoppedRef.current = true;
-            onStopped();
-          }
-        });
-      }, stopDelay);
-    }
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, [spinning, finalSymbolIndex, stopDelay]);
-
-  const aboveIndex = (displayIndex - 1 + symbols.length) % symbols.length;
-  const belowIndex = (displayIndex + 1) % symbols.length;
-
-  return (
-    <View style={styles.reelContainer}>
-      <LinearGradient
-        colors={["rgba(7,13,9,0.95)", "transparent", "transparent", "rgba(7,13,9,0.95)"]}
-        style={styles.reelFade}
-        pointerEvents="none"
-      />
-      <View style={styles.reelWindow}>
-        <Animated.View style={{ transform: [{ translateY: bounceAnim }] }}>
-          <View style={styles.symbolCell}>
-            <Text style={[styles.symbol, styles.symbolDim]}>{symbols[aboveIndex]}</Text>
-          </View>
-          <View style={[styles.symbolCell, styles.symbolCellCenter]}>
-            <Text style={styles.symbol}>{symbols[displayIndex]}</Text>
-          </View>
-          <View style={styles.symbolCell}>
-            <Text style={[styles.symbol, styles.symbolDim]}>{symbols[belowIndex]}</Text>
-          </View>
-        </Animated.View>
-      </View>
-    </View>
-  );
+function describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  const largeArc = endAngle - startAngle <= 180 ? "0" : "1";
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y} Z`;
 }
 
 interface SlotMachineProps {
-  onSpin: (isWin: boolean) => void;
+  onSpin: (isWin: boolean, prizeValue: number, prizeLabel: string) => void;
   spinsLeft: number;
 }
 
 export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
   const [spinning, setSpinning] = useState(false);
-  const [finalIndices, setFinalIndices] = useState([0, 2, 4]);
-  const [stoppedCount, setStoppedCount] = useState(0);
-  const winRef = useRef(false);
+  const [lastWinIndex, setLastWinIndex] = useState<number | null>(null);
+  const spinAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+  const cumulativeRotation = useRef(0);
+  const mountedRef = useRef(true);
+  const activeAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (activeAnimRef.current) activeAnimRef.current.stop();
+    };
+  }, []);
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -118,42 +92,63 @@ export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
   const handleSpin = useCallback(() => {
     if (spinning || spinsLeft <= 0) return;
 
-    if (nd) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    }
+    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-    const r1 = Math.floor(Math.random() * SYMBOLS.length);
-    const r2 = Math.floor(Math.random() * SYMBOLS.length);
-    const jackpot = Math.random() < 0.15;
-    const r3 = jackpot ? r1 : Math.floor(Math.random() * SYMBOLS.length);
-    const win = r1 === r2 && r2 === r3;
+    const winIndex = Math.floor(Math.random() * SEGMENT_COUNT);
+    const segment = WHEEL_SEGMENTS[winIndex];
+    const isBoost = segment.value === 0;
+    const isWin = segment.value > 0 || isBoost;
 
-    winRef.current = win;
-    setFinalIndices([r1, r2, r3]);
-    setStoppedCount(0);
+    const segmentCenterAngle = winIndex * SEGMENT_ANGLE + SEGMENT_ANGLE / 2;
+    const pointerAt = 0;
+    const targetAngle = 360 - segmentCenterAngle + pointerAt;
+    const fullSpins = 5 + Math.floor(Math.random() * 3);
+    const totalRotation = fullSpins * 360 + targetAngle;
+
+    const startValue = cumulativeRotation.current;
+    const endValue = startValue + totalRotation;
+    cumulativeRotation.current = endValue;
+
+    spinAnim.setValue(startValue);
     setSpinning(true);
-  }, [spinning, spinsLeft]);
+    setLastWinIndex(null);
 
-  const handleReelStopped = useCallback(() => {
-    setStoppedCount((prev) => {
-      const next = prev + 1;
-      if (next >= 3) {
-        setTimeout(() => {
-          setSpinning(false);
-          const isWin = winRef.current;
-          onSpin(isWin);
-          if (nd) {
-            if (isWin) {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            } else {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }
-          }
-        }, 0);
-      }
-      return next;
+    const anim = Animated.timing(spinAnim, {
+      toValue: endValue,
+      duration: 4000 + Math.random() * 1000,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: nd,
     });
-  }, [onSpin]);
+    activeAnimRef.current = anim;
+
+    anim.start(() => {
+      activeAnimRef.current = null;
+      if (!mountedRef.current) return;
+
+      setSpinning(false);
+      setLastWinIndex(winIndex);
+
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 1, duration: 300, useNativeDriver: nd }),
+        Animated.timing(glowAnim, { toValue: 0, duration: 1500, useNativeDriver: nd }),
+      ]).start();
+
+      if (nd) {
+        if (isWin) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }
+
+      onSpin(isWin, segment.value, segment.label);
+    });
+  }, [spinning, spinsLeft, onSpin]);
+
+  const wheelRotation = spinAnim.interpolate({
+    inputRange: [0, 360],
+    outputRange: ["0deg", "360deg"],
+  });
 
   return (
     <View style={styles.container}>
@@ -164,23 +159,88 @@ export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
         />
         <View style={styles.machineTop}>
           <Text style={styles.machineTitle}>Compassion</Text>
-          <Text style={styles.machineSubtitle}>JACKPOT</Text>
+          <Text style={styles.machineSubtitle}>LUCKY WHEEL</Text>
         </View>
 
-        <View style={styles.reelsRow}>
-          {[0, 1, 2].map((i) => (
-            <Reel
-              key={i}
-              symbols={SYMBOLS}
-              spinning={spinning}
-              finalSymbolIndex={finalIndices[i]}
-              stopDelay={800 + i * 500}
-              onStopped={handleReelStopped}
-            />
-          ))}
+        <View style={styles.wheelContainer}>
+          <View style={styles.pointer} />
+
+          <Animated.View
+            style={[
+              styles.wheelWrapper,
+              { transform: [{ rotate: wheelRotation }] },
+            ]}
+          >
+            <Svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}>
+              <Circle cx={CENTER} cy={CENTER} r={WHEEL_RADIUS + 4} fill="none" stroke={Colors.gold} strokeWidth={3} opacity={0.4} />
+              {WHEEL_SEGMENTS.map((seg, i) => {
+                const startAngle = i * SEGMENT_ANGLE;
+                const endAngle = startAngle + SEGMENT_ANGLE;
+                const d = describeArc(CENTER, CENTER, WHEEL_RADIUS, startAngle, endAngle);
+                const midAngle = startAngle + SEGMENT_ANGLE / 2;
+                const labelR = WHEEL_RADIUS * 0.62;
+                const labelPos = polarToCartesian(CENTER, CENTER, labelR, midAngle);
+                const iconR = WHEEL_RADIUS * 0.85;
+                const iconPos = polarToCartesian(CENTER, CENTER, iconR, midAngle);
+
+                return (
+                  <G key={i}>
+                    <Path
+                      d={d}
+                      fill={lastWinIndex === i ? Colors.gold : seg.color}
+                      stroke={Colors.goldAlpha30}
+                      strokeWidth={1.5}
+                    />
+                    <SvgText
+                      x={iconPos.x}
+                      y={iconPos.y}
+                      fontSize={16}
+                      textAnchor="middle"
+                      alignmentBaseline="central"
+                    >
+                      {seg.icon}
+                    </SvgText>
+                    <SvgText
+                      x={labelPos.x}
+                      y={labelPos.y}
+                      fontSize={seg.value >= 100 ? 13 : 15}
+                      fontWeight="bold"
+                      fill={lastWinIndex === i ? Colors.forestDeep : Colors.champagne}
+                      textAnchor="middle"
+                      alignmentBaseline="central"
+                      transform={`rotate(${midAngle}, ${labelPos.x}, ${labelPos.y})`}
+                    >
+                      {seg.label}
+                    </SvgText>
+                  </G>
+                );
+              })}
+              <Circle cx={CENTER} cy={CENTER} r={28} fill={Colors.forestDeep} stroke={Colors.gold} strokeWidth={2} />
+              <SvgText
+                x={CENTER}
+                y={CENTER + 1}
+                fontSize={10}
+                fontWeight="bold"
+                fill={Colors.gold}
+                textAnchor="middle"
+                alignmentBaseline="central"
+              >
+                SPIN
+              </SvgText>
+            </Svg>
+          </Animated.View>
         </View>
 
-        <View style={styles.centerLine} />
+        {lastWinIndex !== null && (
+          <Animated.View style={[styles.resultBanner, { opacity: glowAnim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [1, 1, 0.8] }) }]}>
+            <Text style={styles.resultText}>
+              {WHEEL_SEGMENTS[lastWinIndex].icon}{" "}
+              {WHEEL_SEGMENTS[lastWinIndex].value > 0
+                ? `+${WHEEL_SEGMENTS[lastWinIndex].label} Impact`
+                : "2x Boost!"}
+            </Text>
+          </Animated.View>
+        )}
 
         <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
           <Pressable
@@ -191,6 +251,8 @@ export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
               pressed && styles.spinButtonPressed,
               (spinning || spinsLeft <= 0) && styles.spinButtonDisabled,
             ]}
+            accessibilityRole="button"
+            accessibilityLabel={spinning ? "Wheel is spinning" : spinsLeft > 0 ? `Spin the wheel, ${spinsLeft} spins left` : "No spins remaining"}
           >
             <LinearGradient
               colors={spinsLeft > 0 ? [Colors.goldLight, Colors.gold, Colors.goldDim] : ["#555", "#444", "#333"]}
@@ -240,58 +302,38 @@ const styles = StyleSheet.create({
     color: Colors.gold,
     letterSpacing: 6,
   },
-  reelsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.goldAlpha15,
-    position: "relative",
-  },
-  centerLine: {
-    position: "absolute",
-    left: 32,
-    right: 32,
-    top: "50%",
-    height: 0,
-    borderTopWidth: 0,
-  },
-  reelContainer: {
-    width: 80,
-    height: SYMBOL_HEIGHT * 3,
-    position: "relative",
-  },
-  reelFade: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2,
-    borderRadius: 12,
-  },
-  reelWindow: {
-    width: 80,
-    height: SYMBOL_HEIGHT * 3,
-    overflow: "hidden",
-    borderRadius: 12,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    borderWidth: 1,
-    borderColor: Colors.goldAlpha15,
-  },
-  symbolCell: {
-    width: 80,
-    height: SYMBOL_HEIGHT,
+  wheelContainer: {
     alignItems: "center",
     justifyContent: "center",
+    height: SVG_SIZE + 20,
   },
-  symbolCellCenter: {
-    backgroundColor: "rgba(212, 175, 55, 0.08)",
+  wheelWrapper: {
+    width: SVG_SIZE,
+    height: SVG_SIZE,
   },
-  symbol: {
-    fontSize: 40,
+  pointer: {
+    position: "absolute",
+    top: -2,
+    zIndex: 10,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 12,
+    borderRightWidth: 12,
+    borderTopWidth: 24,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderTopColor: Colors.gold,
+    alignSelf: "center",
   },
-  symbolDim: {
-    opacity: 0.4,
+  resultBanner: {
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  resultText: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 20,
+    color: Colors.gold,
+    textAlign: "center",
   },
   spinButton: {
     borderRadius: 50,

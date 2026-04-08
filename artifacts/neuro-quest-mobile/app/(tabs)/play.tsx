@@ -88,10 +88,12 @@ export default function PlayScreen() {
   }, []);
 
   const triggerMicroDonation = useCallback(
-    async (isWin: boolean) => {
-      const amount = isWin
-        ? MICRO_DONATION_AMOUNTS[Math.floor(Math.random() * MICRO_DONATION_AMOUNTS.length)] * 2
+    async (isWin: boolean, prizeValue?: number, isBoost?: boolean) => {
+      const baseAmount = prizeValue && prizeValue > 0
+        ? prizeValue / 100
         : MICRO_DONATION_AMOUNTS[Math.floor(Math.random() * MICRO_DONATION_AMOUNTS.length)];
+      let amount = isWin ? baseAmount * 2 : baseAmount;
+      if (isBoost) amount = amount * 2;
       const cause = DONATION_CAUSES[Math.floor(Math.random() * DONATION_CAUSES.length)];
       const rounded = Math.round(amount * 100) / 100;
       setTotalDonated((prev) => {
@@ -110,7 +112,7 @@ export default function PlayScreen() {
   );
 
   const handleSpin = useCallback(
-    async (isWin: boolean) => {
+    async (isWin: boolean, prizeValue: number, prizeLabel: string) => {
       const newSpins = Math.max(0, spinsLeft - 1);
       setSpinsLeft(newSpins);
       await AsyncStorage.setItem(SPINS_KEY, String(newSpins));
@@ -118,7 +120,9 @@ export default function PlayScreen() {
       const prev = parseInt((await AsyncStorage.getItem(TOTAL_SPINS_USED_KEY)) || "0", 10) || 0;
       await AsyncStorage.setItem(TOTAL_SPINS_USED_KEY, String(prev + 1));
 
-      triggerMicroDonation(isWin);
+      const isBoost = prizeLabel === "2x";
+      const effectiveValue = isBoost ? 0 : prizeValue;
+      triggerMicroDonation(isWin, effectiveValue, isBoost);
 
       if (isWin) {
         const newWins = totalWins + 1;
