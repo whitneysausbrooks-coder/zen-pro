@@ -193,6 +193,12 @@ export default function PlayScreen() {
       setNeuralEnergy(nextNE);
       persistNE(nextNE);
 
+      setTimeout(() => {
+        if (spinLockRef.current) {
+          spinLockRef.current = false;
+        }
+      }, 15000);
+
       return true;
     },
     [persistNE]
@@ -340,25 +346,6 @@ export default function PlayScreen() {
           </View>
         </GlassCard>
 
-        {result !== "idle" && resultConfig && (
-          <Animated.View
-            style={[
-              styles.resultToast,
-              {
-                opacity: resultAnim,
-                transform: [{ scale: resultScale }],
-              },
-            ]}
-          >
-            <GlassCard style={styles.resultCard} borderColor={resultConfig.color} elevated>
-              <Text style={[styles.resultTitle, { color: resultConfig.color }]}>
-                {resultConfig.title}
-              </Text>
-              <Text style={styles.resultSub}>{resultConfig.subtitle}</Text>
-            </GlassCard>
-          </Animated.View>
-        )}
-
         <SlotMachine onSpin={handleWheelSpin} spinsLeft={spinsLeft} />
 
         <View style={styles.premiumDivider}>
@@ -370,7 +357,7 @@ export default function PlayScreen() {
         <View style={styles.premiumInfo}>
           <Ionicons name="information-circle-outline" size={14} color={Colors.whiteAlpha30} />
           <Text style={styles.premiumInfoText}>
-            Premium games cost Neural Energy. Payouts = Bet × Multiplier. Balance deducted before spin.
+            Premium games cost Neural Energy. Rewards = Stake × Multiplier. Balance deducted before spin.
           </Text>
         </View>
 
@@ -519,7 +506,7 @@ export default function PlayScreen() {
             { icon: "🧠", text: "Each spin trains neuroplasticity through pattern recognition" },
             { icon: "⚡", text: "Neural Energy is deducted before each premium spin — no double claims" },
             { icon: "❤️", text: `${Math.round(DONATION_RATE * 100)}% of all gameplay value goes to verified charity partners` },
-            { icon: "📊", text: "Win rates are transparent: 70–80% miss, 11–20% partial, 1–11% jackpot" },
+            { icon: "📊", text: "Win rates are transparent: 70–80% miss, 11–20% partial, 1–11% top reward" },
           ].map((item, i) => (
             <View key={i} style={styles.howRow}>
               <Text style={styles.howIcon}>{item.icon}</Text>
@@ -529,6 +516,29 @@ export default function PlayScreen() {
         </GlassCard>
         </Animated.View>
       </ScrollView>
+
+      {result !== "idle" && resultConfig && (
+        <Animated.View
+          style={[
+            styles.resultToast,
+            {
+              opacity: resultAnim,
+              transform: [{ scale: resultScale }],
+              top: insets.top + 20,
+            },
+          ]}
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          pointerEvents="none"
+        >
+          <GlassCard style={styles.resultCard} borderColor={resultConfig.color} elevated>
+            <Text style={[styles.resultTitle, { color: resultConfig.color }]}>
+              {resultConfig.title}
+            </Text>
+            <Text style={styles.resultSub}>{resultConfig.subtitle}</Text>
+          </GlassCard>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -615,7 +625,6 @@ const styles = StyleSheet.create({
   },
   resultToast: {
     position: "absolute",
-    top: 120,
     left: 24,
     right: 24,
     zIndex: 100,

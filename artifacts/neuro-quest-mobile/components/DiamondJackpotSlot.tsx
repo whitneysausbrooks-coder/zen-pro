@@ -235,7 +235,7 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
       case "mega": {
         resultMultiplier = (PAYOUTS[matchSym] || 5) * 3;
         payoutAmount = Math.round(cost * resultMultiplier);
-        setResultText(`💎 MEGA JACKPOT! ${matchSym}×5 — +${payoutAmount} NE!`);
+        setResultText(`💎 MEGA WIN! ${matchSym}×5 — +${payoutAmount} NE!`);
         break;
       }
       case "four": {
@@ -310,15 +310,16 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
       />
       <View style={s.header}>
         <Text style={s.badge}>5-REEL PREMIUM</Text>
-        <Text style={s.title}>Diamond Jackpot</Text>
+        <Text style={s.title}>Diamond Reward</Text>
         <Text style={s.sub}>5 reels, bigger matches, bigger rewards</Text>
       </View>
 
-      <View style={s.reelsRow}>
+      <View style={s.reelsRow} accessibilityLabel={`Reels showing ${displayReels.map((r) => SYMBOLS[r]).join(", ")}`}>
         {[0, 1, 2, 3, 4].map((i) => (
           <Animated.View
             key={i}
             style={[s.reel, { transform: [{ translateY: bounceAnims[i] }] }]}
+            accessibilityLabel={`Reel ${i + 1}: ${SYMBOLS[displayReels[i]]}`}
           >
             <Text style={s.reelSymbol}>{SYMBOLS[displayReels[i]]}</Text>
           </Animated.View>
@@ -335,7 +336,7 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
               selectedTier === i && { borderColor: tier.color, backgroundColor: `${tier.color}15` },
             ]}
             accessibilityRole="button"
-            accessibilityLabel={`Bet ${tier.label}`}
+            accessibilityLabel={`Stake ${tier.label}`}
           >
             <Text style={[s.tierLabel, selectedTier === i && { color: tier.color }]}>
               {tier.label}
@@ -394,7 +395,7 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
       </Pressable>
 
       {resultText !== "" && (
-        <Animated.View style={[s.resultBanner, { opacity: resultAnim }]}>
+        <Animated.View style={[s.resultBanner, { opacity: resultAnim }]} accessibilityLiveRegion="polite" accessibilityRole="alert">
           <Text style={[s.resultText, payout > 0 ? { color: Colors.gold } : { color: Colors.whiteAlpha50 }]}>
             {resultText}
           </Text>

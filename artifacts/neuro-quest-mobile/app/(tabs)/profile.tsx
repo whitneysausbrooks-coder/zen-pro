@@ -58,7 +58,7 @@ interface LiveData {
 }
 
 const ACHIEVEMENTS_DEF: Array<{ id: string; title: string; icon: string; condition: (d: LiveData) => boolean }> = [
-  { id: "first_jackpot", title: "First Win", icon: "award", condition: (d) => d.totalWins >= 1 },
+  { id: "first_win", title: "First Win", icon: "award", condition: (d) => d.totalWins >= 1 },
   { id: "7_streak", title: "7 Day Streak", icon: "zap", condition: (d) => d.streak >= 7 },
   { id: "100_spins", title: "100 Spins", icon: "repeat", condition: (d) => d.totalSpinsUsed >= 100 },
   { id: "zen_master", title: "Zen Master", icon: "star", condition: (d) => d.gratitudeCount >= 30 },

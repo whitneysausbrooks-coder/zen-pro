@@ -284,7 +284,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
         resultMultiplier = MULTIPLIERS[matchSymbol] || 3;
         donationCents = Math.round(tier.cost * resultMultiplier);
         setResultText(
-          `JACKPOT! ${matchSymbol}${matchSymbol}${matchSymbol} — +${donationCents} NE!`
+          `TRIPLE WIN! ${matchSymbol}${matchSymbol}${matchSymbol} — +${donationCents} NE!`
         );
       } else if (outcome === "pair") {
         resultMultiplier = 0.5;
@@ -310,7 +310,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
           multiplier: resultMultiplier,
           label:
             outcome === "triple"
-              ? `Jackpot ${matchSymbol}×3`
+              ? `Triple ${matchSymbol}×3`
               : outcome === "pair"
               ? `Pair ${matchSymbol}×2`
               : "No match",
@@ -388,7 +388,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
       />
       <View style={s.header}>
         <Text style={s.badge}>HOLD & WIN</Text>
-        <Text style={s.title}>Vegas Hold</Text>
+        <Text style={s.title}>Neural Hold</Text>
         <Text style={s.sub}>
           Hold your best reels, respin for a match
         </Text>
@@ -451,7 +451,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
               },
             ]}
             accessibilityRole="button"
-            accessibilityLabel={`Bet ${tier.label}`}
+            accessibilityLabel={`Stake ${tier.label}`}
           >
             <Text
               style={[
@@ -475,6 +475,8 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
           <Pressable
             onPress={handleRespin}
             style={({ pressed }) => [pressed && { opacity: 0.9 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Respin unheld reels"
           >
             <LinearGradient
               colors={[Colors.goldLight, Colors.gold, Colors.goldDim]}
@@ -485,7 +487,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
               <Text style={s.spinText}>RESPIN</Text>
             </LinearGradient>
           </Pressable>
-          <Pressable onPress={handleSkipHold} style={s.skipBtn}>
+          <Pressable onPress={handleSkipHold} style={s.skipBtn} accessibilityRole="button" accessibilityLabel="Respin all reels without holding">
             <Text style={s.skipText}>Respin All</Text>
           </Pressable>
         </View>
@@ -528,6 +530,8 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
       {resultText !== "" && (
         <Animated.View
           style={[s.resultBanner, { opacity: resultAnim }]}
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
         >
           <Text
             style={[

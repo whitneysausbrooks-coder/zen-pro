@@ -58,7 +58,7 @@ The monorepo leverages TypeScript composite projects with project references for
 - **Enterprise Features:** Team Dashboard, ROI Analytics, SSO/SCIM, Burnout Detection, CSR Impact Reports, privacy-first design.
 - **Daily Mindful Tasks:** Focus & Mind and Heart & Spirit tasks requiring reflection, with server-side enforcement.
 - **Monetization Engine (Mobile Play Screen):** Neural Energy (NE) is the universal currency for games. Balance deducted atomically before animations. 30% of gameplay value tracked as charity impact.
-- **Game Mechanics:** Compassion Wheel (web-based, staggered stops), Lucky Wheel (mobile, weighted probability, free spins), Hold & Win (mobile, 3-reel, weighted RNG, costs NE), Diamond Jackpot (mobile, 5-reel, weighted outcomes, costs NE).
+- **Game Mechanics:** Compassion Wheel (web-based, staggered stops), Lucky Wheel (mobile, weighted probability, free spins), Hold & Win / "Neural Hold" (mobile, 3-reel, weighted RNG, costs NE), Diamond Reward (mobile, 5-reel, weighted outcomes, costs NE). All user-facing text avoids gambling terminology (no "jackpot", "vegas", "bet", "casino") for Apple App Store compliance.
 - **Navigation:** 5-tab navigation (Home, Train, Play, Zen Pro, Profile) with native and classic tab implementations.
 - **Onboarding:** 4-step premium onboarding flow (mobile) and a splash screen with focus test (web), persisting completion status.
 - **Streak System:** Tracks `streak_count`, `last_game_date`, with a multiplier and visual cues.
@@ -66,7 +66,8 @@ The monorepo leverages TypeScript composite projects with project references for
 - **Raid Mode:** Admin-toggled global event doubling compassion points.
 - **Auth & Paywall:** Replit Auth integration with `AuthGate` and `PaywallGate` for subscription access.
 - **Legal:** In-app legal screen (Mobile) and dedicated `/copyright` page (Web) covering policies, disclosures, and compliance.
-- **Accessibility (Mobile):** Extensive use of accessibility roles, labels, and states for interactive elements and screen reader compatibility.
+- **Accessibility (Mobile):** Extensive use of accessibility roles, labels, states, and `accessibilityLiveRegion="polite"` on all dynamic result announcements (win/lose toasts, game outcomes). All interactive buttons have `accessibilityRole="button"` with descriptive labels. Diamond Reward reels have individual reel labels for screen readers.
+- **Anti-Exploit:** Premium spin lock with 15-second fail-safe timeout prevents stuck states on interrupted flows. Result toast is positioned as a fixed overlay above scroll content for reliable visibility across devices.
 
 ## External Dependencies
 
