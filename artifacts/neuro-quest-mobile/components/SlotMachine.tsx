@@ -20,21 +20,23 @@ export type WheelSegment = {
   label: string;
   color: string;
   icon: string;
+  multiplier: number;
+  weight: number;
 };
 
 const WHEEL_SEGMENTS: WheelSegment[] = [
-  { value: 50, label: "50", color: "#2A4A35", icon: "🌿" },
-  { value: 15, label: "15", color: "#1A2744", icon: "💧" },
-  { value: 20, label: "20", color: "#3D2B6B", icon: "✨" },
-  { value: 75, label: "75", color: "#0D3B3B", icon: "🧠" },
-  { value: 15, label: "15", color: "#2A1F4E", icon: "💫" },
-  { value: 500, label: "500", color: "#8B6914", icon: "👑" },
-  { value: 25, label: "25", color: "#1B3022", icon: "🌍" },
-  { value: 100, label: "100", color: "#4A2D6B", icon: "💎" },
-  { value: 10, label: "10", color: "#14271A", icon: "🌱" },
-  { value: 0, label: "2x", color: "#6B3D2B", icon: "🔥" },
-  { value: 30, label: "30", color: "#0A1A10", icon: "☀️" },
-  { value: 200, label: "200", color: "#5A3D8F", icon: "🌟" },
+  { value: 50,  label: "50",   color: "#2A4A35", icon: "🌿", multiplier: 5,   weight: 6 },
+  { value: 0,   label: "MISS", color: "#1A2744", icon: "💨", multiplier: 0,   weight: 16 },
+  { value: 20,  label: "20",   color: "#3D2B6B", icon: "✨", multiplier: 2,   weight: 12 },
+  { value: 75,  label: "75",   color: "#0D3B3B", icon: "🧠", multiplier: 7.5, weight: 4 },
+  { value: 15,  label: "15",   color: "#2A1F4E", icon: "💫", multiplier: 1.5, weight: 14 },
+  { value: 500, label: "500",  color: "#8B6914", icon: "👑", multiplier: 50,  weight: 1 },
+  { value: 25,  label: "25",   color: "#1B3022", icon: "🌍", multiplier: 2.5, weight: 8 },
+  { value: 100, label: "100",  color: "#4A2D6B", icon: "💎", multiplier: 10,  weight: 3 },
+  { value: 10,  label: "10",   color: "#14271A", icon: "🌱", multiplier: 1,   weight: 16 },
+  { value: 0,   label: "2x",   color: "#6B3D2B", icon: "🔥", multiplier: 0,   weight: 6 },
+  { value: 30,  label: "30",   color: "#0A1A10", icon: "☀️", multiplier: 3,   weight: 8 },
+  { value: 200, label: "200",  color: "#5A3D8F", icon: "🌟", multiplier: 20,  weight: 2 },
 ];
 
 const SEGMENT_COUNT = WHEEL_SEGMENTS.length;
@@ -42,6 +44,18 @@ const SEGMENT_ANGLE = 360 / SEGMENT_COUNT;
 const WHEEL_RADIUS = 140;
 const CENTER = WHEEL_RADIUS + 10;
 const SVG_SIZE = CENTER * 2;
+
+const TOTAL_WEIGHT = WHEEL_SEGMENTS.reduce((sum, s) => sum + s.weight, 0);
+
+function weightedRandomIndex(): number {
+  const roll = Math.random() * TOTAL_WEIGHT;
+  let cumulative = 0;
+  for (let i = 0; i < WHEEL_SEGMENTS.length; i++) {
+    cumulative += WHEEL_SEGMENTS[i].weight;
+    if (roll < cumulative) return i;
+  }
+  return WHEEL_SEGMENTS.length - 1;
+}
 
 function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
@@ -55,12 +69,21 @@ function describeArc(cx: number, cy: number, r: number, startAngle: number, endA
   return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y} Z`;
 }
 
-interface SlotMachineProps {
-  onSpin: (isWin: boolean, prizeValue: number, prizeLabel: string) => void;
-  spinsLeft: number;
+export interface WheelResult {
+  isWin: boolean;
+  isBoost: boolean;
+  prizeValue: number;
+  multiplier: number;
+  prizeLabel: string;
 }
 
-export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
+interface SlotMachineProps {
+  onSpin: (result: WheelResult) => void;
+  spinsLeft: number;
+  disabled?: boolean;
+}
+
+export function SlotMachine({ onSpin, spinsLeft, disabled }: SlotMachineProps) {
   const [spinning, setSpinning] = useState(false);
   const [lastWinIndex, setLastWinIndex] = useState<number | null>(null);
   const spinAnim = useRef(new Animated.Value(0)).current;
@@ -90,18 +113,17 @@ export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
   }, []);
 
   const handleSpin = useCallback(() => {
-    if (spinning || spinsLeft <= 0) return;
+    if (spinning || spinsLeft <= 0 || disabled) return;
 
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-    const winIndex = Math.floor(Math.random() * SEGMENT_COUNT);
+    const winIndex = weightedRandomIndex();
     const segment = WHEEL_SEGMENTS[winIndex];
-    const isBoost = segment.value === 0;
+    const isBoost = segment.label === "2x";
     const isWin = segment.value > 0 || isBoost;
 
     const segmentCenterAngle = winIndex * SEGMENT_ANGLE + SEGMENT_ANGLE / 2;
-    const pointerAt = 0;
-    const targetAngle = 360 - segmentCenterAngle + pointerAt;
+    const targetAngle = 360 - segmentCenterAngle;
     const fullSpins = 5 + Math.floor(Math.random() * 3);
     const totalRotation = fullSpins * 360 + targetAngle;
 
@@ -141,14 +163,22 @@ export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
         }
       }
 
-      onSpin(isWin, segment.value, segment.label);
+      onSpin({
+        isWin,
+        isBoost,
+        prizeValue: segment.value,
+        multiplier: segment.multiplier,
+        prizeLabel: segment.label,
+      });
     });
-  }, [spinning, spinsLeft, onSpin]);
+  }, [spinning, spinsLeft, disabled, onSpin]);
 
   const wheelRotation = spinAnim.interpolate({
     inputRange: [0, 360],
     outputRange: ["0deg", "360deg"],
   });
+
+  const isDisabled = spinning || spinsLeft <= 0 || !!disabled;
 
   return (
     <View style={styles.container}>
@@ -235,9 +265,11 @@ export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
           <Animated.View style={[styles.resultBanner, { opacity: glowAnim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [1, 1, 0.8] }) }]}>
             <Text style={styles.resultText}>
               {WHEEL_SEGMENTS[lastWinIndex].icon}{" "}
-              {WHEEL_SEGMENTS[lastWinIndex].value > 0
-                ? `+${WHEEL_SEGMENTS[lastWinIndex].label} Impact`
-                : "2x Boost!"}
+              {WHEEL_SEGMENTS[lastWinIndex].label === "MISS"
+                ? "No Win"
+                : WHEEL_SEGMENTS[lastWinIndex].label === "2x"
+                ? "2x Boost!"
+                : `+${WHEEL_SEGMENTS[lastWinIndex].label} NE`}
             </Text>
           </Animated.View>
         )}
@@ -245,17 +277,17 @@ export function SlotMachine({ onSpin, spinsLeft }: SlotMachineProps) {
         <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
           <Pressable
             onPress={handleSpin}
-            disabled={spinning || spinsLeft <= 0}
+            disabled={isDisabled}
             style={({ pressed }) => [
               styles.spinButton,
               pressed && styles.spinButtonPressed,
-              (spinning || spinsLeft <= 0) && styles.spinButtonDisabled,
+              isDisabled && styles.spinButtonDisabled,
             ]}
             accessibilityRole="button"
             accessibilityLabel={spinning ? "Wheel is spinning" : spinsLeft > 0 ? `Spin the wheel, ${spinsLeft} spins left` : "No spins remaining"}
           >
             <LinearGradient
-              colors={spinsLeft > 0 ? [Colors.goldLight, Colors.gold, Colors.goldDim] : ["#555", "#444", "#333"]}
+              colors={!isDisabled ? [Colors.goldLight, Colors.gold, Colors.goldDim] : ["#555", "#444", "#333"]}
               style={styles.spinGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}

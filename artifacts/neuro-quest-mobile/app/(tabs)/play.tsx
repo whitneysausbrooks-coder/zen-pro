@@ -18,27 +18,32 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { GlassCard } from "@/components/GlassCard";
-import { SlotMachine } from "@/components/SlotMachine";
-import { HoldAndWinSlot } from "@/components/HoldAndWinSlot";
-import { DiamondJackpotSlot } from "@/components/DiamondJackpotSlot";
+import { SlotMachine, WheelResult } from "@/components/SlotMachine";
+import { HoldAndWinSlot, HoldWinResult } from "@/components/HoldAndWinSlot";
+import { DiamondJackpotSlot, DiamondResult } from "@/components/DiamondJackpotSlot";
 import Colors from "@/constants/colors";
 
 const { width: screenW } = Dimensions.get("window");
 const nd = Platform.OS !== "web";
+
+const NE_KEY = "nq_neural_energy";
 const SPINS_KEY = "nq_spins_left";
 const WINS_KEY = "nq_total_wins";
 const DONATIONS_KEY = "nq_micro_donations";
 const TOTAL_SPINS_USED_KEY = "nq_total_spins_used";
 
+const WHEEL_SPIN_COST = 10;
+const DONATION_RATE = 0.30;
+
 type ResultState = "idle" | "win" | "lose";
 
-const MICRO_DONATION_AMOUNTS = [0.10, 0.25, 0.50, 0.15, 0.30, 0.20];
 const DONATION_CAUSES = [
   "Clean Water", "End Hunger", "Education", "Mental Health", "Climate Action", "Ocean Cleanup",
 ];
 
 export default function PlayScreen() {
   const insets = useSafeAreaInsets();
+  const [neuralEnergy, setNeuralEnergy] = useState(100);
   const [spinsLeft, setSpinsLeft] = useState(5);
   const [totalWins, setTotalWins] = useState(0);
   const [totalDonated, setTotalDonated] = useState(0);
@@ -50,15 +55,28 @@ export default function PlayScreen() {
   const donationPulse = useRef(new Animated.Value(0)).current;
   const fadeIn = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const neRef = useRef(neuralEnergy);
+  const spinLockRef = useRef(false);
+
+  useEffect(() => {
+    neRef.current = neuralEnergy;
+  }, [neuralEnergy]);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const s = await AsyncStorage.getItem(SPINS_KEY);
-        const w = await AsyncStorage.getItem(WINS_KEY);
-        const d = await AsyncStorage.getItem(DONATIONS_KEY);
-        if (s) setSpinsLeft(parseInt(s));
-        if (w) setTotalWins(parseInt(w));
+        const [ne, s, w, d] = await Promise.all([
+          AsyncStorage.getItem(NE_KEY),
+          AsyncStorage.getItem(SPINS_KEY),
+          AsyncStorage.getItem(WINS_KEY),
+          AsyncStorage.getItem(DONATIONS_KEY),
+        ]);
+        if (ne !== null) {
+          const parsed = parseInt(ne, 10);
+          setNeuralEnergy(Number.isNaN(parsed) ? 100 : parsed);
+        }
+        if (s) setSpinsLeft(parseInt(s, 10));
+        if (w) setTotalWins(parseInt(w, 10));
         if (d) setTotalDonated(parseFloat(d));
       } catch {}
       setIsLoading(false);
@@ -68,6 +86,10 @@ export default function PlayScreen() {
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
+  }, []);
+
+  const persistNE = useCallback((value: number) => {
+    AsyncStorage.setItem(NE_KEY, String(value));
   }, []);
 
   const showResult = useCallback((state: ResultState) => {
@@ -87,21 +109,17 @@ export default function PlayScreen() {
     }, 2800);
   }, []);
 
-  const triggerMicroDonation = useCallback(
-    async (isWin: boolean, prizeValue?: number, isBoost?: boolean) => {
-      const baseAmount = prizeValue && prizeValue > 0
-        ? prizeValue / 100
-        : MICRO_DONATION_AMOUNTS[Math.floor(Math.random() * MICRO_DONATION_AMOUNTS.length)];
-      let amount = isWin ? baseAmount * 2 : baseAmount;
-      if (isBoost) amount = amount * 2;
+  const trackDonation = useCallback(
+    (amount: number) => {
+      const donationAmount = Math.round(amount * DONATION_RATE * 100) / 100;
+      if (donationAmount <= 0) return;
       const cause = DONATION_CAUSES[Math.floor(Math.random() * DONATION_CAUSES.length)];
-      const rounded = Math.round(amount * 100) / 100;
       setTotalDonated((prev) => {
-        const newTotal = Math.round((prev + rounded) * 100) / 100;
+        const newTotal = Math.round((prev + donationAmount) * 100) / 100;
         AsyncStorage.setItem(DONATIONS_KEY, String(newTotal));
         return newTotal;
       });
-      setLastDonation({ amount: rounded, cause });
+      setLastDonation({ amount: donationAmount, cause });
 
       Animated.sequence([
         Animated.timing(donationPulse, { toValue: 1, duration: 300, useNativeDriver: nd }),
@@ -111,48 +129,35 @@ export default function PlayScreen() {
     []
   );
 
-  const handleSpin = useCallback(
-    async (isWin: boolean, prizeValue: number, prizeLabel: string) => {
+  const incrementSpinCount = useCallback(async () => {
+    const prev = parseInt((await AsyncStorage.getItem(TOTAL_SPINS_USED_KEY)) || "0", 10) || 0;
+    await AsyncStorage.setItem(TOTAL_SPINS_USED_KEY, String(prev + 1));
+  }, []);
+
+  const handleWheelSpin = useCallback(
+    async (wheelResult: WheelResult) => {
+      await incrementSpinCount();
+
       const newSpins = Math.max(0, spinsLeft - 1);
       setSpinsLeft(newSpins);
       await AsyncStorage.setItem(SPINS_KEY, String(newSpins));
 
-      const prev = parseInt((await AsyncStorage.getItem(TOTAL_SPINS_USED_KEY)) || "0", 10) || 0;
-      await AsyncStorage.setItem(TOTAL_SPINS_USED_KEY, String(prev + 1));
-
-      const isBoost = prizeLabel === "2x";
-      const effectiveValue = isBoost ? 0 : prizeValue;
-      triggerMicroDonation(isWin, effectiveValue, isBoost);
-
-      if (isWin) {
-        const newWins = totalWins + 1;
-        setTotalWins(newWins);
-        await AsyncStorage.setItem(WINS_KEY, String(newWins));
+      if (wheelResult.isWin && !wheelResult.isBoost) {
+        const payout = Math.round(WHEEL_SPIN_COST * wheelResult.multiplier);
+        setNeuralEnergy((prev) => {
+          const next = prev + payout;
+          persistNE(next);
+          return next;
+        });
+        trackDonation(payout);
+        setTotalWins((prev) => {
+          const next = prev + 1;
+          AsyncStorage.setItem(WINS_KEY, String(next));
+          return next;
+        });
         showResult("win");
-      } else {
-        showResult("lose");
-      }
-    },
-    [spinsLeft, totalWins, showResult, triggerMicroDonation]
-  );
-
-  const handleBuySpins = useCallback(async () => {
-    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      "Extra Spins",
-      "In-app purchases will be processed securely through your device's app store. This feature will be available at launch.",
-      [{ text: "Got it" }]
-    );
-  }, []);
-
-  const handlePremiumResult = useCallback(
-    (won: boolean, _donationCents: number) => {
-      AsyncStorage.getItem(TOTAL_SPINS_USED_KEY).then((val) => {
-        const prev = parseInt(val || "0", 10) || 0;
-        AsyncStorage.setItem(TOTAL_SPINS_USED_KEY, String(prev + 1));
-      });
-      triggerMicroDonation(won);
-      if (won) {
+      } else if (wheelResult.isBoost) {
+        trackDonation(WHEEL_SPIN_COST * 2);
         setTotalWins((prev) => {
           const next = prev + 1;
           AsyncStorage.setItem(WINS_KEY, String(next));
@@ -160,11 +165,99 @@ export default function PlayScreen() {
         });
         showResult("win");
       } else {
+        trackDonation(WHEEL_SPIN_COST * 0.1);
         showResult("lose");
       }
     },
-    [showResult, triggerMicroDonation]
+    [spinsLeft, showResult, trackDonation, incrementSpinCount, persistNE]
   );
+
+  const handlePremiumSpinStart = useCallback(
+    (cost: number): boolean => {
+      if (spinLockRef.current) return false;
+
+      const currentNE = neRef.current;
+      if (currentNE < cost) {
+        Alert.alert(
+          "Insufficient Neural Energy",
+          `You need ${cost} NE but have ${currentNE} NE. Earn more through brain training or purchase additional energy.`,
+          [{ text: "OK" }]
+        );
+        return false;
+      }
+
+      spinLockRef.current = true;
+
+      const nextNE = currentNE - cost;
+      neRef.current = nextNE;
+      setNeuralEnergy(nextNE);
+      persistNE(nextNE);
+
+      return true;
+    },
+    [persistNE]
+  );
+
+  const handleHoldWinResult = useCallback(
+    async (gameResult: HoldWinResult, cost: number) => {
+      spinLockRef.current = false;
+      await incrementSpinCount();
+
+      if (gameResult.won) {
+        const payout = Math.round(cost * gameResult.multiplier);
+        const nextNE = neRef.current + payout;
+        neRef.current = nextNE;
+        setNeuralEnergy(nextNE);
+        persistNE(nextNE);
+        trackDonation(payout);
+        setTotalWins((prev) => {
+          const next = prev + 1;
+          AsyncStorage.setItem(WINS_KEY, String(next));
+          return next;
+        });
+        showResult("win");
+      } else {
+        trackDonation(cost * 0.1);
+        showResult("lose");
+      }
+    },
+    [showResult, trackDonation, incrementSpinCount, persistNE]
+  );
+
+  const handleDiamondResult = useCallback(
+    async (gameResult: DiamondResult, cost: number) => {
+      spinLockRef.current = false;
+      await incrementSpinCount();
+
+      if (gameResult.won) {
+        const payout = Math.round(cost * gameResult.multiplier);
+        const nextNE = neRef.current + payout;
+        neRef.current = nextNE;
+        setNeuralEnergy(nextNE);
+        persistNE(nextNE);
+        trackDonation(payout);
+        setTotalWins((prev) => {
+          const next = prev + 1;
+          AsyncStorage.setItem(WINS_KEY, String(next));
+          return next;
+        });
+        showResult("win");
+      } else {
+        trackDonation(cost * 0.1);
+        showResult("lose");
+      }
+    },
+    [showResult, trackDonation, incrementSpinCount, persistNE]
+  );
+
+  const handleBuySpins = useCallback(async () => {
+    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      "Get Neural Energy",
+      "In-app purchases will be processed securely through your device's app store. This feature will be available at launch.",
+      [{ text: "Got it" }]
+    );
+  }, []);
 
   const handleShareWin = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -186,7 +279,7 @@ export default function PlayScreen() {
 
   const resultConfig =
     result === "win"
-      ? { title: "You Won!", subtitle: "A compassion milestone reached", color: Colors.gold }
+      ? { title: "You Won!", subtitle: "Neural Energy credited to your balance", color: Colors.gold }
       : result === "lose"
       ? { title: "Keep Going", subtitle: "Every spin strengthens your mind", color: Colors.whiteAlpha50 }
       : null;
@@ -219,6 +312,34 @@ export default function PlayScreen() {
           <Text style={styles.subtitle}>For entertainment & mindfulness only</Text>
         </View>
 
+        <GlassCard style={styles.balanceCard} borderColor={Colors.goldAlpha20} elevated>
+          <LinearGradient
+            colors={["rgba(212,175,55,0.08)", "transparent"]}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          />
+          <View style={styles.balanceRow}>
+            <View style={styles.balanceItem}>
+              <Text style={styles.balanceLabel}>Neural Energy</Text>
+              <Text style={styles.balanceValue}>{neuralEnergy.toLocaleString()}</Text>
+              <Text style={styles.balanceSub}>NE Balance</Text>
+            </View>
+            <View style={styles.balanceDivider} />
+            <View style={styles.balanceItem}>
+              <Text style={styles.balanceLabel}>Free Spins</Text>
+              <Text style={[styles.balanceValue, { color: Colors.empathyGreen }]}>{spinsLeft}</Text>
+              <Text style={styles.balanceSub}>Lucky Wheel</Text>
+            </View>
+            <View style={styles.balanceDivider} />
+            <View style={styles.balanceItem}>
+              <Text style={styles.balanceLabel}>Total Wins</Text>
+              <Text style={[styles.balanceValue, { color: Colors.neuralPurple }]}>{totalWins}</Text>
+              <Text style={styles.balanceSub}>All Games</Text>
+            </View>
+          </View>
+        </GlassCard>
+
         {result !== "idle" && resultConfig && (
           <Animated.View
             style={[
@@ -238,32 +359,31 @@ export default function PlayScreen() {
           </Animated.View>
         )}
 
-        <SlotMachine onSpin={handleSpin} spinsLeft={spinsLeft} />
-
-        <GlassCard style={styles.winsCard} borderColor={Colors.glassBorderLight}>
-          <View style={styles.winsRow}>
-            <View style={styles.winsLeft}>
-              <Ionicons name="trophy" size={18} color={Colors.gold} />
-              <Text style={styles.winsText}>
-                <Text style={styles.winsNum}>{totalWins}</Text>{" "}
-                win{totalWins !== 1 ? "s" : ""} triggered
-              </Text>
-            </View>
-            <View style={styles.donationTag}>
-              <View style={styles.donationDot} />
-              <Text style={styles.donationText}>Impact tracked</Text>
-            </View>
-          </View>
-        </GlassCard>
+        <SlotMachine onSpin={handleWheelSpin} spinsLeft={spinsLeft} />
 
         <View style={styles.premiumDivider}>
           <View style={styles.premiumLine} />
-          <Text style={styles.premiumLabel}>DONATION GAMES</Text>
+          <Text style={styles.premiumLabel}>PREMIUM GAMES</Text>
           <View style={styles.premiumLine} />
         </View>
 
-        <HoldAndWinSlot onResult={handlePremiumResult} />
-        <DiamondJackpotSlot onResult={handlePremiumResult} />
+        <View style={styles.premiumInfo}>
+          <Ionicons name="information-circle-outline" size={14} color={Colors.whiteAlpha30} />
+          <Text style={styles.premiumInfoText}>
+            Premium games cost Neural Energy. Payouts = Bet × Multiplier. Balance deducted before spin.
+          </Text>
+        </View>
+
+        <HoldAndWinSlot
+          neuralEnergy={neuralEnergy}
+          onSpinStart={handlePremiumSpinStart}
+          onResult={handleHoldWinResult}
+        />
+        <DiamondJackpotSlot
+          neuralEnergy={neuralEnergy}
+          onSpinStart={handlePremiumSpinStart}
+          onResult={handleDiamondResult}
+        />
 
         <GlassCard style={styles.microDonationCard} borderColor="rgba(74,222,128,0.2)" elevated>
           <LinearGradient
@@ -272,8 +392,8 @@ export default function PlayScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           />
-          <Text style={styles.microEyebrow}>MICRO-DONATIONS</Text>
-          <Text style={styles.microSubtitle}>Track your compassion impact from spinning</Text>
+          <Text style={styles.microEyebrow}>IMPACT TRACKER</Text>
+          <Text style={styles.microSubtitle}>{Math.round(DONATION_RATE * 100)}% of all gameplay value goes to charity</Text>
 
           <View style={styles.microStats}>
             <View style={styles.microStatMain}>
@@ -303,7 +423,7 @@ export default function PlayScreen() {
               </View>
               <View style={styles.microStatDivider} />
               <View style={styles.microStatItem}>
-                <Text style={styles.microStatVal}>30%</Text>
+                <Text style={styles.microStatVal}>{Math.round(DONATION_RATE * 100)}%</Text>
                 <Text style={styles.microStatLabel}>To Charity</Text>
               </View>
               <View style={styles.microStatDivider} />
@@ -352,17 +472,17 @@ export default function PlayScreen() {
           </View>
         </GlassCard>
 
-        {spinsLeft === 0 && (
+        {(spinsLeft === 0 && neuralEnergy < 10) && (
           <GlassCard style={styles.noSpinsCard} borderColor={Colors.goldAlpha20}>
             <LinearGradient
               colors={[Colors.goldAlpha05, "transparent"]}
               style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.noSpinsTitle}>No Spins Remaining</Text>
+            <Text style={styles.noSpinsTitle}>Low on Energy</Text>
             <Text style={styles.noSpinsBody}>
-              Get more spins to keep training your mind and funding global causes.
+              Earn more Neural Energy through brain training, or purchase additional energy to keep playing.
             </Text>
-            <Pressable onPress={handleBuySpins} style={({ pressed }) => [pressed && { opacity: 0.85 }]} accessibilityRole="button" accessibilityLabel="Get more spins">
+            <Pressable onPress={handleBuySpins} style={({ pressed }) => [pressed && { opacity: 0.85 }]} accessibilityRole="button" accessibilityLabel="Get more Neural Energy">
               <LinearGradient
                 colors={[Colors.goldLight, Colors.gold, Colors.goldDim]}
                 style={styles.buyButton}
@@ -370,7 +490,7 @@ export default function PlayScreen() {
                 end={{ x: 1, y: 1 }}
               >
                 <Ionicons name="add-circle" size={18} color={Colors.forestDeep} />
-                <Text style={styles.buyButtonText}>Get More Spins</Text>
+                <Text style={styles.buyButtonText}>Get Neural Energy</Text>
               </LinearGradient>
             </Pressable>
           </GlassCard>
@@ -397,8 +517,9 @@ export default function PlayScreen() {
           <Text style={styles.howEyebrow}>HOW IT WORKS</Text>
           {[
             { icon: "🧠", text: "Each spin trains neuroplasticity through pattern recognition" },
-            { icon: "🌍", text: "Match 3 symbols to trigger a compassion milestone" },
-            { icon: "❤️", text: "30% of subscription revenue goes to verified charity partners" },
+            { icon: "⚡", text: "Neural Energy is deducted before each premium spin — no double claims" },
+            { icon: "❤️", text: `${Math.round(DONATION_RATE * 100)}% of all gameplay value goes to verified charity partners` },
+            { icon: "📊", text: "Win rates are transparent: 70–80% miss, 11–20% partial, 1–11% jackpot" },
           ].map((item, i) => (
             <View key={i} style={styles.howRow}>
               <Text style={styles.howIcon}>{item.icon}</Text>
@@ -456,6 +577,42 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: "center",
   },
+  balanceCard: {
+    padding: 20,
+    overflow: "hidden",
+  },
+  balanceRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+  },
+  balanceItem: {
+    alignItems: "center",
+    flex: 1,
+    gap: 2,
+  },
+  balanceLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 9,
+    color: Colors.whiteAlpha30,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  balanceValue: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 24,
+    color: Colors.gold,
+  },
+  balanceSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 10,
+    color: Colors.whiteAlpha30,
+  },
+  balanceDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: Colors.whiteAlpha10,
+  },
   resultToast: {
     position: "absolute",
     top: 120,
@@ -478,50 +635,6 @@ const styles = StyleSheet.create({
     color: Colors.whiteAlpha60,
     textAlign: "center",
   },
-  winsCard: {
-    padding: 16,
-  },
-  winsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  winsLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  winsText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 14,
-    color: Colors.whiteAlpha60,
-  },
-  winsNum: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    color: Colors.gold,
-  },
-  donationTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: Colors.goldAlpha05,
-    borderRadius: 100,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: Colors.goldAlpha10,
-  },
-  donationDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: Colors.success,
-  },
-  donationText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 10,
-    color: Colors.goldRose,
-  },
   premiumDivider: {
     flexDirection: "row",
     alignItems: "center",
@@ -538,6 +651,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.gold,
     letterSpacing: 3,
+  },
+  premiumInfo: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  premiumInfoText: {
+    flex: 1,
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: Colors.whiteAlpha30,
+    lineHeight: 16,
   },
   noSpinsCard: {
     padding: 28,

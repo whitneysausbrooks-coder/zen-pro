@@ -18,17 +18,136 @@ const PAYOUTS: Record<string, number> = {
 };
 
 const TIERS = [
-  { label: "1¢", cents: 1, multiplier: 1, color: Colors.mindfulBlue },
-  { label: "3¢", cents: 3, multiplier: 3, color: Colors.balanceAmber },
-  { label: "5¢", cents: 5, multiplier: 5, color: Colors.gold },
+  { label: "10 NE", cost: 10, color: Colors.mindfulBlue },
+  { label: "30 NE", cost: 30, color: Colors.balanceAmber },
+  { label: "50 NE", cost: 50, color: Colors.gold },
 ];
 
-interface Props {
-  onResult: (won: boolean, donationCents: number) => void;
+export interface DiamondResult {
+  won: boolean;
+  multiplier: number;
+  label: string;
 }
 
-export function DiamondJackpotSlot({ onResult }: Props) {
-  const [reels, setReels] = useState([0, 1, 2, 3, 4]);
+interface Props {
+  neuralEnergy: number;
+  onSpinStart: (cost: number) => boolean;
+  onResult: (result: DiamondResult, cost: number) => void;
+}
+
+type DiamondOutcome = "mega" | "four" | "three" | "pair" | "miss";
+
+function rollDiamondOutcome(): DiamondOutcome {
+  const r = Math.random() * 100;
+  if (r < 1) return "mega";
+  if (r < 3) return "four";
+  if (r < 9) return "three";
+  if (r < 20) return "pair";
+  return "miss";
+}
+
+function generateDiamondReels(outcome: DiamondOutcome): number[] {
+  switch (outcome) {
+    case "mega": {
+      const s = Math.floor(Math.random() * SYMBOLS.length);
+      return [s, s, s, s, s];
+    }
+    case "four": {
+      const s = Math.floor(Math.random() * SYMBOLS.length);
+      let diff: number;
+      do { diff = Math.floor(Math.random() * SYMBOLS.length); } while (diff === s);
+      const pos = Math.floor(Math.random() * 5);
+      const reels = [s, s, s, s, s];
+      reels[pos] = diff;
+      return reels;
+    }
+    case "three": {
+      const s = Math.floor(Math.random() * SYMBOLS.length);
+      const start = Math.floor(Math.random() * 3);
+      const reels: number[] = [];
+      for (let i = 0; i < 5; i++) {
+        if (i >= start && i < start + 3) {
+          reels.push(s);
+        } else {
+          let r: number;
+          do { r = Math.floor(Math.random() * SYMBOLS.length); } while (r === s);
+          reels.push(r);
+        }
+      }
+      return reels;
+    }
+    case "pair": {
+      const s = Math.floor(Math.random() * SYMBOLS.length);
+      const start = Math.floor(Math.random() * 4);
+      const reels: number[] = [];
+      const used = new Set<number>([s]);
+      for (let i = 0; i < 5; i++) {
+        if (i === start || i === start + 1) {
+          reels.push(s);
+        } else {
+          let r: number;
+          let attempts = 0;
+          do {
+            r = Math.floor(Math.random() * SYMBOLS.length);
+            attempts++;
+          } while (used.has(r) && attempts < 50);
+          reels.push(r);
+          used.add(r);
+        }
+      }
+      return reels;
+    }
+    case "miss":
+    default: {
+      const available = Array.from({ length: SYMBOLS.length }, (_, i) => i);
+      for (let i = available.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [available[i], available[j]] = [available[j], available[i]];
+      }
+      return available.slice(0, 5);
+    }
+  }
+}
+
+function evaluateDiamondReels(finals: number[]): {
+  outcome: DiamondOutcome;
+  matchSym: string;
+  matchCount: number;
+} {
+  const syms = finals.map((i) => SYMBOLS[i]);
+  const counts: Record<string, number> = {};
+  syms.forEach((s) => { counts[s] = (counts[s] || 0) + 1; });
+
+  let maxCount = 0;
+  let maxSym = "";
+  Object.entries(counts).forEach(([sym, count]) => {
+    if (count > maxCount) { maxCount = count; maxSym = sym; }
+  });
+
+  if (maxCount >= 5) return { outcome: "mega", matchSym: maxSym, matchCount: 5 };
+  if (maxCount === 4) return { outcome: "four", matchSym: maxSym, matchCount: 4 };
+  if (maxCount === 3) return { outcome: "three", matchSym: maxSym, matchCount: 3 };
+
+  let consecutive = 1;
+  let maxConsecutive = 1;
+  let consSym = syms[0];
+  for (let i = 1; i < syms.length; i++) {
+    if (syms[i] === syms[i - 1]) {
+      consecutive++;
+      if (consecutive > maxConsecutive) {
+        maxConsecutive = consecutive;
+        consSym = syms[i];
+      }
+    } else {
+      consecutive = 1;
+    }
+  }
+  if (maxConsecutive >= 2) return { outcome: "pair", matchSym: consSym, matchCount: 2 };
+
+  return { outcome: "miss", matchSym: "", matchCount: 0 };
+}
+
+export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
   const [displayReels, setDisplayReels] = useState([0, 1, 2, 3, 4]);
   const [phase, setPhase] = useState<"bet" | "spinning" | "result">("bet");
   const [selectedTier, setSelectedTier] = useState(0);
@@ -58,26 +177,18 @@ export function DiamondJackpotSlot({ onResult }: Props) {
 
   const handleSpin = useCallback(() => {
     if (phase !== "bet") return;
+
+    const tier = TIERS[selectedTier];
+    const canSpin = onSpinStart(tier.cost);
+    if (!canSpin) return;
+
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setPhase("spinning");
     setResultText("");
     setPayout(0);
 
-    const jackpotChance = Math.random();
-    let finals: number[];
-    if (jackpotChance < 0.05) {
-      const sym = Math.floor(Math.random() * SYMBOLS.length);
-      finals = [sym, sym, sym, sym, sym];
-    } else if (jackpotChance < 0.15) {
-      const sym = Math.floor(Math.random() * SYMBOLS.length);
-      const pos = Math.floor(Math.random() * 3);
-      finals = [0, 1, 2, 3, 4].map((i) =>
-        i >= pos && i < pos + 3 ? sym : Math.floor(Math.random() * SYMBOLS.length)
-      );
-    } else {
-      finals = [0, 1, 2, 3, 4].map(() => Math.floor(Math.random() * SYMBOLS.length));
-    }
-    setReels(finals);
+    const outcome = rollDiamondOutcome();
+    const finals = generateDiamondReels(outcome);
 
     let stopped = 0;
     finals.forEach((_, i) => {
@@ -107,58 +218,74 @@ export function DiamondJackpotSlot({ onResult }: Props) {
 
         stopped++;
         if (stopped >= 5) {
-          evaluateResult(finals);
+          evaluateAndReport(finals, tier.cost);
         }
       }, 500 + i * 350);
       timeoutRefs.current.push(tid);
     });
-  }, [phase, selectedTier]);
+  }, [phase, selectedTier, onSpinStart]);
 
-  const evaluateResult = useCallback((finals: number[]) => {
-    const tier = TIERS[selectedTier];
-    const syms = finals.map((i) => SYMBOLS[i]);
+  const evaluateAndReport = useCallback((finals: number[], cost: number) => {
+    const { outcome: actualOutcome, matchSym, matchCount } = evaluateDiamondReels(finals);
 
-    const counts: Record<string, number> = {};
-    syms.forEach((s) => { counts[s] = (counts[s] || 0) + 1; });
+    let resultMultiplier = 0;
+    let payoutAmount = 0;
 
-    let maxCount = 0;
-    let maxSym = "";
-    Object.entries(counts).forEach(([sym, count]) => {
-      if (count > maxCount) { maxCount = count; maxSym = sym; }
-    });
-
-    let donationCents = 0;
-    if (maxCount === 5) {
-      donationCents = (PAYOUTS[maxSym] || 5) * tier.multiplier * 3;
-      setResultText(`💎 MEGA JACKPOT! ${maxSym}×5 — ${donationCents}¢ donated!`);
-    } else if (maxCount === 4) {
-      donationCents = (PAYOUTS[maxSym] || 5) * tier.multiplier * 2;
-      setResultText(`🔥 Four of a Kind! ${maxSym}×4 — ${donationCents}¢ donated!`);
-    } else if (maxCount === 3) {
-      donationCents = Math.ceil((PAYOUTS[maxSym] || 3) * tier.multiplier * 0.8);
-      setResultText(`Three ${maxSym}! — ${donationCents}¢ donated!`);
-    } else {
-      let consecutive = 1;
-      let maxConsecutive = 1;
-      for (let i = 1; i < syms.length; i++) {
-        if (syms[i] === syms[i - 1]) { consecutive++; maxConsecutive = Math.max(maxConsecutive, consecutive); }
-        else { consecutive = 1; }
+    switch (actualOutcome) {
+      case "mega": {
+        resultMultiplier = (PAYOUTS[matchSym] || 5) * 3;
+        payoutAmount = Math.round(cost * resultMultiplier);
+        setResultText(`💎 MEGA JACKPOT! ${matchSym}×5 — +${payoutAmount} NE!`);
+        break;
       }
-      if (maxConsecutive >= 2) {
-        donationCents = Math.ceil(tier.cents * 0.5) || 1;
-        setResultText(`Small match — ${donationCents}¢ donated!`);
-      } else {
+      case "four": {
+        resultMultiplier = (PAYOUTS[matchSym] || 5) * 1.5;
+        payoutAmount = Math.round(cost * resultMultiplier);
+        setResultText(`🔥 Four of a Kind! ${matchSym}×4 — +${payoutAmount} NE!`);
+        break;
+      }
+      case "three": {
+        resultMultiplier = (PAYOUTS[matchSym] || 3) * 0.5;
+        payoutAmount = Math.round(cost * resultMultiplier);
+        setResultText(`Three ${matchSym}! — +${payoutAmount} NE`);
+        break;
+      }
+      case "pair": {
+        resultMultiplier = 0.3;
+        payoutAmount = Math.round(cost * resultMultiplier);
+        setResultText(`Small match — +${payoutAmount} NE`);
+        break;
+      }
+      default: {
         setResultText("No match — spin again!");
+        break;
       }
     }
 
-    setPayout(donationCents);
+    setPayout(payoutAmount);
     setPhase("result");
     Animated.timing(resultAnim, { toValue: 1, duration: 400, useNativeDriver: nd }).start();
-    onResult(donationCents > 0, donationCents);
+
+    onResult(
+      {
+        won: resultMultiplier > 0,
+        multiplier: resultMultiplier,
+        label:
+          actualOutcome === "mega"
+            ? `Mega ${matchSym}×5`
+            : actualOutcome === "four"
+            ? `Four ${matchSym}×4`
+            : actualOutcome === "three"
+            ? `Three ${matchSym}×3`
+            : actualOutcome === "pair"
+            ? `Pair ${matchSym}×2`
+            : "No match",
+      },
+      cost
+    );
 
     if (nd) {
-      if (donationCents > 0) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (resultMultiplier > 0) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
@@ -173,6 +300,8 @@ export function DiamondJackpotSlot({ onResult }: Props) {
     timeoutRefs.current.push(rid);
   }, [selectedTier, onResult]);
 
+  const canAfford = neuralEnergy >= TIERS[selectedTier].cost;
+
   return (
     <View style={s.container}>
       <LinearGradient
@@ -182,7 +311,7 @@ export function DiamondJackpotSlot({ onResult }: Props) {
       <View style={s.header}>
         <Text style={s.badge}>5-REEL PREMIUM</Text>
         <Text style={s.title}>Diamond Jackpot</Text>
-        <Text style={s.sub}>5 reels, bigger matches, bigger donations</Text>
+        <Text style={s.sub}>5 reels, bigger matches, bigger rewards</Text>
       </View>
 
       <View style={s.reelsRow}>
@@ -205,11 +334,12 @@ export function DiamondJackpotSlot({ onResult }: Props) {
               s.tierBtn,
               selectedTier === i && { borderColor: tier.color, backgroundColor: `${tier.color}15` },
             ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Bet ${tier.label}`}
           >
             <Text style={[s.tierLabel, selectedTier === i && { color: tier.color }]}>
               {tier.label}
             </Text>
-            <Text style={s.tierMult}>{tier.multiplier}× donation</Text>
           </Pressable>
         ))}
       </View>
@@ -217,33 +347,48 @@ export function DiamondJackpotSlot({ onResult }: Props) {
       <View style={s.payoutRow}>
         <View style={s.payoutItem}>
           <Text style={s.payoutEmoji}>💎×5</Text>
-          <Text style={s.payoutVal}>Mega Donation</Text>
+          <Text style={s.payoutVal}>sym×3 mult</Text>
         </View>
         <View style={s.payoutDivider} />
         <View style={s.payoutItem}>
           <Text style={s.payoutEmoji}>×4</Text>
-          <Text style={s.payoutVal}>Big Donation</Text>
+          <Text style={s.payoutVal}>sym×1.5 mult</Text>
         </View>
         <View style={s.payoutDivider} />
         <View style={s.payoutItem}>
           <Text style={s.payoutEmoji}>×3</Text>
-          <Text style={s.payoutVal}>Donation Match</Text>
+          <Text style={s.payoutVal}>sym×0.5 mult</Text>
         </View>
+      </View>
+
+      <View style={s.oddsRow}>
+        <Text style={s.oddsLabel}>Win Rates:</Text>
+        <Text style={s.oddsText}>Mega 1% · Four 2% · Three 6% · Pair 11% · Miss 80%</Text>
       </View>
 
       <Pressable
         onPress={handleSpin}
-        disabled={phase !== "bet"}
-        style={({ pressed }) => [pressed && { opacity: 0.9 }, phase !== "bet" && { opacity: 0.5 }]}
+        disabled={phase !== "bet" || !canAfford}
+        style={({ pressed }) => [pressed && { opacity: 0.9 }, (phase !== "bet" || !canAfford) && { opacity: 0.5 }]}
+        accessibilityRole="button"
+        accessibilityLabel={
+          !canAfford
+            ? "Insufficient Neural Energy"
+            : `Spin for ${TIERS[selectedTier].label}`
+        }
       >
         <LinearGradient
-          colors={phase === "bet" ? ["#4fc3f7", "#0288d1", "#01579b"] : ["#555", "#444", "#333"]}
+          colors={phase === "bet" && canAfford ? ["#4fc3f7", "#0288d1", "#01579b"] : ["#555", "#444", "#333"]}
           style={s.spinGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
           <Text style={s.spinText}>
-            {phase === "spinning" ? "SPINNING..." : `SPIN — donate ${TIERS[selectedTier].label}`}
+            {phase === "spinning"
+              ? "SPINNING..."
+              : !canAfford
+              ? "NEED MORE NE"
+              : `SPIN — ${TIERS[selectedTier].label}`}
           </Text>
         </LinearGradient>
       </Pressable>
@@ -329,13 +474,8 @@ const s = StyleSheet.create({
   },
   tierLabel: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 18,
+    fontSize: 16,
     color: Colors.whiteAlpha60,
-  },
-  tierMult: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 9,
-    color: Colors.whiteAlpha30,
   },
   payoutRow: {
     flexDirection: "row",
@@ -369,6 +509,23 @@ const s = StyleSheet.create({
     width: 1,
     height: 24,
     backgroundColor: Colors.glassBorderLight,
+  },
+  oddsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  oddsLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 9,
+    color: Colors.whiteAlpha30,
+    letterSpacing: 1,
+  },
+  oddsText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 9,
+    color: Colors.whiteAlpha30,
   },
   spinGradient: {
     paddingVertical: 16,

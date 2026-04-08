@@ -19,19 +19,134 @@ const MULTIPLIERS: Record<string, number> = {
 };
 
 const TIERS = [
-  { label: "1¢", cents: 1, multiplier: 1, color: Colors.mindfulBlue },
-  { label: "3¢", cents: 3, multiplier: 3, color: Colors.balanceAmber },
-  { label: "5¢", cents: 5, multiplier: 5, color: Colors.gold },
+  { label: "10 NE", cost: 10, color: Colors.mindfulBlue },
+  { label: "30 NE", cost: 30, color: Colors.balanceAmber },
+  { label: "50 NE", cost: 50, color: Colors.gold },
 ];
 
-interface Props {
-  onResult: (won: boolean, donationCents: number) => void;
+export interface HoldWinResult {
+  won: boolean;
+  multiplier: number;
+  label: string;
 }
 
-export function HoldAndWinSlot({ onResult }: Props) {
+interface Props {
+  neuralEnergy: number;
+  onSpinStart: (cost: number) => boolean;
+  onResult: (result: HoldWinResult, cost: number) => void;
+}
+
+type Outcome = "triple" | "pair" | "miss";
+
+function rollOutcome(): Outcome {
+  const r = Math.random() * 100;
+  if (r < 11) return "triple";
+  if (r < 30) return "pair";
+  return "miss";
+}
+
+function generateRespinReels(
+  outcome: Outcome,
+  held: boolean[],
+  currentReels: number[]
+): number[] {
+  const result = [...currentReels];
+  const unheldIndices: number[] = [];
+  for (let i = 0; i < 3; i++) {
+    if (!held[i]) unheldIndices.push(i);
+  }
+
+  if (unheldIndices.length === 0) return result;
+
+  const heldSymbols: number[] = [];
+  for (let i = 0; i < 3; i++) {
+    if (held[i]) heldSymbols.push(currentReels[i]);
+  }
+
+  switch (outcome) {
+    case "triple": {
+      const target =
+        heldSymbols.length > 0
+          ? heldSymbols[0]
+          : Math.floor(Math.random() * SYMBOLS.length);
+      for (const i of unheldIndices) result[i] = target;
+      break;
+    }
+    case "pair": {
+      if (heldSymbols.length === 2 && heldSymbols[0] === heldSymbols[1]) {
+        let diff: number;
+        do {
+          diff = Math.floor(Math.random() * SYMBOLS.length);
+        } while (diff === heldSymbols[0]);
+        for (const i of unheldIndices) result[i] = diff;
+      } else if (heldSymbols.length === 1) {
+        if (unheldIndices.length >= 2) {
+          result[unheldIndices[0]] = heldSymbols[0];
+          let diff: number;
+          do {
+            diff = Math.floor(Math.random() * SYMBOLS.length);
+          } while (diff === heldSymbols[0]);
+          result[unheldIndices[1]] = diff;
+        } else {
+          result[unheldIndices[0]] = heldSymbols[0];
+        }
+      } else {
+        const sym = Math.floor(Math.random() * SYMBOLS.length);
+        let diff: number;
+        do {
+          diff = Math.floor(Math.random() * SYMBOLS.length);
+        } while (diff === sym);
+        result[unheldIndices[0]] = sym;
+        result[unheldIndices[1]] = sym;
+        if (unheldIndices[2] !== undefined) result[unheldIndices[2]] = diff;
+      }
+      break;
+    }
+    case "miss": {
+      const used = new Set<number>();
+      for (let i = 0; i < 3; i++) {
+        if (held[i]) used.add(currentReels[i]);
+      }
+      for (const i of unheldIndices) {
+        let sym: number;
+        let attempts = 0;
+        do {
+          sym = Math.floor(Math.random() * SYMBOLS.length);
+          attempts++;
+        } while (used.has(sym) && attempts < 100);
+        result[i] = sym;
+        used.add(sym);
+      }
+      break;
+    }
+  }
+
+  return result;
+}
+
+function evaluateReels(reels: number[]): {
+  outcome: Outcome;
+  matchSymbol: string;
+} {
+  const s1 = SYMBOLS[reels[0]];
+  const s2 = SYMBOLS[reels[1]];
+  const s3 = SYMBOLS[reels[2]];
+
+  if (s1 === s2 && s2 === s3)
+    return { outcome: "triple", matchSymbol: s1 };
+  if (s1 === s2 || s2 === s3 || s1 === s3) {
+    const sym = s1 === s2 ? s1 : s1 === s3 ? s1 : s2;
+    return { outcome: "pair", matchSymbol: sym };
+  }
+  return { outcome: "miss", matchSymbol: "" };
+}
+
+export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
   const [reels, setReels] = useState([0, 2, 4]);
   const [held, setHeld] = useState([false, false, false]);
-  const [phase, setPhase] = useState<"bet" | "spinning" | "hold" | "respin" | "result">("bet");
+  const [phase, setPhase] = useState<
+    "bet" | "spinning" | "hold" | "respin" | "result"
+  >("bet");
   const [selectedTier, setSelectedTier] = useState(0);
   const [resultText, setResultText] = useState("");
   const [payout, setPayout] = useState(0);
@@ -42,174 +157,228 @@ export function HoldAndWinSlot({ onResult }: Props) {
     useRef(new Animated.Value(0)).current,
   ];
   const resultAnim = useRef(new Animated.Value(0)).current;
-  const intervalRefs = useRef<(ReturnType<typeof setInterval> | null)[]>([null, null, null]);
+  const intervalRefs = useRef<(ReturnType<typeof setInterval> | null)[]>([
+    null,
+    null,
+    null,
+  ]);
   const tickRefs = useRef([0, 0, 0]);
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const mountedRef = useRef(true);
+  const respinLockRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      intervalRefs.current.forEach((id) => { if (id) clearInterval(id); });
+      intervalRefs.current.forEach((id) => {
+        if (id) clearInterval(id);
+      });
       timeoutRefs.current.forEach((id) => clearTimeout(id));
     };
   }, []);
 
-  const spinReels = useCallback((heldMask: boolean[], finalIndices: number[], onDone: () => void) => {
-    let stopped = 0;
-    const total = heldMask.filter((h) => !h).length;
-    if (total === 0) { onDone(); return; }
+  const spinReels = useCallback(
+    (
+      heldMask: boolean[],
+      finalIndices: number[],
+      onDone: () => void
+    ) => {
+      let stopped = 0;
+      const total = heldMask.filter((h) => !h).length;
+      if (total === 0) {
+        onDone();
+        return;
+      }
 
-    heldMask.forEach((isHeld, i) => {
-      if (isHeld) return;
-      tickRefs.current[i] = 0;
-      intervalRefs.current[i] = setInterval(() => {
-        tickRefs.current[i]++;
-        setDisplayReels((prev) => {
-          const next = [...prev];
-          next[i] = tickRefs.current[i] % SYMBOLS.length;
-          return next;
-        });
-      }, 70);
+      heldMask.forEach((isHeld, i) => {
+        if (isHeld) return;
+        tickRefs.current[i] = 0;
+        intervalRefs.current[i] = setInterval(() => {
+          tickRefs.current[i]++;
+          setDisplayReels((prev) => {
+            const next = [...prev];
+            next[i] = tickRefs.current[i] % SYMBOLS.length;
+            return next;
+          });
+        }, 70);
 
-      const tid = setTimeout(() => {
-        if (intervalRefs.current[i]) clearInterval(intervalRefs.current[i]!);
-        intervalRefs.current[i] = null;
-        if (!mountedRef.current) return;
-        setDisplayReels((prev) => {
-          const next = [...prev];
-          next[i] = finalIndices[i];
-          return next;
-        });
-        Animated.sequence([
-          Animated.timing(spinAnims[i], { toValue: -8, duration: 50, useNativeDriver: nd }),
-          Animated.spring(spinAnims[i], { toValue: 0, friction: 5, useNativeDriver: nd }),
-        ]).start();
-        stopped++;
-        if (stopped >= total) onDone();
-      }, 600 + i * 400);
-      timeoutRefs.current.push(tid);
-    });
-  }, []);
+        const tid = setTimeout(() => {
+          if (intervalRefs.current[i])
+            clearInterval(intervalRefs.current[i]!);
+          intervalRefs.current[i] = null;
+          if (!mountedRef.current) return;
+          setDisplayReels((prev) => {
+            const next = [...prev];
+            next[i] = finalIndices[i];
+            return next;
+          });
+          Animated.sequence([
+            Animated.timing(spinAnims[i], {
+              toValue: -8,
+              duration: 50,
+              useNativeDriver: nd,
+            }),
+            Animated.spring(spinAnims[i], {
+              toValue: 0,
+              friction: 5,
+              useNativeDriver: nd,
+            }),
+          ]).start();
+          stopped++;
+          if (stopped >= total) onDone();
+        }, 600 + i * 400);
+        timeoutRefs.current.push(tid);
+      });
+    },
+    []
+  );
 
   const handleSpin = useCallback(() => {
     if (phase !== "bet") return;
+
+    const tier = TIERS[selectedTier];
+    const canSpin = onSpinStart(tier.cost);
+    if (!canSpin) return;
+
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setPhase("spinning");
     setHeld([false, false, false]);
     setResultText("");
     setPayout(0);
 
-    const r = [0, 1, 2].map(() => Math.floor(Math.random() * SYMBOLS.length));
+    const r = [0, 1, 2].map(() =>
+      Math.floor(Math.random() * SYMBOLS.length)
+    );
     setReels(r);
 
     spinReels([false, false, false], r, () => {
       setPhase("hold");
     });
-  }, [phase, spinReels]);
+  }, [phase, spinReels, selectedTier, onSpinStart]);
 
-  const toggleHold = useCallback((idx: number) => {
-    if (phase !== "hold") return;
-    if (nd) Haptics.selectionAsync();
-    setHeld((prev) => {
-      const next = [...prev];
-      next[idx] = !next[idx];
-      return next;
-    });
-  }, [phase]);
+  const toggleHold = useCallback(
+    (idx: number) => {
+      if (phase !== "hold") return;
+      if (nd) Haptics.selectionAsync();
+      setHeld((prev) => {
+        const next = [...prev];
+        next[idx] = !next[idx];
+        return next;
+      });
+    },
+    [phase]
+  );
 
-  const handleRespin = useCallback(() => {
-    if (phase !== "hold") return;
-    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setPhase("respin");
-
-    const newReels = reels.map((r, i) =>
-      held[i] ? r : Math.floor(Math.random() * SYMBOLS.length)
-    );
-    setReels(newReels);
-
-    spinReels(held, newReels, () => {
+  const finishSpin = useCallback(
+    (finalReels: number[]) => {
+      if (!mountedRef.current) return;
       const tier = TIERS[selectedTier];
-      const s1 = SYMBOLS[newReels[0]];
-      const s2 = SYMBOLS[newReels[1]];
-      const s3 = SYMBOLS[newReels[2]];
 
+      const { outcome, matchSymbol } = evaluateReels(finalReels);
+
+      let resultMultiplier = 0;
       let donationCents = 0;
-      if (s1 === s2 && s2 === s3) {
-        donationCents = (MULTIPLIERS[s1] || 3) * tier.cents;
-        setResultText(`JACKPOT! ${s1}${s1}${s1} — ${donationCents}¢ donated!`);
-      } else if (s1 === s2 || s2 === s3 || s1 === s3) {
-        const matchSym = s1 === s2 ? s1 : s1 === s3 ? s1 : s2;
-        donationCents = Math.ceil((MULTIPLIERS[matchSym] || 2) * tier.cents * 0.3);
-        setResultText(`Pair! ${matchSym}${matchSym} — ${donationCents}¢ donated!`);
+
+      if (outcome === "triple") {
+        resultMultiplier = MULTIPLIERS[matchSymbol] || 3;
+        donationCents = Math.round(tier.cost * resultMultiplier);
+        setResultText(
+          `JACKPOT! ${matchSymbol}${matchSymbol}${matchSymbol} — +${donationCents} NE!`
+        );
+      } else if (outcome === "pair") {
+        resultMultiplier = 0.5;
+        donationCents = Math.round(tier.cost * resultMultiplier);
+        setResultText(
+          `Pair! ${matchSymbol}${matchSymbol} — +${donationCents} NE`
+        );
       } else {
         setResultText("No match — try again!");
       }
 
       setPayout(donationCents);
       setPhase("result");
-      Animated.timing(resultAnim, { toValue: 1, duration: 400, useNativeDriver: nd }).start();
-      onResult(donationCents > 0, donationCents);
+      Animated.timing(resultAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: nd,
+      }).start();
+
+      onResult(
+        {
+          won: resultMultiplier > 0,
+          multiplier: resultMultiplier,
+          label:
+            outcome === "triple"
+              ? `Jackpot ${matchSymbol}×3`
+              : outcome === "pair"
+              ? `Pair ${matchSymbol}×2`
+              : "No match",
+        },
+        tier.cost
+      );
+
+      if (nd) {
+        if (resultMultiplier > 0)
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success
+          );
+        else
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
 
       const rid = setTimeout(() => {
         if (!mountedRef.current) return;
-        Animated.timing(resultAnim, { toValue: 0, duration: 300, useNativeDriver: nd }).start(() => {
+        Animated.timing(resultAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: nd,
+        }).start(() => {
           if (!mountedRef.current) return;
           setPhase("bet");
+          respinLockRef.current = false;
           resultAnim.setValue(0);
         });
       }, 2500);
       timeoutRefs.current.push(rid);
+    },
+    [selectedTier, onResult]
+  );
+
+  const handleRespin = useCallback(() => {
+    if (phase !== "hold" || respinLockRef.current) return;
+    respinLockRef.current = true;
+    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPhase("respin");
+
+    const outcome = rollOutcome();
+    const newReels = generateRespinReels(outcome, held, reels);
+    setReels(newReels);
+
+    spinReels(held, newReels, () => {
+      finishSpin(newReels);
     });
-  }, [phase, reels, held, selectedTier, spinReels, onResult]);
+  }, [phase, reels, held, spinReels, finishSpin]);
 
   const handleSkipHold = useCallback(() => {
-    if (phase !== "hold") return;
+    if (phase !== "hold" || respinLockRef.current) return;
+    respinLockRef.current = true;
     const noHold: boolean[] = [false, false, false];
     setHeld(noHold);
 
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setPhase("respin");
 
-    const newReels = reels.map(() => Math.floor(Math.random() * SYMBOLS.length));
+    const outcome = rollOutcome();
+    const newReels = generateRespinReels(outcome, noHold, reels);
     setReels(newReels);
 
     spinReels(noHold, newReels, () => {
-      if (!mountedRef.current) return;
-      const tier = TIERS[selectedTier];
-      const s1 = SYMBOLS[newReels[0]];
-      const s2 = SYMBOLS[newReels[1]];
-      const s3 = SYMBOLS[newReels[2]];
-
-      let donationCents = 0;
-      if (s1 === s2 && s2 === s3) {
-        donationCents = (MULTIPLIERS[s1] || 3) * tier.cents;
-        setResultText(`JACKPOT! ${s1}${s1}${s1} — ${donationCents}¢ donated!`);
-      } else if (s1 === s2 || s2 === s3 || s1 === s3) {
-        const matchSym = s1 === s2 ? s1 : s1 === s3 ? s1 : s2;
-        donationCents = Math.ceil((MULTIPLIERS[matchSym] || 2) * tier.cents * 0.3);
-        setResultText(`Pair! ${matchSym}${matchSym} — ${donationCents}¢ donated!`);
-      } else {
-        setResultText("No match — try again!");
-      }
-
-      setPayout(donationCents);
-      setPhase("result");
-      Animated.timing(resultAnim, { toValue: 1, duration: 400, useNativeDriver: nd }).start();
-      onResult(donationCents > 0, donationCents);
-
-      const rid = setTimeout(() => {
-        if (!mountedRef.current) return;
-        Animated.timing(resultAnim, { toValue: 0, duration: 300, useNativeDriver: nd }).start(() => {
-          if (!mountedRef.current) return;
-          setPhase("bet");
-          resultAnim.setValue(0);
-        });
-      }, 2500);
-      timeoutRefs.current.push(rid);
+      finishSpin(newReels);
     });
-  }, [phase, reels, selectedTier, spinReels, onResult]);
+  }, [phase, reels, spinReels, finishSpin]);
+
+  const canAfford = neuralEnergy >= TIERS[selectedTier].cost;
 
   return (
     <View style={s.container}>
@@ -220,7 +389,9 @@ export function HoldAndWinSlot({ onResult }: Props) {
       <View style={s.header}>
         <Text style={s.badge}>HOLD & WIN</Text>
         <Text style={s.title}>Vegas Hold</Text>
-        <Text style={s.sub}>Hold your best reels, donate on match</Text>
+        <Text style={s.sub}>
+          Hold your best reels, respin for a match
+        </Text>
       </View>
 
       <View style={s.reelsRow}>
@@ -229,6 +400,8 @@ export function HoldAndWinSlot({ onResult }: Props) {
             key={i}
             onPress={() => toggleHold(i)}
             disabled={phase !== "hold"}
+            accessibilityRole="button"
+            accessibilityLabel={`Reel ${i + 1}: ${SYMBOLS[displayReels[i]]}${held[i] ? ", held" : ""}`}
           >
             <Animated.View
               style={[
@@ -237,7 +410,9 @@ export function HoldAndWinSlot({ onResult }: Props) {
                 { transform: [{ translateY: spinAnims[i] }] },
               ]}
             >
-              <Text style={s.reelSymbol}>{SYMBOLS[displayReels[i]]}</Text>
+              <Text style={s.reelSymbol}>
+                {SYMBOLS[displayReels[i]]}
+              </Text>
               {held[i] && (
                 <View style={s.holdBadge}>
                   <Text style={s.holdText}>HOLD</Text>
@@ -250,8 +425,14 @@ export function HoldAndWinSlot({ onResult }: Props) {
 
       {phase === "hold" && (
         <View style={s.holdInstructions}>
-          <Ionicons name="hand-left" size={16} color={Colors.balanceAmber} />
-          <Text style={s.holdInstructionText}>Tap reels to hold, then respin</Text>
+          <Ionicons
+            name="hand-left"
+            size={16}
+            color={Colors.balanceAmber}
+          />
+          <Text style={s.holdInstructionText}>
+            Tap reels to hold, then respin
+          </Text>
         </View>
       )}
 
@@ -259,23 +440,42 @@ export function HoldAndWinSlot({ onResult }: Props) {
         {TIERS.map((tier, i) => (
           <Pressable
             key={tier.label}
-            onPress={() => { if (phase === "bet") setSelectedTier(i); }}
+            onPress={() => {
+              if (phase === "bet") setSelectedTier(i);
+            }}
             style={[
               s.tierBtn,
-              selectedTier === i && { borderColor: tier.color, backgroundColor: `${tier.color}15` },
+              selectedTier === i && {
+                borderColor: tier.color,
+                backgroundColor: `${tier.color}15`,
+              },
             ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Bet ${tier.label}`}
           >
-            <Text style={[s.tierLabel, selectedTier === i && { color: tier.color }]}>
+            <Text
+              style={[
+                s.tierLabel,
+                selectedTier === i && { color: tier.color },
+              ]}
+            >
               {tier.label}
             </Text>
-            <Text style={s.tierMult}>{tier.multiplier}× donation</Text>
           </Pressable>
         ))}
       </View>
 
+      <View style={s.oddsRow}>
+        <Text style={s.oddsLabel}>Win Rates:</Text>
+        <Text style={s.oddsText}>Triple 11% · Pair 19% · Miss 70%</Text>
+      </View>
+
       {phase === "hold" ? (
         <View style={s.holdActions}>
-          <Pressable onPress={handleRespin} style={({ pressed }) => [pressed && { opacity: 0.9 }]}>
+          <Pressable
+            onPress={handleRespin}
+            style={({ pressed }) => [pressed && { opacity: 0.9 }]}
+          >
             <LinearGradient
               colors={[Colors.goldLight, Colors.gold, Colors.goldDim]}
               style={s.spinGradient}
@@ -292,25 +492,51 @@ export function HoldAndWinSlot({ onResult }: Props) {
       ) : (
         <Pressable
           onPress={handleSpin}
-          disabled={phase !== "bet"}
-          style={({ pressed }) => [pressed && { opacity: 0.9 }, (phase !== "bet") && { opacity: 0.5 }]}
+          disabled={phase !== "bet" || !canAfford}
+          style={({ pressed }) => [
+            pressed && { opacity: 0.9 },
+            (phase !== "bet" || !canAfford) && { opacity: 0.5 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={
+            !canAfford
+              ? "Insufficient Neural Energy"
+              : `Spin for ${TIERS[selectedTier].label}`
+          }
         >
           <LinearGradient
-            colors={phase === "bet" ? ["#9b59b6", "#8e44ad", "#6c3483"] : ["#555", "#444", "#333"]}
+            colors={
+              phase === "bet" && canAfford
+                ? ["#9b59b6", "#8e44ad", "#6c3483"]
+                : ["#555", "#444", "#333"]
+            }
             style={s.spinGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
             <Text style={s.spinText}>
-              {phase === "spinning" || phase === "respin" ? "SPINNING..." : `SPIN — donate ${TIERS[selectedTier].label}`}
+              {phase === "spinning" || phase === "respin"
+                ? "SPINNING..."
+                : !canAfford
+                ? "NEED MORE NE"
+                : `SPIN — ${TIERS[selectedTier].label}`}
             </Text>
           </LinearGradient>
         </Pressable>
       )}
 
       {resultText !== "" && (
-        <Animated.View style={[s.resultBanner, { opacity: resultAnim }]}>
-          <Text style={[s.resultText, payout > 0 ? { color: Colors.gold } : { color: Colors.whiteAlpha50 }]}>
+        <Animated.View
+          style={[s.resultBanner, { opacity: resultAnim }]}
+        >
+          <Text
+            style={[
+              s.resultText,
+              payout > 0
+                ? { color: Colors.gold }
+                : { color: Colors.whiteAlpha50 },
+            ]}
+          >
             {resultText}
           </Text>
         </Animated.View>
@@ -418,10 +644,22 @@ const s = StyleSheet.create({
   },
   tierLabel: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 18,
+    fontSize: 16,
     color: Colors.whiteAlpha60,
   },
-  tierMult: {
+  oddsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  oddsLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 9,
+    color: Colors.whiteAlpha30,
+    letterSpacing: 1,
+  },
+  oddsText: {
     fontFamily: "Inter_400Regular",
     fontSize: 9,
     color: Colors.whiteAlpha30,
