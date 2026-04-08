@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -18,6 +18,11 @@ import { MemoryGrid } from "@/components/MemoryGrid";
 import { BreathingPacer } from "@/components/BreathingPacer";
 import { PatternMatch } from "@/components/PatternMatch";
 import { NeuralSoundscape } from "@/components/NeuralSoundscape";
+import { NeuroMatch } from "@/components/NeuroMatch";
+import { FocusFlow } from "@/components/FocusFlow";
+import { LogicLift } from "@/components/LogicLift";
+import { NBackChallenge } from "@/components/NBackChallenge";
+import { EmotionStorm } from "@/components/EmotionStorm";
 import Colors from "@/constants/colors";
 
 const nd = Platform.OS !== "web";
@@ -210,6 +215,46 @@ const BRAIN_GAMES: BrainGame[] = [
     iconFamily: "Ionicons",
     science: "Vagus nerve stimulation activates parasympathetic response, reducing amygdala reactivity",
   },
+  {
+    id: "neuromatch",
+    title: "Neuro Match+",
+    description: "Match card pairs across 3 difficulty levels. Train visual memory.",
+    icon: "apps",
+    iconFamily: "Ionicons",
+    science: "Activates hippocampal pattern separation and perirhinal cortex recognition memory",
+  },
+  {
+    id: "focusflow",
+    title: "Focus Flow",
+    description: "Catch focus items, dodge distractions. Train sustained attention.",
+    icon: "eye",
+    iconFamily: "Feather",
+    science: "Strengthens dorsal attention network and right inferior frontal gyrus inhibitory control",
+  },
+  {
+    id: "logiclift",
+    title: "Logic Lift",
+    description: "Crack number sequences and patterns. Sharpen logical reasoning.",
+    icon: "calculator",
+    iconFamily: "Ionicons",
+    science: "Engages lateral prefrontal cortex and anterior insula — core fluid intelligence circuits",
+  },
+  {
+    id: "nback",
+    title: "N-Back Challenge",
+    description: "Classic working-memory task. Match positions N steps back.",
+    icon: "brain",
+    iconFamily: "MaterialCommunity",
+    science: "Gold-standard working-memory training — proven to increase fluid intelligence (Jaeggi 2008)",
+  },
+  {
+    id: "emotionstorm",
+    title: "Emotion Storm",
+    description: "Identify emotions fast. Build emotional intelligence under pressure.",
+    icon: "happy",
+    iconFamily: "Ionicons",
+    science: "Trains fusiform face area and amygdala-PFC circuits for rapid emotion recognition",
+  },
 ];
 
 interface TeamExercise {
@@ -320,24 +365,36 @@ function TaskIcon({ item }: { item: { icon: string; iconFamily: string } }) {
   return <Ionicons name={item.icon as any} size={size} color={color} />;
 }
 
-type ActiveGame = "stroop" | "memory" | "pattern" | "breathing" | "soundscape" | null;
+type ActiveGame = "stroop" | "memory" | "pattern" | "breathing" | "soundscape" | "neuromatch" | "focusflow" | "logiclift" | "nback" | "emotionstorm" | null;
 
 export default function TrainScreen() {
   const insets = useSafeAreaInsets();
   const [completedToday, setCompletedToday] = useState<Set<string>>(new Set());
   const [activeGame, setActiveGame] = useState<ActiveGame>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>("games");
+  const [weeklyEnergy, setWeeklyEnergy] = useState(0);
+  const [totalDonated, setTotalDonated] = useState(0);
+  const [streakCount, setStreakCount] = useState(0);
+  const [gamesPlayed, setGamesPlayed] = useState(0);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const today = new Date().toISOString().split("T")[0];
-        const data = await AsyncStorage.getItem(`${COMPLETED_KEY}_${today}`);
-        if (data) setCompletedToday(new Set(JSON.parse(data)));
-      } catch {}
-    };
-    load();
+  const loadData = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const data = await AsyncStorage.getItem(`${COMPLETED_KEY}_${today}`);
+      if (data) setCompletedToday(new Set(JSON.parse(data)));
+      const ne = await AsyncStorage.getItem("nq_neural_energy");
+      const md = await AsyncStorage.getItem("nq_micro_donations");
+      const sc = await AsyncStorage.getItem("nq_streak_count");
+      const tw = await AsyncStorage.getItem("nq_total_wins");
+      setWeeklyEnergy(ne ? parseInt(ne, 10) : 0);
+      setTotalDonated(md ? parseFloat(md) : 0);
+      setStreakCount(sc ? parseInt(sc, 10) : 0);
+      setGamesPlayed(tw ? parseInt(tw, 10) : 0);
+    } catch {}
   }, []);
+
+  useEffect(() => { loadData(); }, []);
+  useEffect(() => { if (activeGame === null) loadData(); }, [activeGame]);
 
   const toggleTask = useCallback(
     async (id: string) => {
@@ -383,6 +440,11 @@ export default function TrainScreen() {
           {activeGame === "pattern" && <PatternMatch onClose={() => setActiveGame(null)} />}
           {activeGame === "breathing" && <BreathingPacer onClose={() => setActiveGame(null)} />}
           {activeGame === "soundscape" && <NeuralSoundscape onClose={() => setActiveGame(null)} />}
+          {activeGame === "neuromatch" && <NeuroMatch onClose={() => setActiveGame(null)} />}
+          {activeGame === "focusflow" && <FocusFlow onClose={() => setActiveGame(null)} />}
+          {activeGame === "logiclift" && <LogicLift onClose={() => setActiveGame(null)} />}
+          {activeGame === "nback" && <NBackChallenge onClose={() => setActiveGame(null)} />}
+          {activeGame === "emotionstorm" && <EmotionStorm onClose={() => setActiveGame(null)} />}
         </View>
       </View>
     );
@@ -423,19 +485,55 @@ export default function TrainScreen() {
           <View style={styles.nebRow}>
             <View style={styles.nebItem}>
               <Text style={styles.nebLabel}>Neural Energy</Text>
-              <Text style={[styles.nebValue, { color: Colors.empathyGreen }]}>+12%</Text>
+              <Text style={[styles.nebValue, { color: Colors.empathyGreen }]}>{weeklyEnergy}</Text>
             </View>
             <View style={styles.nebDivider} />
             <View style={styles.nebItem}>
-              <Text style={styles.nebLabel}>Focus Score</Text>
-              <Text style={[styles.nebValue, { color: Colors.mindfulBlue }]}>82%</Text>
+              <Text style={styles.nebLabel}>Games Won</Text>
+              <Text style={[styles.nebValue, { color: Colors.mindfulBlue }]}>{gamesPlayed}</Text>
             </View>
             <View style={styles.nebDivider} />
             <View style={styles.nebItem}>
               <Text style={styles.nebLabel}>Streak</Text>
-              <Text style={[styles.nebValue, { color: Colors.balanceAmber }]}>7d</Text>
+              <Text style={[styles.nebValue, { color: Colors.balanceAmber }]}>{streakCount}d</Text>
             </View>
           </View>
+        </GlassCard>
+
+        <GlassCard style={styles.impactCard} borderColor="rgba(74,222,128,0.15)">
+          <LinearGradient
+            colors={["rgba(74,222,128,0.06)", "transparent"]}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.impactHeader}>
+            <Ionicons name="earth" size={20} color={Colors.empathyGreen} />
+            <Text style={styles.impactTitle}>Your Real-World Impact</Text>
+          </View>
+          <View style={styles.impactGrid}>
+            <View style={styles.impactItem}>
+              <Text style={styles.impactEmoji}>🌳</Text>
+              <Text style={styles.impactVal}>{Math.floor(totalDonated * 2)}</Text>
+              <Text style={styles.impactLabel}>Trees Planted</Text>
+            </View>
+            <View style={styles.impactItem}>
+              <Text style={styles.impactEmoji}>🍽️</Text>
+              <Text style={styles.impactVal}>{Math.floor(totalDonated * 4)}</Text>
+              <Text style={styles.impactLabel}>Meals Funded</Text>
+            </View>
+            <View style={styles.impactItem}>
+              <Text style={styles.impactEmoji}>🧠</Text>
+              <Text style={styles.impactVal}>{Math.floor(totalDonated * 0.5)}</Text>
+              <Text style={styles.impactLabel}>Research Hours</Text>
+            </View>
+            <View style={styles.impactItem}>
+              <Text style={styles.impactEmoji}>📚</Text>
+              <Text style={styles.impactVal}>{Math.floor(totalDonated * 3)}</Text>
+              <Text style={styles.impactLabel}>Students Helped</Text>
+            </View>
+          </View>
+          <Text style={styles.impactFooter}>
+            ${totalDonated.toFixed(2)} donated through your Neural Energy
+          </Text>
         </GlassCard>
 
         {/* Daily Progress */}
@@ -821,6 +919,52 @@ const styles = StyleSheet.create({
     width: 1,
     height: 28,
     backgroundColor: Colors.whiteAlpha10,
+  },
+  impactCard: {
+    padding: 18,
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+  impactHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 14,
+  },
+  impactTitle: {
+    color: Colors.empathyGreen,
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  impactGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  impactItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 4,
+  },
+  impactEmoji: {
+    fontSize: 22,
+  },
+  impactVal: {
+    color: Colors.white,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  impactLabel: {
+    color: Colors.whiteAlpha30,
+    fontSize: 10,
+    textAlign: "center",
+  },
+  impactFooter: {
+    color: Colors.whiteAlpha30,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 4,
   },
   scroll: {
     paddingHorizontal: 24,

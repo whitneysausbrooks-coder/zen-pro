@@ -1,0 +1,24 @@
+
+Hey [Coder’s Name],
+Hope you’re doing great! I love how the app is coming together — the mockups for Neural Challenge, Mind-Reader Blackjack, Pattern Pulse, and the EQ test look clean and premium.
+I want to push the app to the next level and make it even more engaging and meaningful. Two main requests:
+1. Overall app improvements
+•  Make the experience feel more rewarding and addictive (more dopamine hits from completing challenges).
+•  Polish the flow between screens so it feels super smooth and modern.
+•  Add subtle progress tracking across all games (total Neural Energy earned this week, streaks, etc.).
+•  Let users see the real-world impact of their Neural Energy (maybe a simple “Your energy has helped plant X trees / fund Y hours of mental-health research” counter).
+2. Add more “Play-to-Donate” games
+Right now we have a few great brain-training games that earn Neural Energy. I want to expand this heavily — turn NeuroQuest into a go-to “play for good” app where every game directly supports causes (mental health, education, neuroscience research, etc.).
+Please add 4–6 new Play-to-Donate games in the next sprint. Ideas that fit perfectly with our NeuroQuest vibe:
+•  Neuro Match+ (harder memory match with 3+ levels of icons or colors)
+•  Emotion Storm (fast-paced EQ game — identify micro-expressions in real faces)
+•  Focus Flow (a simple endless runner or Flappy Bird-style game where you avoid distractions to train attention)
+•  Logic Lift (quick logic puzzles or number sequences)
+•  Breath Sync (breathing + focus mini-game that ties into Wellness tab)
+•  N-Back Challenge (classic working-memory game, very science-backed)
+For every new game:
+•  Same Neural Energy reward system
+•  Option to “Donate your energy” to a charity partner after each session
+•  Short, fun 1–3 minute rounds so people play multiple times a day
+Let me know what you think and if you need any extra design mockups or charity partner details. I’m excited to make this the best brain + good-doing app out there!
+Thanks,
