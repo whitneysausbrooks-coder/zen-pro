@@ -45,14 +45,6 @@ const CAUSES = [
   { id: "ocean", label: "Ocean Cleanup", icon: "🌊", org: "The Ocean Cleanup" },
 ];
 
-const IMPACT_FEED = [
-  { id: "1", user: "A.K.", cause: "Clean Water", amount: "$12.50", time: "Just now" },
-  { id: "2", user: "M.J.", cause: "End Hunger", amount: "$25.00", time: "2m ago" },
-  { id: "3", user: "S.T.", cause: "Climate Action", amount: "$8.00", time: "5m ago" },
-  { id: "4", user: "R.P.", cause: "Education", amount: "$50.00", time: "12m ago" },
-  { id: "5", user: "L.C.", cause: "Mental Health", amount: "$15.00", time: "18m ago" },
-];
-
 const CHARITY_PARTNERS = [
   "World Food Programme",
   "charity: water",
@@ -79,18 +71,6 @@ function computeEmpathyDimensions(energy: number, donations: number, streak: num
   ];
 }
 
-const LIVES_IMPACTED = [
-  { icon: "🌳", value: "15", label: "Trees Planted", color: Colors.empathyGreen },
-  { icon: "🍽️", value: "23", label: "Meals Funded", color: Colors.balanceAmber },
-  { icon: "📖", value: "2", label: "Students Funded", color: Colors.mindfulBlue },
-  { icon: "🧘", value: "0.5", label: "Therapy Sessions", color: Colors.neuralPurple },
-];
-
-const NEURAL_METRICS = [
-  { label: "Empathy", value: "75%", color: Colors.empathyGreen, bg: Colors.empathyGreenDim },
-  { label: "Mindfulness", value: "82%", color: Colors.mindfulBlue, bg: Colors.mindfulBlueDim },
-  { label: "Balance", value: "680", color: Colors.balanceAmber, bg: Colors.balanceAmberDim },
-];
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -399,26 +379,26 @@ export default function HomeScreen() {
             />
             <Animated.View style={[styles.heroGlow, { opacity: glowOpacity }]} />
 
-            <Text style={styles.heroEyebrow}>GLOBAL COMPASSION POOL</Text>
-            <Text style={styles.heroAmount}>$2,847,392</Text>
+            <Text style={styles.heroEyebrow}>YOUR COMPASSION IMPACT</Text>
+            <Text style={styles.heroAmount}>${totalDonated > 0 ? totalDonated.toFixed(2) : "0.00"}</Text>
             <View style={styles.heroSubRow}>
               <View style={styles.heroDot} />
-              <Text style={styles.heroSub}>Donated to verified charities worldwide</Text>
+              <Text style={styles.heroSub}>Donated to verified charity partners</Text>
             </View>
 
             <View style={styles.heroStatsRow}>
               <View style={styles.heroStat}>
-                <Text style={styles.heroStatNum}>142,847</Text>
-                <Text style={styles.heroStatLabel}>Players</Text>
+                <Text style={styles.heroStatNum}>⚡{neuralEnergy}</Text>
+                <Text style={styles.heroStatLabel}>Neural Energy</Text>
               </View>
               <View style={styles.heroStatDivider} />
               <View style={styles.heroStat}>
-                <Text style={styles.heroStatNum}>38</Text>
-                <Text style={styles.heroStatLabel}>Countries</Text>
+                <Text style={styles.heroStatNum}>{streakCount}</Text>
+                <Text style={styles.heroStatLabel}>Day Streak</Text>
               </View>
               <View style={styles.heroStatDivider} />
               <View style={styles.heroStat}>
-                <Text style={styles.heroStatNum}>12</Text>
+                <Text style={styles.heroStatNum}>6</Text>
                 <Text style={styles.heroStatLabel}>Partners</Text>
               </View>
             </View>
@@ -541,9 +521,13 @@ export default function HomeScreen() {
               {"HBHS = \u221A{(EI \u00B7 MP \u00B7 NEB) \u00D7 1.2{Cohesion}}"}
             </Text>
             <View style={styles.neuralRow}>
-              {NEURAL_METRICS.map((m) => (
+              {[
+                { label: "Empathy", value: `${empathyIndex}%`, color: Colors.empathyGreen, bg: Colors.empathyGreenDim },
+                { label: "Energy", value: String(neuralEnergy), color: Colors.mindfulBlue, bg: Colors.mindfulBlueDim },
+                { label: "Streak", value: String(streakCount), color: Colors.balanceAmber, bg: Colors.balanceAmberDim },
+              ].map((m) => (
                 <View key={m.label} style={[styles.neuralMetric, { backgroundColor: m.bg }]}>
-                  <Text style={styles.neuralMetricLabel}>Live%</Text>
+                  <Text style={styles.neuralMetricLabel}>Live</Text>
                   <Text style={[styles.neuralMetricValue, { color: m.color }]}>{m.value}</Text>
                   <Text style={styles.neuralMetricName}>{m.label}</Text>
                 </View>
@@ -554,7 +538,12 @@ export default function HomeScreen() {
           <Text style={styles.sectionEyebrow}>LIVES IMPACTED</Text>
           <Text style={styles.sectionTitle}>Your real-world footprint</Text>
           <View style={styles.livesGrid}>
-            {LIVES_IMPACTED.map((item) => (
+            {[
+              { icon: "🌳", value: String(Math.floor(totalDonated / 2)), label: "Trees Planted", color: Colors.empathyGreen },
+              { icon: "🍽️", value: String(Math.floor(totalDonated / 1.5)), label: "Meals Funded", color: Colors.balanceAmber },
+              { icon: "📖", value: (totalDonated / 50).toFixed(1), label: "Students Helped", color: Colors.mindfulBlue },
+              { icon: "🧘", value: String(gratitudeLog.length), label: "Gratitude Entries", color: Colors.neuralPurple },
+            ].map((item) => (
               <GlassCard key={item.label} style={styles.livesCard} borderColor={Colors.glassBorderLight}>
                 <Text style={styles.livesIcon}>{item.icon}</Text>
                 <Text style={[styles.livesValue, { color: item.color }]}>{item.value}</Text>
@@ -646,22 +635,29 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          <Text style={styles.sectionEyebrow}>LIVE IMPACT FEED</Text>
-          <Text style={styles.sectionTitle}>Real donations, real change</Text>
-          <View style={styles.feedList}>
-            {IMPACT_FEED.map((item) => (
-              <GlassCard key={item.id} style={styles.feedCard} borderColor={Colors.glassBorderLight}>
-                <View style={styles.feedAvatar}>
-                  <Text style={styles.feedAvatarText}>{item.user}</Text>
-                </View>
-                <View style={styles.feedInfo}>
-                  <Text style={styles.feedCause}>{item.cause}</Text>
-                  <Text style={styles.feedTime}>{item.time}</Text>
-                </View>
-                <Text style={styles.feedAmount}>{item.amount}</Text>
-              </GlassCard>
-            ))}
-          </View>
+          {gratitudeLog.length > 0 && (
+            <>
+              <Text style={styles.sectionEyebrow}>GRATITUDE JOURNAL</Text>
+              <Text style={styles.sectionTitle}>Your recent reflections</Text>
+              <View style={styles.feedList}>
+                {gratitudeLog.map((entry, i) => (
+                  <GlassCard key={i} style={styles.feedCard} borderColor={Colors.glassBorderLight}>
+                    <View style={styles.feedAvatar}>
+                      <Text style={styles.feedAvatarText}>🌸</Text>
+                    </View>
+                    <View style={styles.feedInfo}>
+                      <Text style={styles.feedCause} numberOfLines={2}>{entry.text}</Text>
+                      <Text style={styles.feedTime}>{entry.date}</Text>
+                    </View>
+                    <View style={styles.feedReward}>
+                      <Ionicons name="flash" size={12} color={Colors.balanceAmber} />
+                      <Text style={styles.feedRewardText}>+20</Text>
+                    </View>
+                  </GlassCard>
+                ))}
+              </View>
+            </>
+          )}
 
           <GlassCard style={styles.partnersCard} borderColor={Colors.glassBorderLight}>
             <Text style={styles.partnersEyebrow}>VERIFIED CHARITY PARTNERS</Text>
@@ -1481,6 +1477,20 @@ const styles = StyleSheet.create({
     fontFamily: "PlayfairDisplay_700Bold",
     fontSize: 16,
     color: Colors.gold,
+  },
+  feedReward: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.balanceAmberDim,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  feedRewardText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: Colors.balanceAmber,
   },
   partnersCard: {
     padding: 24,

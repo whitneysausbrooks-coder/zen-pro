@@ -1,0 +1,111 @@
+✅ 2. Must-Have Requirements (Non-Negotiable)
+
+🔧 Stability & Performance
+
+Tell them:
+	•	“App must not crash under normal use”
+	•	“All buttons, links, and flows must work 100%”
+	•	“No placeholder content (‘coming soon’, dummy text, broken images)”
+
+👉 Reviewers WILL reject for even 1 broken button.
+
+⸻
+
+🔐 Authentication & User Flow
+	•	“User must be able to sign up, log in, and log out without errors”
+	•	“No dead ends—every screen must have a clear next action”
+	•	“If login is required, explain WHY before forcing it”
+
+⸻
+
+💳 Payments (If You Have Them)
+	•	“All purchases must go through official in-app purchase systems”
+	•	“Do not unlock features until payment is confirmed”
+	•	“Handle failed payments gracefully (no rewards unless paid)”
+
+⸻
+
+📜 Legal Pages (Huge one people miss)
+
+Tell them to include:
+	•	Privacy Policy (hosted + linked in app)
+	•	Terms of Service
+	•	Data usage explanation
+
+👉 Say this clearly:
+
+“User must be able to access Privacy Policy inside the app before using features.”
+
+⸻
+
+🔒 Permissions (Camera, Photos, etc.)
+	•	“Every permission must include a clear explanation BEFORE prompting”
+Example:
+
+“We need camera access so you can upload your daily activity.”
+
+👉 If unclear = instant rejection.
+
+⸻
+
+📅 Feature Restrictions (like your daily task idea)
+
+Since you mentioned this before, tell them:
+
+“User can only complete this action once per day. Enforce server-side, not just UI. Require user input before submission, and prevent duplicate entries within 24 hours.”
+
+⸻
+
+🧼 UI / UX Quality
+	•	“No overlapping text, cut-off buttons, or inconsistent design”
+	•	“App must look polished and intentional—not like a prototype”
+
+👉 Apple especially is strict on this.
+
+⸻
+
+📡 Offline / Error Handling
+	•	“Show proper error messages if internet fails”
+	•	“No infinite loading screens”
+	•	“Gracefully handle API failures”
+
+⸻
+
+🚨 3. Common Rejection Traps (Tell Your Dev to AVOID)
+
+Send this as a checklist:
+	•	❌ “App feels incomplete or like a beta”
+	•	❌ “Features advertised but not functional”
+	•	❌ “No real value (too simple or empty)”
+	•	❌ “Spammy or misleading claims”
+	•	❌ “Crashes or slow load times”
+	•	❌ “Login required without purpose”
+	•	❌ “Missing legal pages”
+
+⸻
+
+🧪 4. Testing Standard You Should Require
+
+Tell them:
+
+“Before submission, I want full QA testing:
+	•	Test on multiple devices (different screen sizes)
+	•	Test all user flows end-to-end
+	•	Fix ALL bugs before submission
+	•	No ‘we’ll fix later’ items”
+
+⸻
+
+🚀 5. Final Pre-Launch Checklist
+
+Have your coder confirm:
+	•	App builds successfully (no errors)
+	•	App Store / Play Store metadata matches actual app
+	•	Screenshots reflect REAL app usage
+	•	Demo/test account provided (for reviewers if needed)
+
+⸻
+
+💬 If You Want a Strong One-Liner to Send:
+
+“I need this app to feel like a finished, polished product—not a prototype. Every feature must work, all flows must be complete, and it must meet Apple and Google review standards with zero obvious issues.”

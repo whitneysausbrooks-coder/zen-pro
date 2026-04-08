@@ -3,11 +3,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Linking from "expo-linking";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
   Dimensions,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -20,6 +22,7 @@ import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GlassCard } from "@/components/GlassCard";
+import { LegalScreen } from "@/components/LegalScreen";
 import Colors from "@/constants/colors";
 
 const { width } = Dimensions.get("window");
@@ -64,11 +67,11 @@ const ACHIEVEMENTS_DEF: Array<{ id: string; title: string; icon: string; conditi
 ];
 
 const SETTINGS = [
-  { id: "notifications", label: "Daily Reminders", icon: "bell", toggle: true, value: true },
   { id: "haptics", label: "Haptic Feedback", icon: "smartphone", toggle: true, value: true },
   { id: "privacy", label: "Privacy Policy", icon: "shield", toggle: false },
   { id: "terms", label: "Terms of Use", icon: "file-text", toggle: false },
   { id: "support", label: "Contact Support", icon: "message-circle", toggle: false },
+  { id: "reset", label: "Reset All Data", icon: "trash-2", toggle: false },
 ];
 
 async function shareText(message: string, title: string) {
@@ -143,6 +146,7 @@ export default function ProfileScreen() {
   const [settings, setSettings] = useState(
     SETTINGS.reduce((acc, s) => ({ ...acc, [s.id]: s.value ?? false }), {} as Record<string, boolean>)
   );
+  const [legalTab, setLegalTab] = useState<"privacy" | "terms" | null>(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const starAnim = useRef(new Animated.Value(0)).current;
 
@@ -208,6 +212,54 @@ export default function ProfileScreen() {
     if (nd) Haptics.selectionAsync();
     setSettings((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
+
+  const handleSettingPress = useCallback((id: string) => {
+    if (nd) Haptics.selectionAsync();
+    switch (id) {
+      case "privacy":
+        setLegalTab("privacy");
+        break;
+      case "terms":
+        setLegalTab("terms");
+        break;
+      case "support":
+        Linking.openURL("mailto:support@neuroquestapp.com?subject=NeuroQuest%20Support%20Request");
+        break;
+      case "reset":
+        Alert.alert(
+          "Reset All Data",
+          "This will permanently delete all your progress, Neural Energy, streak data, gratitude entries, and donation records from this device. This action cannot be undone.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Reset Everything",
+              style: "destructive",
+              onPress: async () => {
+                try {
+                  await AsyncStorage.multiRemove([
+                    NEURAL_ENERGY_KEY,
+                    DONATIONS_KEY,
+                    SPINS_KEY,
+                    STREAK_KEY,
+                    WINS_KEY,
+                    GRATITUDE_LOG_KEY,
+                    TOTAL_SPINS_USED_KEY,
+                    "nq_morning_bloom_date",
+                    "nq_gratitude_streak",
+                  ]);
+                  loadData();
+                  if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  Alert.alert("Data Reset", "All your data has been cleared.");
+                } catch {
+                  Alert.alert("Error", "Failed to reset data. Please try again.");
+                }
+              },
+            },
+          ]
+        );
+        break;
+    }
+  }, [loadData]);
 
   const zen = computeZenRank(data);
   const empathyDims = computeEmpathyIndex(data);
@@ -480,11 +532,17 @@ export default function ProfileScreen() {
           {SETTINGS.map((s, i) => (
             <View key={s.id}>
               <Pressable
-                onPress={() => (s.toggle ? toggleSetting(s.id) : null)}
+                onPress={() => (s.toggle ? toggleSetting(s.id) : handleSettingPress(s.id))}
                 style={({ pressed }) => [styles.settingRow, pressed && { opacity: 0.7 }]}
               >
-                <Feather name={s.icon as any} size={18} color={Colors.whiteAlpha60} />
-                <Text style={styles.settingLabel}>{s.label}</Text>
+                <Feather
+                  name={s.icon as any}
+                  size={18}
+                  color={s.id === "reset" ? Colors.error : Colors.whiteAlpha60}
+                />
+                <Text style={[styles.settingLabel, s.id === "reset" && { color: Colors.error }]}>
+                  {s.label}
+                </Text>
                 {s.toggle ? (
                   <View style={[styles.toggle, settings[s.id] && styles.toggleOn]}>
                     <View style={[styles.toggleKnob, settings[s.id] && styles.toggleKnobOn]} />
@@ -500,6 +558,15 @@ export default function ProfileScreen() {
 
         <Text style={styles.version}>NeuroQuest v1.0.0 · Made with purpose</Text>
       </ScrollView>
+
+      <Modal visible={legalTab !== null} animationType="slide" presentationStyle="fullScreen">
+        {legalTab && (
+          <LegalScreen
+            initialTab={legalTab}
+            onClose={() => setLegalTab(null)}
+          />
+        )}
+      </Modal>
     </View>
   );
 }
