@@ -15,6 +15,7 @@ import AdminPanel from "@/pages/admin";
 import Onboarding from "@/pages/onboarding";
 import Blackjack from "@/pages/blackjack";
 import EQGame from "@/pages/eq-game";
+import PatternPulse from "@/pages/pattern-pulse";
 import { MobileNav } from "@/components/mobile-nav";
 import { InstallPrompt } from "@/components/install-prompt";
 import { AuthGate } from "@/components/auth-gate";
@@ -77,6 +78,7 @@ function Router() {
           <Route path="/brain-game"  component={() => <ProtectedGame component={MemoryMatch}  name="Neural Challenge" />} />
           <Route path="/blackjack"   component={() => <ProtectedGame component={Blackjack}    name="Mind-Reader Challenge" />} />
           <Route path="/eq-game"     component={() => <ProtectedGame component={EQGame}       name="Emotional EQ" />} />
+          <Route path="/pattern-pulse" component={() => <ProtectedGame component={PatternPulse} name="Pattern Pulse" />} />
           <Route path="/wellness"    component={() => <ProtectedGame component={SlotMachine}  name="Compassion Wheel" />} />
           <Route path="/subscribe"   component={Subscribe}   />
           <Route path="/enterprise"  component={Enterprise}  />

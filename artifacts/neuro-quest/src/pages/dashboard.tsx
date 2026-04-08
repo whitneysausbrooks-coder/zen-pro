@@ -1,6 +1,6 @@
 import React from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone, Globe, TrendingUp, Users, Share2 } from "lucide-react"
+import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Dices, Crown, Building2, Flame, Megaphone, Globe, TrendingUp, Users, Share2, Layers } from "lucide-react"
 import { UserAuthButton } from "@/components/user-auth-button"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
@@ -399,6 +399,34 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1.5 bg-cyan-400/10 border border-cyan-400/25 rounded-full px-4 py-2 shrink-0 group-hover:bg-cyan-400/20 transition-colors">
                     <Zap className="w-4 h-4 text-cyan-400" />
                     <span className="text-sm font-bold text-cyan-400">+60</span>
+                  </div>
+                </GlassCardContent>
+              </GlassCard>
+            </motion.div>
+
+            {/* Pattern Pulse — Visual Memory */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.14 }}
+            >
+              <GlassCard
+                className="cursor-pointer group hover:border-violet-400/40 transition-all duration-300"
+                onClick={() => navigate("/pattern-pulse")}
+              >
+                <GlassCardContent className="p-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-violet-400/15 rounded-2xl border border-violet-400/25 group-hover:bg-violet-400/25 transition-colors">
+                      <Layers className="w-7 h-7 text-violet-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-serif font-semibold text-lg text-foreground">Pattern Pulse</h3>
+                      <p className="text-sm text-muted-foreground">7 levels · Visual-spatial working memory</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-violet-400/10 border border-violet-400/25 rounded-full px-4 py-2 shrink-0 group-hover:bg-violet-400/20 transition-colors">
+                    <Zap className="w-4 h-4 text-violet-400" />
+                    <span className="text-sm font-bold text-violet-400">+90</span>
                   </div>
                 </GlassCardContent>
               </GlassCard>
