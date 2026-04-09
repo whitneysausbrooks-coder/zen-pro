@@ -2,7 +2,7 @@
   "expo": {
     "name": "NeuroQuest",
     "slug": "neuro-quest-mobile",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "neuroquest",
@@ -15,14 +15,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.whitneyshauntaye.neuroquest"
+      "bundleIdentifier": "app.replit.neuroquest"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#070D09"
       },
-      "package": "com.whitneyshauntaye.neuroquest"
+      "package": "app.replit.neuroquest"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
