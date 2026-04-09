@@ -151,6 +151,8 @@ export default function ProfileScreen() {
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const starAnim = useRef(new Animated.Value(0)).current;
   const fadeIn = useRef(new Animated.Value(0)).current;
+  const devTapCount = useRef(0);
+  const devTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -195,6 +197,28 @@ export default function ProfileScreen() {
       loadData();
     }, [loadData])
   );
+
+  const handleDevTap = useCallback(async () => {
+    devTapCount.current += 1;
+    if (devTapTimer.current) clearTimeout(devTapTimer.current);
+    if (devTapCount.current >= 5) {
+      devTapCount.current = 0;
+      if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const DEV_CREDIT = {
+        [NEURAL_ENERGY_KEY]: "10000",
+        [SPINS_KEY]: "500",
+        [WINS_KEY]: "50",
+        [DONATIONS_KEY]: "25.00",
+        [STREAK_KEY]: "14",
+        [TOTAL_SPINS_USED_KEY]: "200",
+      };
+      await AsyncStorage.multiSet(Object.entries(DEV_CREDIT));
+      await loadData();
+      Alert.alert("Dev Mode Activated", "10,000 Neural Energy\n500 Spins\n50 Wins\n$25.00 Donated\n14-Day Streak\n\nAll stats credited for testing.");
+    } else {
+      devTapTimer.current = setTimeout(() => { devTapCount.current = 0; }, 2000);
+    }
+  }, [loadData]);
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -335,16 +359,18 @@ export default function ProfileScreen() {
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
           />
-          <Animated.View style={[styles.avatarRing, { transform: [{ scale: ringScale }] }]}>
-            <LinearGradient
-              colors={[Colors.goldLight, Colors.gold, Colors.goldDim]}
-              style={styles.avatar}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Text style={styles.avatarEmoji}>🧘</Text>
-            </LinearGradient>
-          </Animated.View>
+          <Pressable onPress={handleDevTap} accessibilityLabel="Profile avatar">
+            <Animated.View style={[styles.avatarRing, { transform: [{ scale: ringScale }] }]}>
+              <LinearGradient
+                colors={[Colors.goldLight, Colors.gold, Colors.goldDim]}
+                style={styles.avatar}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.avatarEmoji}>🧘</Text>
+              </LinearGradient>
+            </Animated.View>
+          </Pressable>
           <Text style={styles.profileName}>Compassion Player</Text>
           <View style={styles.rankBadge}>
             <MaterialCommunityIcons name="crown" size={12} color={Colors.forestDeep} />
