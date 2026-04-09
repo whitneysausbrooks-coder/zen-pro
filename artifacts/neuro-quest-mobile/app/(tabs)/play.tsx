@@ -21,6 +21,7 @@ import { GlassCard } from "@/components/GlassCard";
 import { SlotMachine, WheelResult } from "@/components/SlotMachine";
 import { HoldAndWinSlot, HoldWinResult } from "@/components/HoldAndWinSlot";
 import { DiamondJackpotSlot, DiamondResult } from "@/components/DiamondJackpotSlot";
+import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import Colors from "@/constants/colors";
 
 const { width: screenW } = Dimensions.get("window");
@@ -36,6 +37,12 @@ const WHEEL_SPIN_COST = 10;
 const DONATION_RATE = 0.30;
 
 type ResultState = "idle" | "win" | "lose";
+
+const SPIN_PACKS = [
+  { id: "pack_5", spins: 5, price: "$0.99", priceNum: 0.99, label: "Starter" },
+  { id: "pack_15", spins: 15, price: "$1.99", priceNum: 1.99, label: "Popular", badge: "POPULAR" },
+  { id: "pack_50", spins: 50, price: "$4.99", priceNum: 4.99, label: "Pro", badge: "BEST VALUE" },
+];
 
 const DONATION_CAUSES = [
   "Clean Water", "End Hunger", "Education", "Mental Health", "Climate Action", "Ocean Cleanup",
@@ -57,6 +64,8 @@ export default function PlayScreen() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const neRef = useRef(neuralEnergy);
   const spinLockRef = useRef(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationAmount, setCelebrationAmount] = useState(0);
 
   useEffect(() => {
     neRef.current = neuralEnergy;
@@ -156,6 +165,8 @@ export default function PlayScreen() {
           return next;
         });
         showResult("win");
+        setCelebrationAmount(payout);
+        setShowCelebration(true);
       } else if (wheelResult.isBoost) {
         trackDonation(WHEEL_SPIN_COST * 2);
         setTotalWins((prev) => {
@@ -164,6 +175,8 @@ export default function PlayScreen() {
           return next;
         });
         showResult("win");
+        setCelebrationAmount(WHEEL_SPIN_COST * 2);
+        setShowCelebration(true);
       } else {
         trackDonation(WHEEL_SPIN_COST * 0.1);
         showResult("lose");
@@ -222,6 +235,8 @@ export default function PlayScreen() {
           return next;
         });
         showResult("win");
+        setCelebrationAmount(payout);
+        setShowCelebration(true);
       } else {
         trackDonation(cost * 0.1);
         showResult("lose");
@@ -248,6 +263,8 @@ export default function PlayScreen() {
           return next;
         });
         showResult("win");
+        setCelebrationAmount(payout);
+        setShowCelebration(true);
       } else {
         trackDonation(cost * 0.1);
         showResult("lose");
@@ -255,6 +272,29 @@ export default function PlayScreen() {
     },
     [showResult, trackDonation, incrementSpinCount, persistNE]
   );
+
+  const handleBuySpinPack = useCallback((pack: typeof SPIN_PACKS[0]) => {
+    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      `${pack.spins} Extra Spins — ${pack.price}`,
+      `Purchase ${pack.spins} bonus spins for ${pack.price}. ${Math.round(pack.priceNum * DONATION_RATE * 100) / 100 > 0 ? `$${(pack.priceNum * DONATION_RATE).toFixed(2)} of this purchase goes to charity.` : ""}\n\nThis purchase will be processed securely through the App Store.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: `Buy ${pack.price}`,
+          style: "default",
+          onPress: () => {
+            if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert(
+              "Purchase Pending",
+              "In-app purchases will be available when the app launches on the App Store. Thank you for your interest!",
+              [{ text: "OK" }]
+            );
+          },
+        },
+      ]
+    );
+  }, []);
 
   const handleBuySpins = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -347,6 +387,48 @@ export default function PlayScreen() {
         </GlassCard>
 
         <SlotMachine onSpin={handleWheelSpin} spinsLeft={spinsLeft} />
+
+        <GlassCard style={styles.spinPackCard} borderColor={Colors.goldAlpha20}>
+          <LinearGradient
+            colors={[Colors.goldAlpha08, Colors.goldAlpha05, "transparent"]}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+          />
+          <Text style={styles.spinPackEyebrow}>EXTRA SPINS</Text>
+          <Text style={styles.spinPackSubtitle}>Bonus spins that never expire</Text>
+          <View style={styles.spinPackRow}>
+            {SPIN_PACKS.map((pack) => (
+              <Pressable
+                key={pack.id}
+                onPress={() => handleBuySpinPack(pack)}
+                style={({ pressed }) => [styles.spinPackItem, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Buy ${pack.spins} spins for ${pack.price}`}
+              >
+                {"badge" in pack && pack.badge && (
+                  <View style={styles.spinPackBadge}>
+                    <Text style={styles.spinPackBadgeText}>{pack.badge}</Text>
+                  </View>
+                )}
+                <Text style={styles.spinPackCount}>{pack.spins}</Text>
+                <Text style={styles.spinPackLabel}>spins</Text>
+                <LinearGradient
+                  colors={[Colors.goldLight, Colors.gold, Colors.goldDim]}
+                  style={styles.spinPackPriceBtn}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Text style={styles.spinPackPrice}>{pack.price}</Text>
+                </LinearGradient>
+              </Pressable>
+            ))}
+          </View>
+          <View style={styles.spinPackDonation}>
+            <View style={styles.spinPackDonationDot} />
+            <Text style={styles.spinPackDonationText}>30% of every purchase supports charity</Text>
+          </View>
+        </GlassCard>
 
         <View style={styles.premiumDivider}>
           <View style={styles.premiumLine} />
@@ -516,6 +598,12 @@ export default function PlayScreen() {
         </GlassCard>
         </Animated.View>
       </ScrollView>
+
+      <CelebrationOverlay
+        visible={showCelebration}
+        winAmount={celebrationAmount}
+        onFinish={() => setShowCelebration(false)}
+      />
 
       {result !== "idle" && resultConfig && (
         <Animated.View
@@ -886,5 +974,94 @@ const styles = StyleSheet.create({
     color: Colors.whiteAlpha30,
     width: 28,
     textAlign: "right",
+  },
+  spinPackCard: {
+    padding: 24,
+    gap: 10,
+    overflow: "hidden",
+  },
+  spinPackEyebrow: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+    color: Colors.goldDim,
+    letterSpacing: 3,
+  },
+  spinPackSubtitle: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: Colors.whiteAlpha50,
+  },
+  spinPackRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 6,
+  },
+  spinPackItem: {
+    flex: 1,
+    backgroundColor: Colors.whiteAlpha05,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.glassBorderLight,
+    paddingVertical: 16,
+    alignItems: "center",
+    gap: 4,
+    overflow: "hidden",
+  },
+  spinPackBadge: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.goldAlpha15,
+    paddingVertical: 3,
+    alignItems: "center",
+  },
+  spinPackBadgeText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 7,
+    color: Colors.gold,
+    letterSpacing: 1.5,
+  },
+  spinPackCount: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 28,
+    color: Colors.white,
+    marginTop: 8,
+  },
+  spinPackLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: Colors.whiteAlpha30,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  spinPackPriceBtn: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 50,
+  },
+  spinPackPrice: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 13,
+    color: Colors.forestDeep,
+  },
+  spinPackDonation: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+  },
+  spinPackDonationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.empathyGreen,
+  },
+  spinPackDonationText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: Colors.empathyGreen,
+    opacity: 0.8,
   },
 });

@@ -83,10 +83,27 @@ export default function ShopScreen() {
 
   const handlePurchase = useCallback((id: string) => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const plan = PLANS.find((p) => p.id === id);
+    if (!plan) return;
+
     Alert.alert(
-      "Subscription",
-      "In-app purchases are processed securely through the App Store. This feature will be available when the app launches on the App Store.",
-      [{ text: "Got it", style: "default" }]
+      `Subscribe to ${plan.title}`,
+      `${plan.price}${plan.period}\n\n${plan.donationNote}\n\nYour subscription includes:\n${plan.features.slice(0, 4).map((f) => `• ${f}`).join("\n")}\n\nPayment will be processed securely through the App Store. Subscriptions auto-renew unless cancelled at least 24 hours before the end of the current period.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: `Subscribe ${plan.price}${plan.period}`,
+          style: "default",
+          onPress: () => {
+            if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert(
+              "Subscription Pending",
+              "In-app subscriptions will be available when the app launches on the App Store. You'll be among the first to know!",
+              [{ text: "Got it" }]
+            );
+          },
+        },
+      ]
     );
   }, []);
 
@@ -227,29 +244,60 @@ export default function ShopScreen() {
         })}
 
         <GlassCard style={styles.spinsCard} borderColor={Colors.glassBorderLight}>
-          <View style={styles.spinsTop}>
+          <View style={styles.spinsHeader}>
             <View style={styles.spinsIconWrap}>
               <Ionicons name="game-controller" size={24} color={Colors.gold} />
             </View>
             <View style={styles.spinsInfo}>
               <Text style={styles.spinsTitle}>Extra Spins</Text>
-              <Text style={styles.spinsDesc}>10 bonus spins · Never expire</Text>
+              <Text style={styles.spinsDesc}>Bonus spins that never expire</Text>
             </View>
-            <Pressable
-              onPress={() => {
-                if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                Alert.alert("Extra Spins", "In-app purchases will be available through the App Store when the app launches.", [{ text: "Got it" }]);
-              }}
-              style={({ pressed }) => [styles.spinsButton, pressed && { opacity: 0.8 }]}
-              accessibilityRole="button"
-              accessibilityLabel="Buy 10 extra spins for $2.99"
-            >
-              <Text style={styles.spinsPrice}>$2.99</Text>
-            </Pressable>
+          </View>
+          <View style={styles.spinsTierRow}>
+            {[
+              { spins: 5, price: "$0.99", donation: "$0.30" },
+              { spins: 15, price: "$1.99", donation: "$0.60", badge: "POPULAR" },
+              { spins: 50, price: "$4.99", donation: "$1.50", badge: "BEST VALUE" },
+            ].map((tier) => (
+              <Pressable
+                key={tier.spins}
+                onPress={() => {
+                  if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  Alert.alert(
+                    `${tier.spins} Extra Spins — ${tier.price}`,
+                    `Purchase ${tier.spins} bonus spins for ${tier.price}. ${tier.donation} of this purchase goes to charity.\n\nPayment processed securely through the App Store.`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: `Buy ${tier.price}`,
+                        onPress: () => {
+                          if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          Alert.alert("Purchase Pending", "In-app purchases will be available when the app launches on the App Store.", [{ text: "OK" }]);
+                        },
+                      },
+                    ]
+                  );
+                }}
+                style={({ pressed }) => [styles.spinsTierItem, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Buy ${tier.spins} spins for ${tier.price}`}
+              >
+                {"badge" in tier && tier.badge && (
+                  <View style={styles.spinsTierBadge}>
+                    <Text style={styles.spinsTierBadgeText}>{tier.badge}</Text>
+                  </View>
+                )}
+                <Text style={styles.spinsTierCount}>{tier.spins}</Text>
+                <Text style={styles.spinsTierLabel}>spins</Text>
+                <View style={styles.spinsTierPriceWrap}>
+                  <Text style={styles.spinsTierPrice}>{tier.price}</Text>
+                </View>
+              </Pressable>
+            ))}
           </View>
           <View style={styles.donationNote}>
             <View style={styles.donationDot} />
-            <Text style={styles.donationText}>$0.90 donated per purchase</Text>
+            <Text style={styles.donationText}>30% of every purchase supports charity</Text>
           </View>
         </GlassCard>
 
@@ -351,6 +399,22 @@ export default function ShopScreen() {
             <Text style={styles.donationText}>30% of sponsorship goes directly to the cause</Text>
           </View>
         </GlassCard>
+
+        <Pressable
+          onPress={() => {
+            if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            Alert.alert(
+              "Restore Purchases",
+              "Your previous purchases will be restored from your App Store account. This feature will be available when the app launches on the App Store.",
+              [{ text: "OK" }]
+            );
+          }}
+          style={({ pressed }) => [styles.restoreBtn, pressed && { opacity: 0.7 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Restore previous purchases"
+        >
+          <Text style={styles.restoreText}>Restore Purchases</Text>
+        </Pressable>
 
         <Text style={styles.disclaimer}>
           Subscriptions auto-renew until cancelled. Manage or cancel anytime in your
@@ -546,6 +610,11 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 14,
   },
+  spinsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
   spinsTop: {
     flexDirection: "row",
     alignItems: "center",
@@ -575,6 +644,64 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.whiteAlpha30,
   },
+  spinsTierRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
+  },
+  spinsTierItem: {
+    flex: 1,
+    backgroundColor: Colors.whiteAlpha05,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.glassBorderLight,
+    paddingVertical: 14,
+    alignItems: "center",
+    gap: 4,
+    overflow: "hidden",
+  },
+  spinsTierBadge: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.goldAlpha15,
+    paddingVertical: 2,
+    alignItems: "center",
+  },
+  spinsTierBadgeText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 7,
+    color: Colors.gold,
+    letterSpacing: 1.5,
+  },
+  spinsTierCount: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 24,
+    color: Colors.white,
+    marginTop: 6,
+  },
+  spinsTierLabel: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 10,
+    color: Colors.whiteAlpha30,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  spinsTierPriceWrap: {
+    marginTop: 6,
+    backgroundColor: Colors.goldAlpha10,
+    borderRadius: 50,
+    borderWidth: 1,
+    borderColor: Colors.goldAlpha20,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  spinsTierPrice: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 12,
+    color: Colors.gold,
+  },
   spinsButton: {
     backgroundColor: Colors.goldAlpha10,
     borderRadius: 100,
@@ -587,6 +714,18 @@ const styles = StyleSheet.create({
     fontFamily: "PlayfairDisplay_700Bold",
     fontSize: 16,
     color: Colors.gold,
+  },
+  restoreBtn: {
+    alignSelf: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    marginTop: 4,
+  },
+  restoreText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: Colors.whiteAlpha30,
+    textDecorationLine: "underline",
   },
   disclaimer: {
     fontFamily: "Inter_400Regular",

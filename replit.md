@@ -46,7 +46,7 @@ The monorepo leverages TypeScript composite projects with project references for
 - **Share System:** Dedicated `/share` page with social platform buttons and message presets.
 - **Dashboard Layout:** Structured order of information including streaks, notifications, global impact, game cards, daily tasks, and leaderboards.
 - **UI Philosophy:** "Intentional, clean, and focused" with purpose-driven elements and controlled animations.
-- **Behavioral Design Patterns:** Dopamine triggers (CelebrationOverlay for achievements), Compassion Loops (linking actions to real-world impact), and No-Shame Loops (graceful handling of streak breaks).
+- **Behavioral Design Patterns:** Dopamine triggers (CelebrationOverlay with 18-particle burst, 8-emoji rain, ring pulse, center win badge, double haptic, 2.2s auto-dismiss — triggered on all 3 game win paths), Compassion Loops (linking actions to real-world impact), and No-Shame Loops (graceful handling of streak breaks). CelebrationOverlay has full animation lifecycle cleanup (all Animated values stopped, timers cleared, mountedRef guard) to prevent leaks on rapid unmount.
 
 **Feature Specifications:**
 - **Monetization (3-Tier):** Zen Pro subscription, Daily Pass, Enterprise Corporate Wellness, Sponsored Jackpots. 30% of subscription revenue dedicated to charity.
@@ -57,7 +57,8 @@ The monorepo leverages TypeScript composite projects with project references for
 - **Team Building Exercises (Corporate):** 6 science-backed exercises for enterprise users focusing on empathy, communication, and trust.
 - **Enterprise Features:** Team Dashboard, ROI Analytics, SSO/SCIM, Burnout Detection, CSR Impact Reports, privacy-first design.
 - **Daily Mindful Tasks:** Focus & Mind and Heart & Spirit tasks requiring reflection, with server-side enforcement.
-- **Monetization Engine (Mobile Play Screen):** Neural Energy (NE) is the universal currency for games. Balance deducted atomically before animations. 30% of gameplay value tracked as charity impact.
+- **Monetization Engine (Mobile Play Screen):** Neural Energy (NE) is the universal currency for games. Balance deducted atomically before animations. 30% of gameplay value tracked as charity impact. Extra Spin Purchase Packs: 3-tier system ($0.99/5 spins Starter, $1.99/15 spins Popular, $4.99/50 spins Best Value) shown on both Play and Shop screens with gold gradient price buttons.
+- **Restore Purchases:** Shop screen includes an Apple-compliant "Restore Purchases" button below subscription/spin sections.
 - **Game Mechanics:** Compassion Wheel (web-based, staggered stops), Lucky Wheel (mobile, weighted probability, free spins), Hold & Win / "Neural Hold" (mobile, 3-reel, weighted RNG, costs NE), Diamond Reward (mobile, 5-reel, weighted outcomes, costs NE). All user-facing text avoids gambling terminology (no "jackpot", "vegas", "bet", "casino") for Apple App Store compliance.
 - **Navigation:** 5-tab navigation (Home, Train, Play, Zen Pro, Profile) with native and classic tab implementations.
 - **Onboarding:** 4-step premium onboarding flow (mobile) and a splash screen with focus test (web), persisting completion status.
