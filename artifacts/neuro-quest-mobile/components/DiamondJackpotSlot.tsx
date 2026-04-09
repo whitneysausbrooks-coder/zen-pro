@@ -149,7 +149,7 @@ function evaluateDiamondReels(finals: number[]): {
 
 export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
   const [displayReels, setDisplayReels] = useState([0, 1, 2, 3, 4]);
-  const [phase, setPhase] = useState<"bet" | "spinning" | "result">("bet");
+  const [phase, setPhase] = useState<"ready" | "spinning" | "result">("ready");
   const [selectedTier, setSelectedTier] = useState(0);
   const [resultText, setResultText] = useState("");
   const [payout, setPayout] = useState(0);
@@ -176,7 +176,7 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
   }, []);
 
   const handleSpin = useCallback(() => {
-    if (phase !== "bet") return;
+    if (phase !== "ready") return;
 
     const tier = TIERS[selectedTier];
     const canSpin = onSpinStart(tier.cost);
@@ -293,7 +293,7 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
       if (!mountedRef.current) return;
       Animated.timing(resultAnim, { toValue: 0, duration: 300, useNativeDriver: nd }).start(() => {
         if (!mountedRef.current) return;
-        setPhase("bet");
+        setPhase("ready");
         resultAnim.setValue(0);
       });
     }, 2500);
@@ -330,7 +330,7 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
         {TIERS.map((tier, i) => (
           <Pressable
             key={tier.label}
-            onPress={() => { if (phase === "bet") setSelectedTier(i); }}
+            onPress={() => { if (phase === "ready") setSelectedTier(i); }}
             style={[
               s.tierBtn,
               selectedTier === i && { borderColor: tier.color, backgroundColor: `${tier.color}15` },
@@ -369,8 +369,8 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
 
       <Pressable
         onPress={handleSpin}
-        disabled={phase !== "bet" || !canAfford}
-        style={({ pressed }) => [pressed && { opacity: 0.9 }, (phase !== "bet" || !canAfford) && { opacity: 0.5 }]}
+        disabled={phase !== "ready" || !canAfford}
+        style={({ pressed }) => [pressed && { opacity: 0.9 }, (phase !== "ready" || !canAfford) && { opacity: 0.5 }]}
         accessibilityRole="button"
         accessibilityLabel={
           !canAfford
@@ -379,7 +379,7 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
         }
       >
         <LinearGradient
-          colors={phase === "bet" && canAfford ? ["#4fc3f7", "#0288d1", "#01579b"] : ["#555", "#444", "#333"]}
+          colors={phase === "ready" && canAfford ? ["#4fc3f7", "#0288d1", "#01579b"] : ["#555", "#444", "#333"]}
           style={s.spinGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}

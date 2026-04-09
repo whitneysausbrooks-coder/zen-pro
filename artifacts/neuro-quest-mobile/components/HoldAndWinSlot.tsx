@@ -145,8 +145,8 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
   const [reels, setReels] = useState([0, 2, 4]);
   const [held, setHeld] = useState([false, false, false]);
   const [phase, setPhase] = useState<
-    "bet" | "spinning" | "hold" | "respin" | "result"
-  >("bet");
+    "ready" | "spinning" | "hold" | "respin" | "result"
+  >("ready");
   const [selectedTier, setSelectedTier] = useState(0);
   const [resultText, setResultText] = useState("");
   const [payout, setPayout] = useState(0);
@@ -235,7 +235,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
   );
 
   const handleSpin = useCallback(() => {
-    if (phase !== "bet") return;
+    if (phase !== "ready") return;
 
     const tier = TIERS[selectedTier];
     const canSpin = onSpinStart(tier.cost);
@@ -335,7 +335,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
           useNativeDriver: nd,
         }).start(() => {
           if (!mountedRef.current) return;
-          setPhase("bet");
+          setPhase("ready");
           respinLockRef.current = false;
           resultAnim.setValue(0);
         });
@@ -441,7 +441,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
           <Pressable
             key={tier.label}
             onPress={() => {
-              if (phase === "bet") setSelectedTier(i);
+              if (phase === "ready") setSelectedTier(i);
             }}
             style={[
               s.tierBtn,
@@ -494,10 +494,10 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
       ) : (
         <Pressable
           onPress={handleSpin}
-          disabled={phase !== "bet" || !canAfford}
+          disabled={phase !== "ready" || !canAfford}
           style={({ pressed }) => [
             pressed && { opacity: 0.9 },
-            (phase !== "bet" || !canAfford) && { opacity: 0.5 },
+            (phase !== "ready" || !canAfford) && { opacity: 0.5 },
           ]}
           accessibilityRole="button"
           accessibilityLabel={
@@ -508,7 +508,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
         >
           <LinearGradient
             colors={
-              phase === "bet" && canAfford
+              phase === "ready" && canAfford
                 ? ["#9b59b6", "#8e44ad", "#6c3483"]
                 : ["#555", "#444", "#333"]
             }

@@ -1,11 +1,11 @@
 import { BlurView } from "expo-blur";
 import React from "react";
-import { Platform, StyleSheet, View, ViewStyle } from "react-native";
+import { Platform, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import Colors from "@/constants/colors";
 
 interface GlassCardProps {
   children: React.ReactNode;
-  style?: ViewStyle | ViewStyle[];
+  style?: StyleProp<ViewStyle>;
   borderColor?: string;
   intensity?: number;
   elevated?: boolean;
@@ -20,8 +20,8 @@ export function GlassCard({
 }: GlassCardProps) {
   const cardStyles = [
     styles.card,
-    elevated && styles.elevated,
-    { borderColor },
+    elevated ? styles.elevated : undefined,
+    { borderColor } as ViewStyle,
     style,
   ];
 
