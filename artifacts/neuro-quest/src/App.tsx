@@ -25,6 +25,8 @@ import ElonPage from "@/pages/elon";
 import PaymentPage from "@/pages/payment";
 import SharePage from "@/pages/share";
 import CopyrightPage from "@/pages/copyright";
+import PrivacyPage from "@/pages/privacy";
+import TermsPage from "@/pages/terms";
 
 function ProtectedGame({ component: Component, name }: { component: React.ComponentType; name: string }) {
   return (
@@ -88,6 +90,8 @@ function Router() {
           <Route path="/payment"     component={PaymentPage} />
           <Route path="/share"       component={SharePage}   />
           <Route path="/copyright"   component={CopyrightPage} />
+          <Route path="/privacy"     component={PrivacyPage} />
+          <Route path="/terms"       component={TermsPage} />
           <Route                     component={NotFound}    />
         </Switch>
       </motion.div>

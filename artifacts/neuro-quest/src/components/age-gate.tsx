@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Shield, AlertTriangle } from "lucide-react"
 
 const AGE_KEY = "nq_age_verified"
+const LEGAL_PATHS = ["/privacy", "/terms", "/copyright"]
 
 export function AgeGate({ children }: { children: React.ReactNode }) {
   const [verified, setVerified] = useState<boolean | null>(null)
@@ -12,6 +13,9 @@ export function AgeGate({ children }: { children: React.ReactNode }) {
     const stored = localStorage.getItem(AGE_KEY)
     setVerified(stored === "1")
   }, [])
+
+  const isLegalPage = typeof window !== "undefined" && LEGAL_PATHS.some(p => window.location.pathname.endsWith(p))
+  if (isLegalPage) return <>{children}</>
 
   if (verified === null) return null
 
