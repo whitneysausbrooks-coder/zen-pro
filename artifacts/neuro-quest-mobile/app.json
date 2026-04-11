@@ -2,7 +2,7 @@
   "expo": {
     "name": "NeuroQuest",
     "slug": "neuro-quest-mobile",
-    "version": "1.0.1",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "neuroquest",
@@ -15,7 +15,11 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.replit.neuroquest"
+      "bundleIdentifier": "app.replit.neuroquest",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSHumanReadableCopyright": "© 2026 NeuroQuest LLC"
+      }
     },
     "android": {
       "adaptiveIcon": {
