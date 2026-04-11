@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GlassCard } from "@/components/GlassCard";
 import { StroopGame } from "@/components/StroopGame";
-import { MemoryGrid } from "@/components/MemoryGrid";
+
 import { BreathingPacer } from "@/components/BreathingPacer";
 import { PatternMatch } from "@/components/PatternMatch";
 import { NeuralSoundscape } from "@/components/NeuralSoundscape";
@@ -193,14 +193,6 @@ const BRAIN_GAMES: BrainGame[] = [
     science: "Strengthens anterior cingulate cortex — conflict monitoring and error detection",
   },
   {
-    id: "memory",
-    title: "Memory Grid",
-    description: "Remember and repeat tile sequences. Progressive difficulty.",
-    icon: "grid",
-    iconFamily: "Feather",
-    science: "Trains dorsolateral PFC working memory, linked to emotional regulation",
-  },
-  {
     id: "pattern",
     title: "Pattern Match",
     description: "Memorize and identify visual patterns. Adaptive difficulty.",
@@ -366,7 +358,7 @@ function TaskIcon({ item }: { item: { icon: string; iconFamily: string } }) {
   return <Ionicons name={item.icon as any} size={size} color={color} />;
 }
 
-type ActiveGame = "stroop" | "memory" | "pattern" | "breathing" | "soundscape" | "neuromatch" | "focusflow" | "logiclift" | "nback" | "emotionstorm" | null;
+type ActiveGame = "stroop" | "pattern" | "breathing" | "soundscape" | "neuromatch" | "focusflow" | "logiclift" | "nback" | "emotionstorm" | null;
 
 export default function TrainScreen() {
   const insets = useSafeAreaInsets();
@@ -443,7 +435,7 @@ export default function TrainScreen() {
         />
         <View style={[styles.gameContainer, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 }]}>
           {activeGame === "stroop" && <StroopGame onClose={() => setActiveGame(null)} />}
-          {activeGame === "memory" && <MemoryGrid onClose={() => setActiveGame(null)} />}
+
           {activeGame === "pattern" && <PatternMatch onClose={() => setActiveGame(null)} />}
           {activeGame === "breathing" && <BreathingPacer onClose={() => setActiveGame(null)} />}
           {activeGame === "soundscape" && <NeuralSoundscape onClose={() => setActiveGame(null)} />}

@@ -328,7 +328,7 @@ export function NeuralSoundscape({ onClose }: Props) {
           <Text style={styles.tipEyebrow}>PRO TIPS</Text>
           {[
             "Use binaural beats during deep work or meditation for 20-30 min",
-            "Stack with brain games: play Alpha Flow during Memory Grid",
+            "Stack with brain games: play Alpha Flow during Pattern Match",
             "Try 528Hz after cold exposure for amplified neurogenesis",
             "Pink noise before sleep enhances memory consolidation",
             "40Hz Gamma during learning sessions boosts retention",
