@@ -133,7 +133,7 @@ export function NBackChallenge({ onClose }: Props) {
       (async () => {
         try {
           const cur = await AsyncStorage.getItem("nq_neural_energy");
-          const next = (cur ? parseInt(cur, 10) : 0) + neuralReward;
+          const next = (cur ? (parseInt(cur, 10) || 0) : 0) + neuralReward;
           await AsyncStorage.setItem("nq_neural_energy", String(next));
         } catch {}
       })();
