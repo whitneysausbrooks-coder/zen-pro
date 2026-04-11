@@ -235,7 +235,11 @@ export default function ProfileScreen() {
       ])
     );
     stars.start();
-    return () => { pulse.stop(); stars.stop(); };
+    return () => {
+      pulse.stop();
+      stars.stop();
+      if (devTapTimer.current) clearTimeout(devTapTimer.current);
+    };
   }, []);
 
   const toggleSetting = useCallback((id: string) => {
