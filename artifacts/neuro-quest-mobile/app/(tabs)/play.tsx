@@ -84,9 +84,18 @@ export default function PlayScreen() {
           const parsed = parseInt(ne, 10);
           setNeuralEnergy(Number.isNaN(parsed) ? 100 : parsed);
         }
-        if (s) setSpinsLeft(parseInt(s, 10));
-        if (w) setTotalWins(parseInt(w, 10));
-        if (d) setTotalDonated(parseFloat(d));
+        if (s !== null) {
+          const parsed = parseInt(s, 10);
+          setSpinsLeft(Number.isNaN(parsed) ? 5 : parsed);
+        }
+        if (w !== null) {
+          const parsed = parseInt(w, 10);
+          if (!Number.isNaN(parsed)) setTotalWins(parsed);
+        }
+        if (d !== null) {
+          const parsed = parseFloat(d);
+          if (!Number.isNaN(parsed)) setTotalDonated(parsed);
+        }
       } catch {}
       setIsLoading(false);
       Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: nd }).start();

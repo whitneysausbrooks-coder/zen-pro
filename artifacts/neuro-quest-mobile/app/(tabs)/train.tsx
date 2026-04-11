@@ -389,10 +389,10 @@ export default function TrainScreen() {
       const md = await AsyncStorage.getItem("nq_micro_donations");
       const sc = await AsyncStorage.getItem("nq_streak_count");
       const tw = await AsyncStorage.getItem("nq_total_wins");
-      setWeeklyEnergy(ne ? parseInt(ne, 10) : 0);
-      setTotalDonated(md ? parseFloat(md) : 0);
-      setStreakCount(sc ? parseInt(sc, 10) : 0);
-      setGamesPlayed(tw ? parseInt(tw, 10) : 0);
+      setWeeklyEnergy(ne !== null ? (parseInt(ne, 10) || 0) : 0);
+      setTotalDonated(md !== null ? (parseFloat(md) || 0) : 0);
+      setStreakCount(sc !== null ? (parseInt(sc, 10) || 0) : 0);
+      setGamesPlayed(tw !== null ? (parseInt(tw, 10) || 0) : 0);
     } catch {}
     if (isLoading) {
       setIsLoading(false);

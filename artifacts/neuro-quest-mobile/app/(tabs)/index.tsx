@@ -124,13 +124,22 @@ export default function HomeScreen() {
         AsyncStorage.getItem(STREAK_KEY),
         AsyncStorage.getItem(GRATITUDE_LOG_KEY),
       ]);
-      if (energy) setNeuralEnergy(parseInt(energy, 10) || 0);
-      if (donations) setTotalDonated(parseFloat(donations) || 0);
+      if (energy !== null) {
+        const parsed = parseInt(energy, 10);
+        setNeuralEnergy(Number.isNaN(parsed) ? 0 : parsed);
+      }
+      if (donations !== null) {
+        const parsed = parseFloat(donations);
+        if (!Number.isNaN(parsed)) setTotalDonated(parsed);
+      }
       if (spins !== null) {
         const parsed = parseInt(spins, 10);
         setSpinsLeft(Number.isNaN(parsed) ? 5 : parsed);
       }
-      if (streak) setStreakCount(parseInt(streak, 10) || 0);
+      if (streak !== null) {
+        const parsed = parseInt(streak, 10);
+        if (!Number.isNaN(parsed)) setStreakCount(parsed);
+      }
       if (logStr) {
         const parsed = JSON.parse(logStr);
         setGratitudeLog(parsed.slice(0, 5));
