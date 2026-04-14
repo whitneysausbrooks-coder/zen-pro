@@ -147,7 +147,7 @@ function PrivacyPolicy() {
 
       <SectionTitle>Contact Us</SectionTitle>
       <Body>
-        If you have questions about this Privacy Policy, please contact us at privacy@neuroquestapp.com.
+        If you have questions about this Privacy Policy, please contact us at admin@neuroquestllc.info.
       </Body>
     </View>
   );
@@ -225,7 +225,7 @@ function TermsOfUse() {
 
       <SectionTitle>Contact</SectionTitle>
       <Body>
-        For questions about these Terms, contact us at legal@neuroquestapp.com.
+        For questions about these Terms, contact us at admin@neuroquestllc.info.
       </Body>
     </View>
   );

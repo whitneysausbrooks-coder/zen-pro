@@ -349,7 +349,7 @@ export default function ShopScreen() {
           <Pressable
             onPress={() => {
               if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              Alert.alert("Enterprise Wellness", "Contact our team at enterprise@neuroquestapp.com to schedule a demo and learn about volume pricing.", [{ text: "Got it" }]);
+              Alert.alert("Enterprise Wellness", "Contact our team at admin@neuroquestllc.info to schedule a demo and learn about volume pricing.", [{ text: "Got it" }]);
             }}
             style={({ pressed }) => [pressed && { opacity: 0.85 }]}
             accessibilityRole="button"

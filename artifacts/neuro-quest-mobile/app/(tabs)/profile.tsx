@@ -257,11 +257,11 @@ export default function ProfileScreen() {
         setLegalTab("terms");
         break;
       case "support":
-        Linking.canOpenURL("mailto:support@neuroquestapp.com").then((supported) => {
+        Linking.canOpenURL("mailto:admin@neuroquestllc.info").then((supported) => {
           if (supported) {
-            Linking.openURL("mailto:support@neuroquestapp.com?subject=NeuroQuest%20Support%20Request");
+            Linking.openURL("mailto:admin@neuroquestllc.info?subject=NeuroQuest%20Support%20Request");
           } else {
-            Alert.alert("Contact Support", "Email us at support@neuroquestapp.com");
+            Alert.alert("Contact Support", "Email us at admin@neuroquestllc.info");
           }
         });
         break;

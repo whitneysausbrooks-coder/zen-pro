@@ -104,7 +104,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="Contact">
-            <p>For questions about these Terms, contact us at <a href="mailto:support@neuroquestapp.com" className="text-primary hover:underline">support@neuroquestapp.com</a>.</p>
+            <p>For questions about these Terms, contact us at <a href="mailto:admin@neuroquestllc.info" className="text-primary hover:underline">admin@neuroquestllc.info</a>.</p>
           </Section>
         </motion.div>
 

@@ -374,7 +374,7 @@ export default function CopyrightPage() {
                 Specifically: (a) account and profile data is retained until you delete your account; (b) gameplay and progress data is retained for the life
                 of your account; (c) payment transaction records are retained for 7 years as required by financial regulations; (d) server logs containing
                 device and usage data are retained for up to 90 days for security and debugging purposes. You may request deletion of your account and
-                associated data at any time by contacting our Privacy Team at privacy@neuroquestapp.com.
+                associated data at any time by contacting our Privacy Team at admin@neuroquestllc.info.
               </p>
               <p>
                 <span className="text-white font-semibold">Your Rights.</span> Depending on your jurisdiction, you may have the right to access, correct,
@@ -384,7 +384,7 @@ export default function CopyrightPage() {
               <p>
                 <span className="text-white font-semibold">Privacy Contact &amp; Data Requests.</span> For all privacy-related inquiries, data access requests,
                 deletion requests, or complaints, contact our Privacy Team at:{" "}
-                <span className="text-white font-semibold">privacy@neuroquestapp.com</span>. We will verify your identity before processing any request and
+                <span className="text-white font-semibold">admin@neuroquestllc.info</span>. We will verify your identity before processing any request and
                 respond within 30 days (or sooner where required by applicable law). If you wish to designate an authorised agent to submit a request on your
                 behalf, the agent must provide written authorisation signed by you along with proof of identity.
               </p>
@@ -398,7 +398,7 @@ export default function CopyrightPage() {
               </p>
               <p>
                 <span className="text-white font-semibold">EEA/UK Residents (GDPR).</span> The data controller is Whitney Shauntaye, contactable at{" "}
-                <span className="text-white font-semibold">privacy@neuroquestapp.com</span>. The legal bases for processing your data are: (a) performance
+                <span className="text-white font-semibold">admin@neuroquestllc.info</span>. The legal bases for processing your data are: (a) performance
                 of a contract (to provide the services you requested); (b) legitimate interests (to improve and secure our platform); (c) consent (where
                 applicable, which you may withdraw at any time). You have the right to access, rectify, erase, restrict processing, data portability, and
                 object to processing of your personal data. You may also lodge a complaint with your local supervisory authority. Where your data is transferred

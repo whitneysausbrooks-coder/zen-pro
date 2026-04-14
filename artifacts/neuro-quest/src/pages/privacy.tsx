@@ -102,7 +102,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="Contact Us">
-            <p>If you have questions about this Privacy Policy, please contact us at <a href="mailto:privacy@neuroquestapp.com" className="text-primary hover:underline">privacy@neuroquestapp.com</a>.</p>
+            <p>If you have questions about this Privacy Policy, please contact us at <a href="mailto:admin@neuroquestllc.info" className="text-primary hover:underline">admin@neuroquestllc.info</a>.</p>
           </Section>
         </motion.div>
 
