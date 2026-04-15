@@ -44,6 +44,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ec03c65f-26ac-4c59-a053-617a543396fe"
+      }
+    },
+    "owner": "whitneyausbrooks"
   }
 }

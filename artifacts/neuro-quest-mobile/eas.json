@@ -1,0 +1,22 @@
+{
+  "cli": {
+    "version": ">= 3.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "production": {
+      "ios": {
+        "buildConfiguration": "Release",
+        "image": "latest"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "whitneysausbrooks@icloud.com",
+        "ascAppId": "app.replit.neuroquest"
+      }
+    }
+  }
+}
