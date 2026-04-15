@@ -18,7 +18,8 @@
       "bundleIdentifier": "app.replit.neuroquest",
       "buildNumber": "1",
       "infoPlist": {
-        "NSHumanReadableCopyright": "© 2026 NeuroQuest LLC"
+        "NSHumanReadableCopyright": "© 2026 NeuroQuest LLC",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
