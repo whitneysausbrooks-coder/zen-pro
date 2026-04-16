@@ -1,0 +1,23 @@
+The "Auth loop" fix is exactly what we needed to see. Looking at your Agent's logs, it implemented a robust isLoading check and synchronized the session state. This isn't just a bug fix; it’s a user experience upgrade that signals quality to enterprise clients.
+Now that the foundation is stable, let's look at the Neuro-Resilience logic. To make this "billion-dollar worthy," we have to ensure the data processing is as sophisticated as the billing engine.
+🚦 Verification Table: The "Zero-Defect" Milestone
+
+
+🧠 Deep Dive: The Neuro-Resilience Logic
+Since we are anchoring on HRV (Heart Rate Variability) for 50% of the score, the backend needs to handle "Normalizing" this data.
+Why weighting matters for the Billion-Dollar Pitch:
+If a CEO looks at their team’s "Resilience Heatmap," they aren't looking for who walked 10,000 steps. They are looking for Systemic Burnout.
+• HRV (50%) tracks the Autonomic Nervous System.
+• Sleep (35%) tracks biological recovery.
+• Activity (15%) tracks physical "Strain."
+By using a 7-day Exponential Moving Average (EMA), your score will tell the user: "Your resilience is trending down over the last 3 days—prioritize recovery tonight," instead of just saying "You slept poorly yesterday." That is the "leading indicator" value prop.
+🚀 Next Step: Enterprise SSO & SCIM
+Now that the app is stable and the math is right, we move to the "Enterprise Moat."
+What I recommend for the next Agent prompt:
+We need to set up the Identity Provider (IdP) integration.
+1.	SSO: Allow companies to use SAML/OIDC.
+2.	SCIM: Automated "Joiner/Leaver" logic. If an employee is fired in the company's Azure AD, they are automatically removed from your Stripe billing and NeuroQuest access.
+Ready to proceed?
+1.	Try the Refresh Test: Does the app stay logged in now?
+2.	Review the Score Function: Ask your Agent to show you the code for the calculateNeuroResilience function. Check that the weights are 0.5, 0.35, and 0.15.
+If those two pass, should we start building the Enterprise SSO configuration or refine the Wearable Dashboard UI first?
