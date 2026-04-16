@@ -47,6 +47,60 @@ export function detectBurnoutTrend(scores: number[]): boolean {
   return recent[0] > recent[1] && recent[1] > recent[2];
 }
 
+export interface BurnoutAnalysis {
+  risk: number;
+  trendDown: boolean;
+  anomaly: boolean;
+  severity: "low" | "moderate" | "high" | "critical";
+  alert: string | null;
+}
+
+export function analyzeBurnout(wriHistory: number[]): BurnoutAnalysis {
+  if (wriHistory.length === 0) {
+    return { risk: 0, trendDown: false, anomaly: false, severity: "low", alert: null };
+  }
+
+  const latest = wriHistory[wriHistory.length - 1];
+  let risk = 100 - latest;
+
+  const trendDown =
+    wriHistory.length >= 3 &&
+    wriHistory.slice(-3).every((v, i, arr) => i === 0 || v < arr[i - 1]);
+  if (trendDown) risk += 15;
+
+  let anomaly = false;
+  if (wriHistory.length >= 5) {
+    const baseline = wriHistory.slice(0, -1);
+    const avg = baseline.reduce((a, b) => a + b, 0) / baseline.length;
+    const stdDev = Math.sqrt(baseline.reduce((sum, v) => sum + (v - avg) ** 2, 0) / baseline.length);
+    if (stdDev > 0 && latest < avg - 2 * stdDev) {
+      anomaly = true;
+      risk += 10;
+    }
+  }
+
+  risk = Math.min(100, Math.max(0, Math.round(risk * 100) / 100));
+
+  const severity: BurnoutAnalysis["severity"] =
+    risk > 80 ? "critical" : risk > 60 ? "high" : risk > 35 ? "moderate" : "low";
+
+  let alert: string | null = null;
+  if (severity === "critical") {
+    alert = "Critical burnout risk. Immediate wellness intervention recommended.";
+  } else if (severity === "high") {
+    alert = "High burnout risk. Schedule recovery time and monitor closely.";
+  } else if (trendDown) {
+    alert = "Downward trend detected over 3+ data points. Consider proactive support.";
+  }
+
+  return { risk, trendDown, anomaly, severity, alert };
+}
+
+export function calculateCohesionDelta(currentCohesion: number, previousCohesion: number): number {
+  if (previousCohesion === 0) return 0;
+  return Math.round(((currentCohesion - previousCohesion) / previousCohesion) * 100 * 10) / 10;
+}
+
 export interface ResilienceResult {
   eri: number;
   cps: number;

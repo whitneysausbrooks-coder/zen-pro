@@ -4,6 +4,8 @@ import { query, auditLog } from "../lib/db";
 import {
   calculateFullResilience,
   detectBurnoutTrend,
+  analyzeBurnout,
+  calculateCohesionDelta,
   runResetProtocol,
 } from "../lib/scoringEngine";
 
@@ -253,6 +255,94 @@ router.get("/enterprise/company/:companyId/metrics", async (req, res) => {
   } catch (err: any) {
     console.error("Error fetching company metrics:", err.message);
     return res.status(500).json({ error: "Failed to fetch company metrics" });
+  }
+});
+
+router.get("/enterprise/company/:companyId/dashboard", async (req, res) => {
+  const companyId = req.params.companyId;
+  if (!z.string().uuid().safeParse(companyId).success) {
+    return res.status(400).json({ error: "Invalid company ID" });
+  }
+  const view = (req.query.view as string) || "executive";
+
+  try {
+    const latestScores = await query(
+      `SELECT rs.wri, rs.burnout_risk, rs.eri, rs.cps, rs.nsb, rs.cohesion, rs.created_at
+       FROM resilience_scores rs
+       JOIN enterprise_users u ON rs.user_id = u.id
+       WHERE u.company_id = $1
+         AND rs.created_at = (SELECT MAX(rs2.created_at) FROM resilience_scores rs2 WHERE rs2.user_id = rs.user_id)`,
+      [companyId]
+    );
+
+    const trend7d = await query(
+      `SELECT
+         DATE(rs.created_at) as day,
+         ROUND(AVG(rs.wri)::numeric, 2) as avg_wri,
+         ROUND(AVG(rs.burnout_risk)::numeric, 2) as avg_burnout_risk,
+         ROUND(AVG(rs.cohesion)::numeric, 2) as avg_cohesion
+       FROM resilience_scores rs
+       JOIN enterprise_users u ON rs.user_id = u.id
+       WHERE u.company_id = $1
+         AND rs.created_at >= NOW() - INTERVAL '7 days'
+       GROUP BY DATE(rs.created_at)
+       ORDER BY day ASC`,
+      [companyId]
+    );
+
+    const rows = latestScores.rows;
+    const totalEmployees = rows.length;
+    const avgWri = totalEmployees > 0 ? rows.reduce((s: number, r: any) => s + parseFloat(r.wri), 0) / totalEmployees : 0;
+    const avgBurnoutRisk = totalEmployees > 0 ? rows.reduce((s: number, r: any) => s + parseFloat(r.burnout_risk), 0) / totalEmployees : 0;
+
+    const wriValues = rows.map((r: any) => parseFloat(r.wri));
+    const burnoutAnalysis = analyzeBurnout(wriValues);
+
+    const executive = {
+      avg_wri: Math.round(avgWri * 100) / 100,
+      avg_burnout_risk: Math.round(avgBurnoutRisk * 100) / 100,
+      total_employees: totalEmployees,
+      burnout_severity: burnoutAnalysis.severity,
+      burnout_alert: burnoutAnalysis.alert,
+      trend_7d: trend7d.rows,
+    };
+
+    if (view === "manager") {
+      const highRisk = rows.filter((r: any) => parseFloat(r.burnout_risk) > 70).length;
+      const cohesionValues = rows.map((r: any) => parseFloat(r.cohesion));
+      const currentCohesion = cohesionValues.length > 0 ? cohesionValues.reduce((a: number, b: number) => a + b, 0) / cohesionValues.length : 0;
+
+      const prevCohesion = await query(
+        `SELECT ROUND(AVG(rs.cohesion)::numeric, 2) as avg_cohesion
+         FROM resilience_scores rs
+         JOIN enterprise_users u ON rs.user_id = u.id
+         WHERE u.company_id = $1
+           AND rs.created_at >= NOW() - INTERVAL '14 days'
+           AND rs.created_at < NOW() - INTERVAL '7 days'`,
+        [companyId]
+      );
+
+      const previousCoh = parseFloat(prevCohesion.rows[0]?.avg_cohesion || "0");
+      const cohesionDelta = calculateCohesionDelta(currentCohesion, previousCoh);
+
+      await auditLog(null, "dashboard_viewed", "companies", { company_id: companyId, view: "manager" });
+
+      return res.json({
+        view: "manager",
+        ...executive,
+        high_risk_employees: highRisk,
+        high_risk_label: `${highRisk} employee${highRisk !== 1 ? "s" : ""} (anonymized)`,
+        team_cohesion: Math.round(currentCohesion * 100) / 100,
+        cohesion_delta: cohesionDelta,
+        cohesion_label: `Team Cohesion ${cohesionDelta >= 0 ? "+" : ""}${cohesionDelta}%`,
+      });
+    }
+
+    await auditLog(null, "dashboard_viewed", "companies", { company_id: companyId, view: "executive" });
+    return res.json({ view: "executive", ...executive });
+  } catch (err: any) {
+    console.error("Error fetching dashboard:", err.message);
+    return res.status(500).json({ error: "Failed to fetch dashboard data" });
   }
 });
 

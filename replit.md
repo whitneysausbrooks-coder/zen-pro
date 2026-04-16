@@ -75,9 +75,11 @@ The monorepo leverages TypeScript composite projects with project references for
 **Enterprise Stack (Zen Pro Enterprise):**
 - **Database:** 6 PostgreSQL tables (companies, enterprise_users, biometrics, behaviors, resilience_scores, audit_logs) with indexes.
 - **Scoring Engine:** Deterministic WRI/ERI/CPS/NSB/burnout risk scoring in `artifacts/api-server/src/lib/scoringEngine.ts`. All scores bounded 0-100, NaN-safe.
-- **Enterprise API:** 9 endpoints at `/api/enterprise/*` with Zod validation, audit logging. POST biometrics/behaviors/score/users/companies, GET scores/burnout-trend/company-metrics/audit-log.
+- **Enterprise API:** 11 endpoints at `/api/enterprise/*` with Zod validation, API key auth (`x-enterprise-key` header), audit logging. POST biometrics/behaviors/score/users/companies, GET scores/burnout-trend/company-metrics/company-dashboard/audit-log/reset-protocol.
+- **Burnout Engine (Upgraded):** `analyzeBurnout()` — consecutive-decline trend detection (+15 risk), 2-sigma anomaly detection (+10 risk), severity levels (low/moderate/high/critical), auto-generated alerts. `calculateCohesionDelta()` for week-over-week team cohesion tracking.
+- **Company Dashboard Endpoint:** `/api/enterprise/company/:companyId/dashboard?view=executive|manager` — Executive view: avg WRI, burnout risk, severity, 7-day trend. Manager view: adds high-risk employee count (anonymized), team cohesion score, cohesion delta %.
 - **Mobile Resilience Tab:** `artifacts/neuro-quest-mobile/app/(tabs)/resilience.tsx` — WRI score ring, burnout risk indicator, component score bars, Reset Protocol (4-3-5 box breathing, 2-min, +10 NE), personalized insights, privacy explainer.
-- **Admin Dashboard (Web):** `artifacts/neuro-quest/src/pages/admin-dashboard.tsx` at `/admin-dashboard` — company-level aggregated metrics, burnout risk distribution bar, audit log table. No individual biometric data exposed.
+- **Admin Dashboard (Web):** `artifacts/neuro-quest/src/pages/admin-dashboard.tsx` at `/admin-dashboard` — Executive/Manager view toggle, 7-day trend chart (WRI vs burnout), burnout severity badges, cohesion delta tracking, alert banners, audit log table. API key authentication required.
 - **Privacy:** Employee-level data never exposed to employers. Only anonymized team averages shown. Full audit trail for SOC 2 compliance.
 
 ## External Dependencies
