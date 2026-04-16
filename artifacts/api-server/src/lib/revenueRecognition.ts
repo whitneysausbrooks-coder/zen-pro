@@ -3,8 +3,14 @@ import type pg from "pg";
 
 const PRICE_PER_SEAT_CENTS = 1200;
 
+function toMidnightUTC(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
 function daysBetween(start: Date, end: Date): number {
-  const ms = end.getTime() - start.getTime();
+  const s = toMidnightUTC(start);
+  const e = toMidnightUTC(end);
+  const ms = e.getTime() - s.getTime();
   return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
 }
 
@@ -79,7 +85,8 @@ export async function handleSeatChangeProspective(
   companyId: string,
   subscriptionId: string,
   newSeatCount: number,
-  previousSeatCount: number
+  previousSeatCount: number,
+  asOfDate?: Date
 ): Promise<void> {
   const activeSchedules = await query(
     `SELECT id, period_start, period_end, seat_count, total_amount,
@@ -93,7 +100,7 @@ export async function handleSeatChangeProspective(
   if (activeSchedules.rows.length === 0) return;
 
   const schedule = activeSchedules.rows[0];
-  const now = new Date();
+  const now = asOfDate || new Date();
   const periodEnd = new Date(schedule.period_end);
 
   if (now >= periodEnd) return;
