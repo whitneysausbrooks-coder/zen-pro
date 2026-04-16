@@ -621,6 +621,182 @@ router.get("/enterprise/company/:companyId/dashboard", async (req, res) => {
   }
 });
 
+router.get("/enterprise/team-heatmap/:companyId", async (req, res) => {
+  const companyId = req.params.companyId;
+  if (!z.string().uuid().safeParse(companyId).success) {
+    return res.status(400).json({ error: "Invalid company ID" });
+  }
+
+  try {
+    const departmentScores = await query(
+      `SELECT
+         COALESCE(u.department, 'Unassigned') as department,
+         COUNT(DISTINCT u.id) as employee_count,
+         ROUND(AVG(w.neuro_resilience_score)::numeric, 1) as avg_resilience_score,
+         ROUND(MIN(w.neuro_resilience_score)::numeric, 1) as min_score,
+         ROUND(MAX(w.neuro_resilience_score)::numeric, 1) as max_score,
+         ROUND(STDDEV(w.neuro_resilience_score)::numeric, 1) as score_stddev,
+         ROUND(AVG(w.hrv)::numeric, 1) as avg_hrv,
+         ROUND(AVG(w.sleep_duration_minutes)::numeric, 0) as avg_sleep_minutes,
+         ROUND(AVG(w.steps)::numeric, 0) as avg_steps,
+         COUNT(*) FILTER (WHERE w.neuro_resilience_score < 40) as critical_count,
+         COUNT(*) FILTER (WHERE w.neuro_resilience_score >= 40 AND w.neuro_resilience_score < 55) as low_count,
+         COUNT(*) FILTER (WHERE w.neuro_resilience_score >= 55 AND w.neuro_resilience_score < 70) as moderate_count,
+         COUNT(*) FILTER (WHERE w.neuro_resilience_score >= 70 AND w.neuro_resilience_score < 85) as good_count,
+         COUNT(*) FILTER (WHERE w.neuro_resilience_score >= 85) as excellent_count
+       FROM enterprise_users u
+       JOIN LATERAL (
+         SELECT neuro_resilience_score, hrv, sleep_duration_minutes, steps
+         FROM wearable_data wd
+         WHERE wd.user_id = u.id
+         ORDER BY wd.recorded_at DESC
+         LIMIT 1
+       ) w ON TRUE
+       WHERE u.company_id = $1
+       GROUP BY COALESCE(u.department, 'Unassigned')
+       ORDER BY avg_resilience_score ASC`,
+      [companyId]
+    );
+
+    const trendData = await query(
+      `SELECT
+         COALESCE(u.department, 'Unassigned') as department,
+         DATE(w.recorded_at) as date,
+         ROUND(AVG(w.neuro_resilience_score)::numeric, 1) as avg_score
+       FROM enterprise_users u
+       JOIN wearable_data w ON w.user_id = u.id
+       WHERE u.company_id = $1
+         AND w.recorded_at >= NOW() - INTERVAL '14 days'
+       GROUP BY COALESCE(u.department, 'Unassigned'), DATE(w.recorded_at)
+       ORDER BY department, date`,
+      [companyId]
+    );
+
+    const trendByDept: Record<string, Array<{ date: string; avg_score: number }>> = {};
+    for (const row of trendData.rows) {
+      const dept = row.department;
+      if (!trendByDept[dept]) trendByDept[dept] = [];
+      trendByDept[dept].push({ date: row.date, avg_score: parseFloat(row.avg_score) });
+    }
+
+    const companyWide = await query(
+      `SELECT
+         COUNT(DISTINCT u.id) as total_employees,
+         ROUND(AVG(w.neuro_resilience_score)::numeric, 1) as company_avg_score,
+         COUNT(*) FILTER (WHERE w.neuro_resilience_score < 40) as company_critical,
+         COUNT(*) FILTER (WHERE w.neuro_resilience_score < 55) as company_at_risk
+       FROM enterprise_users u
+       JOIN LATERAL (
+         SELECT neuro_resilience_score
+         FROM wearable_data wd
+         WHERE wd.user_id = u.id
+         ORDER BY wd.recorded_at DESC
+         LIMIT 1
+       ) w ON TRUE
+       WHERE u.company_id = $1`,
+      [companyId]
+    );
+
+    const summary = companyWide.rows[0] || { total_employees: 0, company_avg_score: 0, company_critical: 0, company_at_risk: 0 };
+
+    const departments = departmentScores.rows.map((dept: any) => {
+      const score = parseFloat(dept.avg_resilience_score);
+      let riskLevel: string;
+      let color: string;
+      if (score < 40) { riskLevel = "critical"; color = "#DC2626"; }
+      else if (score < 55) { riskLevel = "high"; color = "#EA580C"; }
+      else if (score < 70) { riskLevel = "moderate"; color = "#D97706"; }
+      else if (score < 85) { riskLevel = "good"; color = "#16A34A"; }
+      else { riskLevel = "excellent"; color = "#059669"; }
+
+      return {
+        department: dept.department,
+        employee_count: parseInt(dept.employee_count),
+        avg_resilience_score: score,
+        min_score: parseFloat(dept.min_score),
+        max_score: parseFloat(dept.max_score),
+        score_spread: parseFloat(dept.score_stddev) || 0,
+        risk_level: riskLevel,
+        heatmap_color: color,
+        distribution: {
+          critical: parseInt(dept.critical_count),
+          low: parseInt(dept.low_count),
+          moderate: parseInt(dept.moderate_count),
+          good: parseInt(dept.good_count),
+          excellent: parseInt(dept.excellent_count),
+        },
+        biometric_averages: {
+          hrv_ms: parseFloat(dept.avg_hrv) || 0,
+          sleep_minutes: parseInt(dept.avg_sleep_minutes) || 0,
+          steps: parseInt(dept.avg_steps) || 0,
+        },
+        trend_14d: trendByDept[dept.department] || [],
+      };
+    });
+
+    const alertDepts = departments.filter((d: any) => d.risk_level === "critical" || d.risk_level === "high");
+
+    await auditLog(null, "team_heatmap_viewed", "companies", {
+      company_id: companyId,
+      departments_count: departments.length,
+      alert_departments: alertDepts.length,
+    });
+
+    return res.json({
+      company_id: companyId,
+      generated_at: new Date().toISOString(),
+      scoring_weights: { hrv: 0.50, sleep: 0.35, activity: 0.15 },
+      privacy_note: "All scores are anonymized and aggregated at department level. No individual employee data is exposed.",
+      company_summary: {
+        total_employees: parseInt(summary.total_employees),
+        company_avg_score: parseFloat(summary.company_avg_score) || 0,
+        employees_critical: parseInt(summary.company_critical),
+        employees_at_risk: parseInt(summary.company_at_risk),
+      },
+      departments,
+      alerts: alertDepts.map((d: any) => ({
+        department: d.department,
+        risk_level: d.risk_level,
+        avg_score: d.avg_resilience_score,
+        employee_count: d.employee_count,
+        recommendation: d.risk_level === "critical"
+          ? `${d.department} is in critical burnout territory (avg score ${d.avg_resilience_score}). Immediate intervention recommended: reduce workload, mandate recovery days, and consider 1:1 wellness check-ins.`
+          : `${d.department} is showing elevated burnout risk (avg score ${d.avg_resilience_score}). Monitor closely and consider preemptive wellness programming.`,
+      })),
+    });
+  } catch (err: any) {
+    console.error("Error generating team heatmap:", err.message);
+    return res.status(500).json({ error: "Failed to generate team heatmap" });
+  }
+});
+
+router.put("/enterprise/users/:userId/department", async (req, res) => {
+  const userId = req.params.userId;
+  if (!z.string().uuid().safeParse(userId).success) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
+  const schema = z.object({ department: z.string().min(1).max(100) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  try {
+    const result = await query(
+      `UPDATE enterprise_users SET department = $1 WHERE id = $2 RETURNING id, email, department`,
+      [parsed.data.department, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await auditLog(userId, "department_assigned", "enterprise_users", { department: parsed.data.department });
+    return res.json({ success: true, user: result.rows[0] });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Failed to update department" });
+  }
+});
+
 router.get("/enterprise/reset-protocol", (_req, res) => {
   return res.json(runResetProtocol());
 });
