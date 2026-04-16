@@ -8,6 +8,7 @@ import stripeEnterpriseRouter from "./stripe-enterprise";
 import sponsorRouter from "./sponsor";
 import adminRouter from "./admin";
 import notificationsRouter from "./notifications";
+import ssoScimRouter from "./sso-scim";
 
 const router: IRouter = Router();
 
@@ -17,6 +18,7 @@ router.use("/quest", questRouter);
 router.use(stripeRouter);
 router.use(enterpriseRouter);
 router.use(stripeEnterpriseRouter);
+router.use(ssoScimRouter);
 router.use("/", sponsorRouter);
 router.use("/", adminRouter);
 router.use("/", notificationsRouter);

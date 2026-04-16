@@ -87,6 +87,9 @@ The monorepo leverages TypeScript composite projects with project references for
 - **Database Tables (Billing):** Additional tables for idempotency, DLQ, webhook metrics, billing reconciliation, revenue schedules, and revenue journal.
 - **Age Gate:** Consumer age verification bypassed for enterprise paths.
 - **Privacy:** Employee-level data never exposed to employers; only anonymized team averages are shown.
+- **Wearable Integration:** `WearableIntegration` service ingesting HRV, SleepDuration (minutes), Steps from Apple Health/Google Fit/Fitbit/Garmin/Whoop/Oura. Computes proprietary NeuroResilienceScore (0-100) via weighted band scoring (HRV 45%, Sleep 30%, Activity 25%). Endpoints: `POST /enterprise/wearable`, `GET /enterprise/wearable/:userId`, `GET /enterprise/wearable/:userId/trend`, `POST /enterprise/wearable/score`. DB table: `wearable_data`.
+- **SSO/SCIM (Draft):** OIDC discovery endpoint at `/enterprise/sso/.well-known/openid-configuration`, SSO configuration at `/enterprise/sso/configure` (supports Okta, Azure AD, Google Workspace, OneLogin, Custom OIDC). Full SCIM v2 provisioning: `GET/POST/PUT/PATCH/DELETE /enterprise/scim/v2/Users`, `ServiceProviderConfig`, `ResourceTypes`, `Schemas`. Domain restriction, auto-provisioning, and default role assignment. DB table: `sso_configurations`. Note: OIDC authorize/token/userinfo/jwks endpoints are draft stubs; SCIM provisioning is fully operational.
+- **Auth Gate (isLoaded):** `AuthGate` component uses Clerk's `useAuth()` with `isLoaded` + `isSignedIn` states. Shows branded loading spinner during Clerk initialization, branded sign-in UI when not authenticated — prevents premature redirect loops to `/sign-in`.
 
 ## External Dependencies
 

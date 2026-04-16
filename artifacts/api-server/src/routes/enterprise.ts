@@ -832,4 +832,68 @@ router.post("/enterprise/revenue/run-recognition", async (_req, res) => {
   }
 });
 
+import {
+  wearableDataSchema,
+  ingestWearableData,
+  getWearableHistory,
+  getWearableTrend,
+  computeNeuroResilienceScore,
+} from "../lib/wearableIntegration";
+
+router.post("/enterprise/wearable", async (req, res) => {
+  const parsed = wearableDataSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  try {
+    const result = await ingestWearableData(parsed.data);
+    return res.json({ success: true, ...result });
+  } catch (err: any) {
+    console.error("Wearable ingest error:", err.message);
+    return res.status(500).json({ error: "Failed to ingest wearable data" });
+  }
+});
+
+router.get("/enterprise/wearable/:userId", async (req, res) => {
+  const userId = req.params.userId;
+  if (!z.string().uuid().safeParse(userId).success) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
+  try {
+    const limitParam = Math.min(Math.max(parseInt(req.query.limit as string) || 30, 1), 200);
+    const history = await getWearableHistory(userId, limitParam);
+    return res.json({ user_id: userId, data: history });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Failed to fetch wearable data" });
+  }
+});
+
+router.get("/enterprise/wearable/:userId/trend", async (req, res) => {
+  const userId = req.params.userId;
+  if (!z.string().uuid().safeParse(userId).success) {
+    return res.status(400).json({ error: "Invalid user ID" });
+  }
+
+  try {
+    const daysParam = Math.min(Math.max(parseInt(req.query.days as string) || 7, 1), 90);
+    const trend = await getWearableTrend(userId, daysParam);
+    return res.json({ user_id: userId, ...trend });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Failed to fetch wearable trend" });
+  }
+});
+
+router.post("/enterprise/wearable/score", async (req, res) => {
+  const schema = z.object({
+    hrv: z.number().min(0).max(300),
+    sleep_duration: z.number().min(0).max(1440),
+    steps: z.number().int().min(0).max(200000),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const result = computeNeuroResilienceScore(parsed.data.hrv, parsed.data.sleep_duration, parsed.data.steps);
+  return res.json(result);
+});
+
 export default router;
