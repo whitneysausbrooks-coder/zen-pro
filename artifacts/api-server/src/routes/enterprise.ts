@@ -35,7 +35,21 @@ function requireEnterpriseAuth(req: Request, res: Response, next: NextFunction) 
   next();
 }
 
-router.use("/enterprise/{*path}", requireEnterpriseAuth);
+const SSO_PUBLIC_PATHS = [
+  "/enterprise/sso/.well-known/openid-configuration",
+  "/enterprise/sso/authorize",
+  "/enterprise/sso/callback",
+  "/enterprise/sso/token",
+  "/enterprise/sso/userinfo",
+  "/enterprise/sso/jwks",
+];
+
+router.use("/enterprise/{*path}", (req: Request, res: Response, next: NextFunction) => {
+  if (SSO_PUBLIC_PATHS.some((p) => req.path === p)) {
+    return next();
+  }
+  requireEnterpriseAuth(req, res, next);
+});
 
 const biometricsSchema = z.object({
   user_id: z.string().uuid(),
