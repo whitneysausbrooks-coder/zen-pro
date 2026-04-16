@@ -1,0 +1,38 @@
+“Next priority: Harden the Stripe enterprise B2B billing system for production-grade reliability with zero defects, no race conditions, and no lost revenue scenarios. Follow 2026 Stripe best practices.
+1.  Upgrade the Webhook Handler (/api/stripe-enterprise/webhook):
+	•  Strictly verify webhook signatures on every request (using raw body) and reject invalid ones immediately.
+	•  Full idempotency: Create a processed_events table (or add unique constraint) keyed on event.id. Check if already processed before any business logic. Return HTTP 200 fast for duplicates.
+	•  Handle out-of-order and delayed events safely: Do not assume event order. Fetch latest state from Stripe when needed or use a simple state machine for subscription_status.
+	•  Fast response + async processing: Return 200 within 5 seconds, then queue the actual work (retries + dead-letter queue for failures).
+	•  Log every event (success/failure) into audit_logs with full payload details.
+2.  Implement Reconciliation Job (daily cron, or hourly for critical paths):
+	•  Compare your companies table fields (subscription_status, seat_count, billing_period_end, subscription_id) against live Stripe data via API.
+	•  Detect and log/alert on discrepancies (e.g., active in DB but canceled/past_due in Stripe).
+	•  Add safe auto-correction for common cases or flag for manual review.
+3.  Dunning & Payment Failure Logic:
+	•  On invoice.payment_failed: Leverage Stripe Smart Retries, send clear customer emails, apply configurable grace period, then transition to past_due with seat enforcement (block excess seats or non-critical features if needed).
+	•  Handle proration, mid-cycle seat changes, and true-ups without side effects.
+4.  Testing & Observability:
+	•  Comprehensive tests covering all 5 events, duplicates, out-of-order delivery, reconciliation mismatches, and time-based scenarios (use Stripe test clocks).
+	•  Add metrics: webhook success rate, mismatch count, payment failure reasons.
+	•  Make Stripe the authoritative source of truth for billing state while keeping fast DB reads for dashboard/performance.
+Use database transactions for all state changes. Prioritize idempotency everywhere (including API calls with idempotency keys).”
+This directly implements current Stripe-recommended patterns for reliability. ￼
+Right After Hardening Completes: Tax Compliance (Phase 2)
+Once the agent confirms the above is done and tested, run this follow-up:
+“Integrate Stripe Tax fully into the B2B per-seat flow:
+•  Enable automatic_tax: { enabled: true } on Checkout Sessions and subscription creation in /subscribe and related endpoints.
+•  Pass customer address/location data where available (via /create-company).
+•  Set appropriate SaaS tax codes for business software.
+•  Ensure taxes appear transparently as separate line items on invoices, checkout, and the customer portal.
+•  Log tax events in audit_logs.
+•  Test with different US states and international locations.”
+Stripe Tax automates calculations, collection, and (with paid plans) registrations/filings — essential for scaling without manual tax headaches or compliance gaps. ￼
+Quick Follow-On Polish (After Tax)
+•  Enhance the billing dashboard: Show upcoming charges preview, full invoice history + PDF downloads, seat utilization, and clear upsell pricing when “No active subscription”.
+•  Add basic RBAC so only authorized company roles can update seats or open the portal.
+•  Expand audit_logs for exportability (useful for future SOC 2 or financial audits).
+Why This Exact Order?
+•  Reliability first — Hardening prevents the most common (and expensive) defects at scale.
+•  Tax/compliance next — Blocks legal risks and makes enterprise sales smoother.
+•  Everything else (monitoring, CI/CD, advanced features like SSO or revenue recognition prep for ASC 606) comes after the core money-handling paths are bulletproof.

@@ -1,11 +1,14 @@
 import { getStripeClient, isStripeConfigured } from "../stripeClient";
-import { query, auditLog } from "./db";
+import { query, auditLog, withTransaction } from "./db";
+import { retryDeadLetterQueue } from "./enterpriseWebhook";
 
 interface ReconciliationResult {
   companies_checked: number;
   discrepancies_found: number;
   auto_fixed: number;
   errors: string[];
+  dlq_retried: number;
+  dlq_succeeded: number;
 }
 
 export async function runReconciliation(): Promise<ReconciliationResult> {
@@ -14,6 +17,8 @@ export async function runReconciliation(): Promise<ReconciliationResult> {
     discrepancies_found: 0,
     auto_fixed: 0,
     errors: [],
+    dlq_retried: 0,
+    dlq_succeeded: 0,
   };
 
   if (!isStripeConfigured()) {
@@ -24,7 +29,7 @@ export async function runReconciliation(): Promise<ReconciliationResult> {
   try {
     const companies = await query(
       `SELECT id, name, stripe_customer_id, subscription_status, subscription_id,
-              seat_count, billing_period_end
+              seat_count, billing_period_end, dunning_attempts, suspended_at, grace_period_end
        FROM companies WHERE stripe_customer_id IS NOT NULL`
     );
 
@@ -46,43 +51,86 @@ export async function runReconciliation(): Promise<ReconciliationResult> {
           const stripeSeats = stripeSub.items.data[0]?.quantity || 0;
           const stripePeriodEnd = new Date((stripeSub.current_period_end as number) * 1000);
 
+          const fixes: string[] = [];
+
           if (company.subscription_status !== stripeStatus) {
+            fixes.push("status");
             result.discrepancies_found++;
-            await logDiscrepancy(company.id, "status_mismatch", company.subscription_status, stripeStatus);
-            await query(
-              `UPDATE companies SET subscription_status = $1, subscription_id = $2 WHERE id = $3`,
-              [stripeStatus, stripeSub.id, company.id]
-            );
-            result.auto_fixed++;
+            await logDiscrepancy(company.id, "status_mismatch", company.subscription_status || "null", stripeStatus);
           }
 
           if (company.seat_count !== stripeSeats) {
+            fixes.push("seats");
             result.discrepancies_found++;
             await logDiscrepancy(company.id, "seat_mismatch", String(company.seat_count), String(stripeSeats));
-            await query(`UPDATE companies SET seat_count = $1 WHERE id = $2`, [stripeSeats, company.id]);
-            result.auto_fixed++;
           }
 
           const localEnd = company.billing_period_end ? new Date(company.billing_period_end).getTime() : 0;
           const stripeEnd = stripePeriodEnd.getTime();
           if (Math.abs(localEnd - stripeEnd) > 60000) {
+            fixes.push("period_end");
             result.discrepancies_found++;
             await logDiscrepancy(company.id, "period_end_mismatch",
               company.billing_period_end?.toISOString() || "null",
               stripePeriodEnd.toISOString()
             );
-            await query(`UPDATE companies SET billing_period_end = $1 WHERE id = $2`, [stripePeriodEnd, company.id]);
-            result.auto_fixed++;
+          }
+
+          if (company.subscription_id !== stripeSub.id) {
+            fixes.push("subscription_id");
+            result.discrepancies_found++;
+            await logDiscrepancy(company.id, "subscription_id_mismatch",
+              company.subscription_id || "null",
+              stripeSub.id
+            );
+          }
+
+          if (fixes.length > 0) {
+            await withTransaction(async (client) => {
+              await client.query(
+                `UPDATE companies
+                 SET subscription_status = $1, subscription_id = $2,
+                     seat_count = $3, billing_period_end = $4
+                 WHERE id = $5`,
+                [stripeStatus, stripeSub.id, stripeSeats, stripePeriodEnd, company.id]
+              );
+
+              if (stripeStatus === "active" && company.suspended_at) {
+                await client.query(
+                  `UPDATE companies SET suspended_at = NULL, dunning_attempts = 0, grace_period_end = NULL WHERE id = $1`,
+                  [company.id]
+                );
+              }
+            });
+            result.auto_fixed += fixes.length;
           }
         } else {
-          if (company.subscription_status === "active") {
+          if (company.subscription_status && company.subscription_status !== "none" && company.subscription_status !== "canceled") {
             result.discrepancies_found++;
-            await logDiscrepancy(company.id, "phantom_active", company.subscription_status, "no_subscription");
-            await query(
-              `UPDATE companies SET subscription_status = 'none', subscription_id = NULL, seat_count = 0 WHERE id = $1`,
-              [company.id]
-            );
+            await logDiscrepancy(company.id, "phantom_subscription", company.subscription_status, "no_subscription_in_stripe");
+
+            await withTransaction(async (client) => {
+              await client.query(
+                `UPDATE companies SET subscription_status = 'none', subscription_id = NULL, seat_count = 0 WHERE id = $1`,
+                [company.id]
+              );
+            });
             result.auto_fixed++;
+          }
+        }
+
+        if (company.grace_period_end && new Date(company.grace_period_end) < new Date()) {
+          if (company.subscription_status === "past_due" && !company.suspended_at) {
+            await withTransaction(async (client) => {
+              await client.query(
+                `UPDATE companies SET subscription_status = 'suspended', suspended_at = NOW() WHERE id = $1`,
+                [company.id]
+              );
+            });
+            await auditLog(null, "grace_period_expired_suspension", "companies", {
+              company_id: company.id,
+              grace_period_end: company.grace_period_end,
+            });
           }
         }
       } catch (err: any) {
@@ -90,10 +138,20 @@ export async function runReconciliation(): Promise<ReconciliationResult> {
       }
     }
 
+    try {
+      const dlqResult = await retryDeadLetterQueue();
+      result.dlq_retried = dlqResult.retried;
+      result.dlq_succeeded = dlqResult.succeeded;
+    } catch (err: any) {
+      result.errors.push(`DLQ retry: ${err.message}`);
+    }
+
     await auditLog(null, "billing_reconciliation_complete", "companies", {
       companies_checked: result.companies_checked,
       discrepancies_found: result.discrepancies_found,
       auto_fixed: result.auto_fixed,
+      dlq_retried: result.dlq_retried,
+      dlq_succeeded: result.dlq_succeeded,
       errors: result.errors.length,
     });
   } catch (err: any) {
@@ -127,6 +185,7 @@ export function startReconciliationScheduler(): void {
       console.log(
         `[Reconciliation] Complete: ${result.companies_checked} checked, ` +
         `${result.discrepancies_found} discrepancies, ${result.auto_fixed} fixed, ` +
+        `DLQ: ${result.dlq_retried} retried/${result.dlq_succeeded} succeeded, ` +
         `${result.errors.length} errors`
       );
     } catch (err: any) {

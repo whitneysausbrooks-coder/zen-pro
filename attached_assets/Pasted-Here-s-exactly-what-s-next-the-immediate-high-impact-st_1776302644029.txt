@@ -1,0 +1,43 @@
+Here’s exactly what’s next — the immediate, high-impact step to make your Stripe B2B per-seat billing production-ready, defect-resistant, and closer to billion-dollar standards (reliable at scale, audit-friendly, and low-risk for enterprise customers).
+Your current implementation is functional, but real-world Stripe behavior (retries, duplicates, out-of-order delivery, network blips) commonly causes silent issues like double-processing, state drift between your DB and Stripe, or missed failures. Current 2026 best practices emphasize idempotency, fast webhook responses, reconciliation, and making Stripe the source of truth while keeping fast DB reads.
+Do This Now (Phase 1: Webhook & Reliability Hardening)
+Copy-paste this refined prompt directly into your AI Agent:
+“Next priority: Harden the Stripe enterprise B2B billing system for zero-defect production reliability following 2026 Stripe best practices.
+1.  Upgrade the Webhook Handler (/api/stripe-enterprise/webhook):
+	•  Strictly verify signatures using the raw request body on every incoming request and reject invalid ones immediately.
+	•  Full idempotency: Create/use a processed_events table (or unique constraint on event.id). Check if the event.id was already successfully processed before any business logic. Return HTTP 200 immediately for duplicates. Record the event.id after successful processing.
+	•  Handle out-of-order/delayed events safely: Do not rely on arrival order — fetch latest state from Stripe API when needed or implement a simple state machine for subscription_status transitions.
+	•  Fast response pattern: Return 200 within 5 seconds (acknowledge quickly), then process asynchronously if heavy work is involved (use queue + retries + dead-letter for failures).
+	•  Log every event (full details, success/failure) into audit_logs.
+2.  Add Reconciliation Job (daily cron job, or hourly for high-volume):
+	•  Compare your companies table (subscription_status, seat_count, billing_period_end, subscription_id, etc.) against live Stripe data via API for all active companies.
+	•  Detect/log/alert on discrepancies (e.g., active in DB but canceled/past_due in Stripe).
+	•  Add safe auto-correction for common cases or create a manual review queue/flag.
+3.  Enhance Dunning & Payment Failure Handling:
+	•  On invoice.payment_failed: Leverage Stripe Smart Retries, send clear customer notifications, apply configurable grace period, then transition to past_due with enforcement (e.g., limit seats or non-critical features).
+	•  Ensure proration, mid-cycle seat changes, and true-ups are handled cleanly without side effects.
+	•  Use idempotency keys on all write calls to Stripe API.
+4.  Testing & Observability:
+	•  Add comprehensive tests for all 5 webhook events, duplicates, out-of-order scenarios, reconciliation mismatches, and time-based cases (use Stripe test clocks).
+	•  Track metrics: webhook success rate, mismatch count, payment failure reasons.
+	•  Use database transactions for all state changes. Make Stripe the authoritative source for billing state, with your DB optimized for fast reads.
+Prioritize: idempotency everywhere, no duplicate charges/state corruption, and 99.99%+ reliability on money paths.”
+This directly addresses the most common revenue-leaking defects in Stripe SaaS integrations.
+Immediately After: Stripe Tax Integration (Phase 2 – Compliance Boost)
+Once the agent confirms hardening is done and tested, run this:
+“Integrate Stripe Tax into the full B2B per-seat flow:
+•  Enable automatic_tax: { enabled: true } on Checkout Sessions and subscription creation/update in relevant endpoints (/subscribe, etc.).
+•  Pass customer address/location data where available (via /create-company or checkout).
+•  Use appropriate SaaS tax codes for business software.
+•  Ensure taxes display as transparent line items on checkout, invoices, and the customer billing portal.
+•  Log tax-related events in audit_logs.
+•  Test with multiple US states and international locations.”
+Stripe Tax automates calculation/collection (and with higher tiers, filings/registrations) across 100+ countries — critical for scaling without manual tax debt or audit issues.
+Quick Next Polish Steps (After the Above)
+•  Improve the billing dashboard: Add upcoming charges preview, full invoice history with PDF downloads, seat utilization trends, and clear pricing/upsell when no active subscription.
+•  Basic RBAC for billing actions (only authorized roles can update seats or open the portal).
+•  Expand audit_logs to be easily exportable (useful for future financial/SOC 2 audits).
+Why This Sequence for Billion-Dollar Worthiness?
+•  Reliability first — Prevents lost revenue, duplicate charges, or angry customers (the #1 killer of trust at scale).
+•  Compliance/tax second — Avoids legal/financial surprises as you grow across regions.
+•  Everything else (advanced monitoring, CI/CD, ASC 606 revenue recognition prep, SSO, fraud tools like Radar, etc.) builds on a foundation that won’t break.

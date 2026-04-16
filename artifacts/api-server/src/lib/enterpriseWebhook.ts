@@ -1,6 +1,10 @@
 import { getStripeClient, isStripeConfigured } from "../stripeClient";
-import { query, auditLog } from "./db";
+import { query, auditLog, withTransaction } from "./db";
 import type Stripe from "stripe";
+
+const GRACE_PERIOD_DAYS = 7;
+const MAX_DUNNING_ATTEMPTS = 3;
+const DLQ_MAX_RETRIES = 3;
 
 async function isEventProcessed(eventId: string): Promise<boolean> {
   const result = await query(
@@ -24,33 +28,257 @@ async function markEventProcessed(
   );
 }
 
-async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
+async function recordMetric(
+  eventType: string,
+  success: boolean,
+  processingTimeMs: number,
+  errorMessage?: string
+): Promise<void> {
+  try {
+    await query(
+      `INSERT INTO webhook_metrics (event_type, success, processing_time_ms, error_message)
+       VALUES ($1, $2, $3, $4)`,
+      [eventType, success, processingTimeMs, errorMessage || null]
+    );
+  } catch {}
+}
+
+async function addToDeadLetterQueue(
+  eventId: string,
+  eventType: string,
+  payload: any,
+  errorMessage: string
+): Promise<void> {
+  try {
+    const nextRetry = new Date(Date.now() + 5 * 60 * 1000);
+    await query(
+      `INSERT INTO webhook_dead_letter (event_id, event_type, payload, error_message, next_retry_at)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT DO NOTHING`,
+      [eventId, eventType, JSON.stringify(payload), errorMessage, nextRetry]
+    );
+  } catch {}
+}
+
+async function syncSubscriptionTransactional(sub: Stripe.Subscription): Promise<string | null> {
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.toString();
   const seats = sub.items.data[0]?.quantity || 0;
   const periodEnd = new Date((sub.current_period_end as number) * 1000);
   const companyId = sub.metadata?.nq_company_id;
-
   const status = sub.status;
   const subscriptionId = sub.id;
 
-  if (companyId) {
-    await query(
-      `UPDATE companies
-       SET subscription_status = $1, subscription_id = $2,
-           seat_count = $3, billing_period_end = $4
-       WHERE id = $5`,
-      [status, subscriptionId, seats, periodEnd, companyId]
-    );
-  } else if (customerId) {
-    await query(
-      `UPDATE companies
-       SET subscription_status = $1, subscription_id = $2,
-           seat_count = $3, billing_period_end = $4
-       WHERE stripe_customer_id = $5`,
-      [status, subscriptionId, seats, periodEnd, customerId]
-    );
-  }
+  return await withTransaction(async (client) => {
+    let resolvedCompanyId = companyId;
+
+    if (companyId) {
+      await client.query(
+        `UPDATE companies
+         SET subscription_status = $1, subscription_id = $2,
+             seat_count = $3, billing_period_end = $4
+         WHERE id = $5`,
+        [status, subscriptionId, seats, periodEnd, companyId]
+      );
+    } else if (customerId) {
+      const result = await client.query(
+        `UPDATE companies
+         SET subscription_status = $1, subscription_id = $2,
+             seat_count = $3, billing_period_end = $4
+         WHERE stripe_customer_id = $5
+         RETURNING id`,
+        [status, subscriptionId, seats, periodEnd, customerId]
+      );
+      resolvedCompanyId = result.rows[0]?.id || null;
+    }
+
+    return resolvedCompanyId || null;
+  });
 }
+
+async function handleCheckoutCompleted(event: Stripe.Event): Promise<void> {
+  const session = event.data.object as Stripe.Checkout.Session;
+  if (session.metadata?.type !== "enterprise_subscription" || !session.subscription) return;
+
+  const stripe = getStripeClient();
+  const subId = typeof session.subscription === "string"
+    ? session.subscription
+    : session.subscription.toString();
+  const sub = await stripe.subscriptions.retrieve(subId);
+  const companyId = await syncSubscriptionTransactional(sub);
+
+  if (companyId) {
+    await withTransaction(async (client) => {
+      await client.query(
+        `UPDATE companies
+         SET dunning_attempts = 0, dunning_last_at = NULL, suspended_at = NULL, grace_period_end = NULL
+         WHERE id = $1`,
+        [companyId]
+      );
+    });
+  }
+
+  await auditLog(null, "enterprise_subscription_created", "companies", {
+    event_id: event.id,
+    company_id: companyId || session.metadata?.nq_company_id,
+    subscription_id: subId,
+    seats: sub.items.data[0]?.quantity,
+    status: sub.status,
+  });
+}
+
+async function handleSubscriptionUpdated(event: Stripe.Event): Promise<void> {
+  const subFromEvent = event.data.object as Stripe.Subscription;
+
+  const stripe = getStripeClient();
+  const liveSub = await stripe.subscriptions.retrieve(subFromEvent.id);
+
+  const companyId = await syncSubscriptionTransactional(liveSub);
+
+  const prev = (event.data as any).previous_attributes;
+  await auditLog(null, "enterprise_subscription_updated", "companies", {
+    event_id: event.id,
+    subscription_id: liveSub.id,
+    status: liveSub.status,
+    previous_status: prev?.status,
+    seats: liveSub.items.data[0]?.quantity,
+    previous_seats: prev?.items?.data?.[0]?.quantity,
+    company_id: companyId,
+  });
+}
+
+async function handleSubscriptionDeleted(event: Stripe.Event): Promise<void> {
+  const sub = event.data.object as Stripe.Subscription;
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.toString();
+  const companyId = sub.metadata?.nq_company_id;
+
+  await withTransaction(async (client) => {
+    if (companyId) {
+      await client.query(
+        `UPDATE companies SET subscription_status = 'canceled', subscription_id = NULL, seat_count = 0 WHERE id = $1`,
+        [companyId]
+      );
+    } else if (customerId) {
+      await client.query(
+        `UPDATE companies SET subscription_status = 'canceled', subscription_id = NULL, seat_count = 0 WHERE stripe_customer_id = $1`,
+        [customerId]
+      );
+    }
+  });
+
+  await auditLog(null, "enterprise_subscription_canceled", "companies", {
+    event_id: event.id,
+    subscription_id: sub.id,
+    company_id: companyId,
+  });
+}
+
+async function handlePaymentSucceeded(event: Stripe.Event): Promise<void> {
+  const invoice = event.data.object as Stripe.Invoice;
+  if (!invoice.subscription) return;
+
+  const stripe = getStripeClient();
+  const subId = typeof invoice.subscription === "string"
+    ? invoice.subscription
+    : invoice.subscription.toString();
+  const sub = await stripe.subscriptions.retrieve(subId);
+  const companyId = sub.metadata?.nq_company_id;
+  if (!companyId) return;
+
+  await syncSubscriptionTransactional(sub);
+
+  await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE companies
+       SET dunning_attempts = 0, dunning_last_at = NULL, suspended_at = NULL, grace_period_end = NULL
+       WHERE id = $1`,
+      [companyId]
+    );
+  });
+
+  await auditLog(null, "enterprise_invoice_paid", "companies", {
+    event_id: event.id,
+    invoice_id: invoice.id,
+    subscription_id: subId,
+    amount_paid: invoice.amount_paid,
+    currency: invoice.currency,
+    company_id: companyId,
+  });
+}
+
+async function handlePaymentFailed(event: Stripe.Event): Promise<void> {
+  const invoice = event.data.object as Stripe.Invoice;
+  if (!invoice.subscription) return;
+
+  const stripe = getStripeClient();
+  const subId = typeof invoice.subscription === "string"
+    ? invoice.subscription
+    : invoice.subscription.toString();
+  const sub = await stripe.subscriptions.retrieve(subId);
+  const companyId = sub.metadata?.nq_company_id;
+  if (!companyId) return;
+
+  const attempts = await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE companies
+       SET subscription_status = 'past_due',
+           dunning_attempts = COALESCE(dunning_attempts, 0) + 1,
+           dunning_last_at = NOW()
+       WHERE id = $1`,
+      [companyId]
+    );
+
+    const result = await client.query(
+      `SELECT dunning_attempts, grace_period_end FROM companies WHERE id = $1`,
+      [companyId]
+    );
+    const row = result.rows[0];
+    const dunningAttempts = row?.dunning_attempts || 0;
+
+    if (dunningAttempts === 1 && !row?.grace_period_end) {
+      const graceEnd = new Date(Date.now() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+      await client.query(
+        `UPDATE companies SET grace_period_end = $1 WHERE id = $2`,
+        [graceEnd, companyId]
+      );
+    }
+
+    if (dunningAttempts >= MAX_DUNNING_ATTEMPTS) {
+      await client.query(
+        `UPDATE companies SET subscription_status = 'suspended', suspended_at = NOW() WHERE id = $1`,
+        [companyId]
+      );
+    }
+
+    return dunningAttempts;
+  });
+
+  if (attempts >= MAX_DUNNING_ATTEMPTS) {
+    await auditLog(null, "enterprise_account_suspended", "companies", {
+      event_id: event.id,
+      company_id: companyId,
+      reason: `${MAX_DUNNING_ATTEMPTS} consecutive payment failures`,
+      dunning_attempts: attempts,
+    });
+  }
+
+  await auditLog(null, "enterprise_payment_failed", "companies", {
+    event_id: event.id,
+    invoice_id: invoice.id,
+    subscription_id: subId,
+    company_id: companyId,
+    dunning_attempt: attempts,
+    amount_due: invoice.amount_due,
+    failure_reason: (invoice as any).last_finalization_error?.message || null,
+  });
+}
+
+const EVENT_HANDLERS: Record<string, (event: Stripe.Event) => Promise<void>> = {
+  "checkout.session.completed": handleCheckoutCompleted,
+  "customer.subscription.updated": handleSubscriptionUpdated,
+  "customer.subscription.deleted": handleSubscriptionDeleted,
+  "invoice.payment_succeeded": handlePaymentSucceeded,
+  "invoice.payment_failed": handlePaymentFailed,
+};
 
 export async function processEnterpriseWebhook(
   payload: Buffer,
@@ -63,172 +291,188 @@ export async function processEnterpriseWebhook(
   const stripe = getStripeClient();
   const webhookSecret = process.env.STRIPE_ENTERPRISE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET;
 
-  let event: Stripe.Event;
+  if (!webhookSecret) {
+    console.error("CRITICAL: No webhook secret configured. Rejecting request.");
+    throw new Error("Webhook secret not configured");
+  }
 
-  if (webhookSecret) {
+  let event: Stripe.Event;
+  try {
     event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-  } else {
-    event = JSON.parse(payload.toString()) as Stripe.Event;
-    console.warn("Enterprise webhook: No webhook secret configured, skipping signature verification");
+  } catch (err: any) {
+    console.error("Webhook signature verification failed:", err.message);
+    await auditLog(null, "webhook_signature_rejected", "stripe", {
+      error: err.message,
+      signature_present: !!signature,
+    });
+    throw err;
   }
 
   const eventId = event.id;
   const eventType = event.type;
 
   if (await isEventProcessed(eventId)) {
-    console.log(`Skipping duplicate event: ${eventId} (${eventType})`);
+    console.log(`[Webhook] Idempotent skip: ${eventId} (${eventType})`);
     return;
   }
 
+  const handler = EVENT_HANDLERS[eventType];
+  if (!handler) {
+    await markEventProcessed(eventId, eventType, "ignored");
+    return;
+  }
+
+  const startTime = Date.now();
+
   try {
-    switch (eventType) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        if (session.metadata?.type === "enterprise_subscription" && session.subscription) {
-          const subId = typeof session.subscription === "string"
-            ? session.subscription
-            : session.subscription.toString();
-          const sub = await stripe.subscriptions.retrieve(subId);
-          await syncSubscription(sub);
-
-          if (session.metadata.nq_company_id) {
-            await query(
-              `UPDATE companies SET dunning_attempts = 0, dunning_last_at = NULL, suspended_at = NULL WHERE id = $1`,
-              [session.metadata.nq_company_id]
-            );
-          }
-
-          await auditLog(null, "enterprise_subscription_created", "companies", {
-            company_id: session.metadata.nq_company_id,
-            subscription_id: subId,
-            seats: session.metadata.employee_count,
-          });
-        }
-        break;
-      }
-
-      case "customer.subscription.updated": {
-        const sub = event.data.object as Stripe.Subscription;
-        await syncSubscription(sub);
-        await auditLog(null, "enterprise_subscription_updated", "companies", {
-          subscription_id: sub.id,
-          status: sub.status,
-          seats: sub.items.data[0]?.quantity,
-          company_id: sub.metadata?.nq_company_id,
-        });
-        break;
-      }
-
-      case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
-        const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.toString();
-        const companyId = sub.metadata?.nq_company_id;
-
-        const updateQuery = `UPDATE companies SET subscription_status = 'canceled', subscription_id = NULL, seat_count = 0 WHERE `;
-        if (companyId) {
-          await query(updateQuery + `id = $1`, [companyId]);
-        } else if (customerId) {
-          await query(updateQuery + `stripe_customer_id = $1`, [customerId]);
-        }
-
-        await auditLog(null, "enterprise_subscription_canceled", "companies", {
-          subscription_id: sub.id,
-          company_id: companyId,
-        });
-        break;
-      }
-
-      case "invoice.payment_succeeded": {
-        const invoice = event.data.object as Stripe.Invoice;
-        if (invoice.subscription) {
-          const subId = typeof invoice.subscription === "string"
-            ? invoice.subscription
-            : invoice.subscription.toString();
-          const sub = await stripe.subscriptions.retrieve(subId);
-          if (sub.metadata?.nq_company_id) {
-            await syncSubscription(sub);
-            await query(
-              `UPDATE companies SET dunning_attempts = 0, dunning_last_at = NULL, suspended_at = NULL WHERE id = $1`,
-              [sub.metadata.nq_company_id]
-            );
-            await auditLog(null, "enterprise_invoice_paid", "companies", {
-              invoice_id: invoice.id,
-              subscription_id: subId,
-              amount: invoice.amount_paid,
-              company_id: sub.metadata.nq_company_id,
-            });
-          }
-        }
-        break;
-      }
-
-      case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
-        if (invoice.subscription) {
-          const subId = typeof invoice.subscription === "string"
-            ? invoice.subscription
-            : invoice.subscription.toString();
-          const sub = await stripe.subscriptions.retrieve(subId);
-          if (sub.metadata?.nq_company_id) {
-            const companyId = sub.metadata.nq_company_id;
-
-            await query(
-              `UPDATE companies
-               SET subscription_status = 'past_due',
-                   dunning_attempts = COALESCE(dunning_attempts, 0) + 1,
-                   dunning_last_at = NOW()
-               WHERE id = $1`,
-              [companyId]
-            );
-
-            const companyResult = await query(
-              `SELECT dunning_attempts FROM companies WHERE id = $1`,
-              [companyId]
-            );
-            const attempts = companyResult.rows[0]?.dunning_attempts || 0;
-
-            if (attempts >= 3) {
-              await query(
-                `UPDATE companies SET subscription_status = 'suspended', suspended_at = NOW() WHERE id = $1`,
-                [companyId]
-              );
-              await auditLog(null, "enterprise_account_suspended", "companies", {
-                company_id: companyId,
-                reason: "3 consecutive payment failures",
-                dunning_attempts: attempts,
-              });
-            }
-
-            await auditLog(null, "enterprise_payment_failed", "companies", {
-              invoice_id: invoice.id,
-              subscription_id: subId,
-              company_id: companyId,
-              dunning_attempt: attempts,
-            });
-          }
-        }
-        break;
-      }
-
-      default:
-        break;
-    }
+    await handler(event);
+    const processingTime = Date.now() - startTime;
 
     await markEventProcessed(eventId, eventType, "success", {
-      processed_at: new Date().toISOString(),
+      processing_time_ms: processingTime,
     });
+    await recordMetric(eventType, true, processingTime);
   } catch (err: any) {
-    console.error(`Enterprise webhook handler error for ${eventType}:`, err.message);
+    const processingTime = Date.now() - startTime;
+    console.error(`[Webhook] Handler error for ${eventType} (${eventId}):`, err.message);
 
     await markEventProcessed(eventId, eventType, "error", {
       error: err.message,
+      processing_time_ms: processingTime,
     });
+    await recordMetric(eventType, false, processingTime, err.message);
+    await addToDeadLetterQueue(eventId, eventType, event.data.object, err.message);
 
     await auditLog(null, "enterprise_webhook_error", "stripe", {
       event_id: eventId,
       event_type: eventType,
       error: err.message,
+      processing_time_ms: processingTime,
     });
     throw err;
   }
+}
+
+export async function retryDeadLetterQueue(): Promise<{
+  retried: number;
+  succeeded: number;
+  failed: number;
+  permanently_failed: number;
+}> {
+  const result = { retried: 0, succeeded: 0, failed: 0, permanently_failed: 0 };
+
+  const items = await query(
+    `SELECT id, event_id, event_type, payload, retry_count, max_retries
+     FROM webhook_dead_letter
+     WHERE resolved = false AND next_retry_at <= NOW()
+     ORDER BY created_at ASC
+     LIMIT 10`
+  );
+
+  if (!isStripeConfigured()) return result;
+  const stripe = getStripeClient();
+
+  for (const item of items.rows) {
+    result.retried++;
+    try {
+      const handler = EVENT_HANDLERS[item.event_type];
+      if (handler) {
+        const fakeEvent = {
+          id: item.event_id,
+          type: item.event_type,
+          data: { object: item.payload },
+        } as unknown as Stripe.Event;
+
+        await handler(fakeEvent);
+        await query(
+          `UPDATE webhook_dead_letter SET resolved = true, updated_at = NOW() WHERE id = $1`,
+          [item.id]
+        );
+        result.succeeded++;
+      }
+    } catch (err: any) {
+      const newRetryCount = item.retry_count + 1;
+      if (newRetryCount >= item.max_retries) {
+        await query(
+          `UPDATE webhook_dead_letter SET retry_count = $1, resolved = true, error_message = $2, updated_at = NOW() WHERE id = $3`,
+          [newRetryCount, `Permanently failed: ${err.message}`, item.id]
+        );
+        result.permanently_failed++;
+        await auditLog(null, "webhook_dlq_permanent_failure", "stripe", {
+          event_id: item.event_id,
+          event_type: item.event_type,
+          error: err.message,
+          retry_count: newRetryCount,
+        });
+      } else {
+        const backoffMs = Math.pow(2, newRetryCount) * 60 * 1000;
+        const nextRetry = new Date(Date.now() + backoffMs);
+        await query(
+          `UPDATE webhook_dead_letter SET retry_count = $1, next_retry_at = $2, error_message = $3, updated_at = NOW() WHERE id = $4`,
+          [newRetryCount, nextRetry, err.message, item.id]
+        );
+        result.failed++;
+      }
+    }
+  }
+
+  return result;
+}
+
+export async function getWebhookMetrics(): Promise<{
+  total_24h: number;
+  success_24h: number;
+  failure_24h: number;
+  success_rate_24h: number;
+  avg_processing_ms_24h: number;
+  by_type: Array<{ event_type: string; total: number; success: number; failure: number; avg_ms: number }>;
+  dlq_pending: number;
+  dlq_permanent_failures: number;
+}> {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const [totals, byType, dlqPending, dlqPerm] = await Promise.all([
+    query(
+      `SELECT
+         COUNT(*) as total,
+         SUM(CASE WHEN success THEN 1 ELSE 0 END) as successes,
+         SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failures,
+         AVG(processing_time_ms) as avg_ms
+       FROM webhook_metrics WHERE created_at >= $1`,
+      [cutoff]
+    ),
+    query(
+      `SELECT event_type,
+         COUNT(*) as total,
+         SUM(CASE WHEN success THEN 1 ELSE 0 END) as successes,
+         SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failures,
+         AVG(processing_time_ms) as avg_ms
+       FROM webhook_metrics WHERE created_at >= $1
+       GROUP BY event_type ORDER BY total DESC`,
+      [cutoff]
+    ),
+    query(`SELECT COUNT(*) as count FROM webhook_dead_letter WHERE resolved = false`),
+    query(`SELECT COUNT(*) as count FROM webhook_dead_letter WHERE resolved = true AND error_message LIKE 'Permanently%'`),
+  ]);
+
+  const t = totals.rows[0];
+  const total = parseInt(t.total) || 0;
+  const success = parseInt(t.successes) || 0;
+
+  return {
+    total_24h: total,
+    success_24h: success,
+    failure_24h: parseInt(t.failures) || 0,
+    success_rate_24h: total > 0 ? Math.round((success / total) * 10000) / 100 : 100,
+    avg_processing_ms_24h: Math.round(parseFloat(t.avg_ms) || 0),
+    by_type: byType.rows.map((r: any) => ({
+      event_type: r.event_type,
+      total: parseInt(r.total),
+      success: parseInt(r.successes),
+      failure: parseInt(r.failures),
+      avg_ms: Math.round(parseFloat(r.avg_ms) || 0),
+    })),
+    dlq_pending: parseInt(dlqPending.rows[0].count),
+    dlq_permanent_failures: parseInt(dlqPerm.rows[0].count),
+  };
 }

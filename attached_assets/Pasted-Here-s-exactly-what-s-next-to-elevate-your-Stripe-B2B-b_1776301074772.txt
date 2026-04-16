@@ -1,0 +1,47 @@
+Here’s exactly what’s next to elevate your Stripe B2B billing from solid MVP to production-hardened, zero-defect, compliance-ready foundation — the kind that supports billion-dollar scale without revenue leaks, audit failures, or angry enterprise customers.
+Your current implementation (5 endpoints + webhook handler + DB sync + audit logs) is a great base. But real-world Stripe integrations commonly break on duplicates/out-of-order events, reconciliation drift (DB vs Stripe mismatch), failed payments, and tax misses. These cause lost revenue, over/under-billing, or compliance headaches.
+Immediate Next Step (Do This Now – Phase 1 Hardening)
+Focus on robust webhooks + reconciliation first. This is the #1 source of defects in Stripe systems. ￼
+Copy-paste this prompt directly into your AI Agent:
+“Next priority: Harden the Stripe B2B billing system for production with zero defects and no race conditions or lost revenue scenarios.
+1.  Upgrade the Webhook Handler (/api/stripe-enterprise/webhook):
+	•  Strictly verify signatures on every request and reject invalid ones.
+	•  Full idempotency: Create a processed_events table (or use unique constraint on event.id). Check if event.id was already processed before doing any work. Return 200 immediately for duplicates.
+	•  Handle out-of-order and delayed events safely (do not assume event order; use current state from Stripe or a simple state machine for subscription status).
+	•  Process asynchronously where possible: Return HTTP 200 fast, then queue the actual work (to avoid timeouts). Add retries + dead-letter queue for failures.
+	•  Log every event in audit_logs with full details.
+2.  Implement Daily Reconciliation Job (cron):
+	•  Compare your companies table (subscription_status, seat_count, billing_period_end, subscription_id) against live Stripe data via API.
+	•  Detect and log/alert on any discrepancies (e.g., active in DB but canceled in Stripe).
+	•  Add safe auto-correction for common cases or a manual review queue.
+3.  Dunning & Failed Payment Logic:
+	•  On invoice.payment_failed: Trigger Stripe smart retries, send customer emails, apply grace period, then move to past_due with seat enforcement (prevent excess usage if needed).
+	•  Handle proration, mid-cycle seat updates, and true-ups cleanly.
+4.  Testing:
+	•  Comprehensive tests for all webhook events, duplicates, out-of-order delivery, and reconciliation.
+	•  Use Stripe test clocks for time-based scenarios.
+5.  Observability:
+	•  Add metrics for webhook success rate, mismatches, payment failures.
+	•  Make Stripe the source of truth for billing state, but keep fast DB reads for dashboard.
+Prioritize reliability: idempotent handlers, transactions for DB updates, and no duplicate charges or state corruption.”
+This directly follows current 2025–2026 best practices for Stripe webhooks.
+Right After That: Tax Compliance (Phase 2 – Critical for Scaling)
+Add Stripe Tax so taxes are calculated/collected automatically and transparently. This avoids manual headaches, back-filing, and audit issues as you sell across states/countries. ￼
+Follow-up prompt (once hardening is done): “Integrate Stripe Tax fully into the B2B billing flow:
+•  Enable automatic_tax on /subscribe Checkout Sessions and subscription creation.
+•  Set appropriate SaaS tax codes (e.g., for business use).
+•  Pass customer address/location where needed in /create-company and checkout flows.
+•  Ensure taxes show transparently on invoices and the customer portal.
+•  Update audit_logs for tax-related events.
+•  Test with different locations.”
+Then Short-Term Polish (to Make It Enterprise-Ready)
+•  Enhance the dashboard billing view: Show upcoming charges preview, full invoice history with PDF downloads, seat utilization trends, and clear pricing for “No active subscription”.
+•  Add basic RBAC for billing actions (only authorized company roles can update seats or open the portal).
+•  Expand audit_logs to cover every sensitive change (who, when, what, IP if possible) — make them exportable.
+Why This Order?
+•  Reliability first — defects here cause immediate revenue loss or customer churn.
+•  Compliance second — taxes + audits block big deals and create legal risk.
+•  Features and polish come after the foundation won’t break under load.
+Once these are complete and you’ve tested in staging (including edge cases), reply with the new screenshots or summary. We can then move to monitoring/alerts, CI/CD for billing paths, fraud protection (Stripe Radar), or preparing for ASC 606 revenue recognition (deferred revenue tracking for financial reporting).
+This is the disciplined path real high-scale SaaS companies follow: obsess over the “boring” details that prevent disasters at volume.
+Run the hardening prompt with your agent now. Any specific constraints on your tech stack, target customers, or what you’ve already tested? Let me know and I’ll refine the next prompt.

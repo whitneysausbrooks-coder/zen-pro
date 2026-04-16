@@ -73,6 +73,31 @@ interface SeatStatus {
   dunning_attempts: number;
 }
 
+interface WebhookMetrics {
+  total_24h: number;
+  success_24h: number;
+  failure_24h: number;
+  success_rate_24h: number;
+  avg_processing_ms_24h: number;
+  dlq_pending: number;
+  dlq_permanent_failures: number;
+}
+
+interface InvoiceEntry {
+  id: string;
+  number: string | null;
+  status: string;
+  amount_due: number;
+  amount_paid: number;
+  currency: string;
+  created: string;
+  hosted_invoice_url: string | null;
+  invoice_pdf: string | null;
+  tax: number | null;
+  subtotal: number;
+  total: number;
+}
+
 interface AuditEntry {
   id: string;
   user_id: string | null;
@@ -294,6 +319,8 @@ export default function AdminDashboard() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [billing, setBilling] = useState<BillingData | null>(null);
   const [seatStatus, setSeatStatus] = useState<SeatStatus | null>(null);
+  const [webhookMetrics, setWebhookMetrics] = useState<WebhookMetrics | null>(null);
+  const [invoices, setInvoices] = useState<InvoiceEntry[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
   const [companyId, setCompanyId] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -307,10 +334,12 @@ export default function AdminDashboard() {
     if (!id || !apiKey) return;
     setLoading(true);
     try {
-      const [dashRes, billingRes, seatRes, auditRes] = await Promise.all([
+      const [dashRes, billingRes, seatRes, metricsRes, invoiceRes, auditRes] = await Promise.all([
         fetch(`${BASE}/api/enterprise/company/${id}/dashboard?view=${view}`, { headers }),
         fetch(`${BASE}/api/stripe-enterprise/billing/${id}`, { headers }),
         fetch(`${BASE}/api/enterprise/seats/${id}`, { headers }),
+        fetch(`${BASE}/api/stripe-enterprise/webhook-metrics`, { headers }),
+        fetch(`${BASE}/api/stripe-enterprise/invoices/${id}`, { headers }),
         fetch(`${BASE}/api/enterprise/audit-log?limit=20`, { headers }),
       ]);
 
@@ -323,6 +352,11 @@ export default function AdminDashboard() {
 
       if (billingRes.ok) setBilling(await billingRes.json());
       if (seatRes.ok) setSeatStatus(await seatRes.json());
+      if (metricsRes.ok) setWebhookMetrics(await metricsRes.json());
+      if (invoiceRes.ok) {
+        const data = await invoiceRes.json();
+        setInvoices(data.invoices || []);
+      }
       if (auditRes.ok) {
         const data = await auditRes.json();
         setAuditLogs(data.logs || []);
@@ -651,6 +685,75 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {webhookMetrics && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 space-y-4">
+                  <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase">
+                    Webhook Health (24h)
+                  </p>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Events</p>
+                      <p className="text-lg font-bold text-white/80">{webhookMetrics.total_24h}</p>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Success Rate</p>
+                      <p className={`text-lg font-bold ${webhookMetrics.success_rate_24h >= 99 ? "text-emerald-400" : webhookMetrics.success_rate_24h >= 95 ? "text-amber-400" : "text-red-400"}`}>
+                        {webhookMetrics.success_rate_24h}%
+                      </p>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Avg Latency</p>
+                      <p className="text-lg font-bold text-white/80">{webhookMetrics.avg_processing_ms_24h}ms</p>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">DLQ Pending</p>
+                      <p className={`text-lg font-bold ${webhookMetrics.dlq_pending > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                        {webhookMetrics.dlq_pending}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {invoices.length > 0 && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+                  <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase mb-4">
+                    Invoice History
+                  </p>
+                  <div className="space-y-2">
+                    {invoices.map((inv) => (
+                      <div key={inv.id} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-3">
+                        <div>
+                          <p className="text-xs text-white/60">{inv.number || inv.id}</p>
+                          <p className="text-[10px] text-white/30 mt-0.5">
+                            {new Date(inv.created).toLocaleDateString()}
+                            {inv.tax ? ` · Tax: $${(inv.tax / 100).toFixed(2)}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-medium ${inv.status === "paid" ? "text-emerald-400" : inv.status === "open" ? "text-amber-400" : "text-white/40"}`}>
+                            ${(inv.total / 100).toFixed(2)}
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                            inv.status === "paid" ? "bg-emerald-400/15 text-emerald-400" :
+                            inv.status === "open" ? "bg-amber-400/15 text-amber-400" :
+                            "bg-white/5 text-white/30"
+                          }`}>
+                            {inv.status}
+                          </span>
+                          {inv.invoice_pdf && (
+                            <a href={inv.invoice_pdf} target="_blank" rel="noopener noreferrer"
+                               className="text-[10px] text-indigo-400/60 hover:text-indigo-400 transition">
+                              PDF
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

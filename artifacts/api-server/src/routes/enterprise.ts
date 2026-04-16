@@ -632,13 +632,71 @@ router.post("/enterprise/reconcile", async (_req, res) => {
 
 router.get("/enterprise/audit-log", async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+  const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
+  const action = req.query.action as string | undefined;
+  const resource = req.query.resource as string | undefined;
+  const since = req.query.since as string | undefined;
+  const format = req.query.format as string | undefined;
+
   try {
+    let whereClause = "";
+    const params: any[] = [];
+    const conditions: string[] = [];
+
+    if (action) {
+      params.push(action);
+      conditions.push(`action = $${params.length}`);
+    }
+    if (resource) {
+      params.push(resource);
+      conditions.push(`resource = $${params.length}`);
+    }
+    if (since) {
+      params.push(new Date(since));
+      conditions.push(`created_at >= $${params.length}`);
+    }
+
+    if (conditions.length > 0) {
+      whereClause = `WHERE ${conditions.join(" AND ")}`;
+    }
+
+    params.push(limit);
+    const limitParam = params.length;
+    params.push(offset);
+    const offsetParam = params.length;
+
     const result = await query(
       `SELECT id, user_id, action, resource, details, ip_address, created_at
-       FROM audit_logs ORDER BY created_at DESC LIMIT $1`,
-      [limit]
+       FROM audit_logs ${whereClause}
+       ORDER BY created_at DESC
+       LIMIT $${limitParam} OFFSET $${offsetParam}`,
+      params
     );
-    return res.json({ logs: result.rows });
+
+    const countResult = await query(
+      `SELECT COUNT(*) as total FROM audit_logs ${whereClause}`,
+      params.slice(0, params.length - 2)
+    );
+
+    if (format === "csv") {
+      const csvHeader = "id,user_id,action,resource,details,ip_address,created_at\n";
+      const csvRows = result.rows.map((r: any) =>
+        [r.id, r.user_id || "", r.action, r.resource,
+         JSON.stringify(r.details || {}).replace(/"/g, '""'),
+         r.ip_address || "", r.created_at].map(v => `"${v}"`).join(",")
+      ).join("\n");
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=audit_log_export.csv");
+      return res.send(csvHeader + csvRows);
+    }
+
+    return res.json({
+      logs: result.rows,
+      total: parseInt(countResult.rows[0].total),
+      limit,
+      offset,
+    });
   } catch (err: any) {
     console.error("Error fetching audit logs:", err.message);
     return res.status(500).json({ error: "Failed to fetch audit logs" });
