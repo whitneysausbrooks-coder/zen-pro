@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { z } from "zod";
 import { query, auditLog } from "../lib/db";
+import { handleSeatChangeProspective } from "../lib/revenueRecognition";
 
 const router = Router();
 
@@ -367,8 +368,7 @@ router.patch("/enterprise/scim/v2/Users/:id", async (req, res) => {
   try {
     for (const op of ops) {
       if (op.op === "replace" && op.path === "active" && op.value === false) {
-        await query(`DELETE FROM enterprise_users WHERE id = $1`, [req.params.id]);
-        await auditLog(req.params.id, "scim_user_deprovisioned", "enterprise_users", { method: "SCIM_PATCH" });
+        await handleSCIMDeprovision(req.params.id, "SCIM_PATCH");
         return res.status(204).send();
       }
     }
@@ -388,13 +388,77 @@ router.patch("/enterprise/scim/v2/Users/:id", async (req, res) => {
 
 router.delete("/enterprise/scim/v2/Users/:id", async (req, res) => {
   try {
-    await query(`DELETE FROM enterprise_users WHERE id = $1`, [req.params.id]);
-    await auditLog(req.params.id, "scim_user_deprovisioned", "enterprise_users", { method: "SCIM_DELETE" });
+    await handleSCIMDeprovision(req.params.id, "SCIM_DELETE");
     res.status(204).send();
   } catch (err: any) {
     res.status(500).json({ schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"], detail: "Failed to delete user", status: "500" });
   }
 });
+
+async function handleSCIMDeprovision(userId: string, method: string) {
+  const userResult = await query(
+    `SELECT id, email, company_id FROM enterprise_users WHERE id = $1`,
+    [userId]
+  );
+
+  if (userResult.rows.length === 0) return;
+
+  const user = userResult.rows[0];
+  const companyId = user.company_id;
+
+  await query(`DELETE FROM enterprise_users WHERE id = $1`, [userId]);
+
+  await auditLog(userId, "scim_user_deprovisioned", "enterprise_users", {
+    email: user.email,
+    company_id: companyId,
+    method,
+  });
+
+  if (!companyId) return;
+
+  try {
+    const companyResult = await query(
+      `SELECT subscription_id, seat_count, subscription_status FROM companies WHERE id = $1`,
+      [companyId]
+    );
+
+    if (companyResult.rows.length === 0) return;
+    const company = companyResult.rows[0];
+
+    if (!company.subscription_id || company.subscription_status !== "active") return;
+
+    const newSeatCount = await query(
+      `SELECT COUNT(*) as count FROM enterprise_users WHERE company_id = $1`,
+      [companyId]
+    );
+    const currentSeats = parseInt(newSeatCount.rows[0].count);
+    const previousSeats = company.seat_count || currentSeats + 1;
+
+    if (currentSeats < previousSeats) {
+      await handleSeatChangeProspective(
+        companyId,
+        company.subscription_id,
+        currentSeats,
+        previousSeats
+      );
+
+      await auditLog(null, "scim_revenue_adjustment", "revenue_schedules", {
+        company_id: companyId,
+        trigger: "scim_deprovision",
+        deprovisioned_user: user.email,
+        previous_seats: previousSeats,
+        new_seats: currentSeats,
+        method,
+      });
+    }
+  } catch (err: any) {
+    console.error(`[SCIM→Revenue] Error adjusting revenue after deprovision:`, err.message);
+    await auditLog(userId, "scim_revenue_adjustment_failed", "revenue_schedules", {
+      company_id: companyId,
+      error: err.message,
+    });
+  }
+}
 
 function toScimUser(row: any) {
   const emailParts = (row.email || "").split("@");

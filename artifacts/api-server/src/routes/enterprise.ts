@@ -885,10 +885,13 @@ router.get("/enterprise/wearable/:userId/trend", async (req, res) => {
 
 router.post("/enterprise/wearable/score", async (req, res) => {
   const schema = z.object({
-    hrv: z.number().min(0).max(300),
-    sleep_duration: z.number().min(0).max(1440),
-    steps: z.number().int().min(0).max(200000),
-  });
+    hrv: z.number().min(0).max(300).nullable().optional(),
+    sleep_duration: z.number().min(0).max(1440).nullable().optional(),
+    steps: z.number().int().min(0).max(200000).nullable().optional(),
+  }).refine(
+    (data) => data.hrv != null || data.sleep_duration != null || data.steps != null,
+    { message: "At least one metric (hrv, sleep_duration, or steps) must be provided" }
+  );
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 

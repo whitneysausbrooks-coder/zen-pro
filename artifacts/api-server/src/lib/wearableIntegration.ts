@@ -3,12 +3,15 @@ import { query, auditLog } from "./db";
 
 export const wearableDataSchema = z.object({
   user_id: z.string().uuid(),
-  hrv: z.number().min(0).max(300),
-  sleep_duration: z.number().min(0).max(1440),
-  steps: z.number().int().min(0).max(200000),
+  hrv: z.number().min(0).max(300).nullable().optional(),
+  sleep_duration: z.number().min(0).max(1440).nullable().optional(),
+  steps: z.number().int().min(0).max(200000).nullable().optional(),
   source: z.enum(["apple_health", "google_fit", "fitbit", "garmin", "whoop", "oura", "manual"]).default("manual"),
   recorded_at: z.string().datetime().optional(),
-});
+}).refine(
+  (data) => data.hrv != null || data.sleep_duration != null || data.steps != null,
+  { message: "At least one metric (hrv, sleep_duration, or steps) must be provided" }
+);
 
 export type WearableData = z.infer<typeof wearableDataSchema>;
 
@@ -101,15 +104,21 @@ function computeStrainRecoveryInteraction(
   return { state: "neutral", modifier: 0 };
 }
 
+const POPULATION_MEDIANS = { hrv: 50, sleep: 420, steps: 6000 };
+
 export function computeNeuroResilienceScore(
-  hrv: number,
-  sleepMinutes: number,
-  steps: number,
+  hrv: number | null | undefined,
+  sleepMinutes: number | null | undefined,
+  steps: number | null | undefined,
   historicalScores?: number[]
 ): NeuroResilienceResult {
-  const hrvComponent = normalizeHRV(hrv);
-  const sleepComponent = normalizeSleep(sleepMinutes);
-  const activityComponent = normalizeSteps(steps);
+  const effectiveHrv = hrv ?? POPULATION_MEDIANS.hrv;
+  const effectiveSleep = sleepMinutes ?? POPULATION_MEDIANS.sleep;
+  const effectiveSteps = steps ?? POPULATION_MEDIANS.steps;
+
+  const hrvComponent = normalizeHRV(effectiveHrv);
+  const sleepComponent = normalizeSleep(effectiveSleep);
+  const activityComponent = normalizeSteps(effectiveSteps);
 
   let weightedScore =
     WEIGHTS.hrv * hrvComponent +
@@ -198,20 +207,49 @@ export function computeNeuroResilienceScore(
 export async function ingestWearableData(data: WearableData): Promise<{
   id: string;
   neuro_resilience: NeuroResilienceResult;
+  imputed_metrics: string[];
 }> {
-  const historyResult = await query(
-    `SELECT neuro_resilience_score FROM wearable_data
-     WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 6`,
-    [data.user_id]
-  );
+  const [historyResult, lastReadingResult] = await Promise.all([
+    query(
+      `SELECT neuro_resilience_score FROM wearable_data
+       WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 6`,
+      [data.user_id]
+    ),
+    query(
+      `SELECT hrv, sleep_duration_minutes, steps FROM wearable_data
+       WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 1`,
+      [data.user_id]
+    ),
+  ]);
+
   const historicalScores = historyResult.rows
     .map((r: any) => parseInt(r.neuro_resilience_score))
     .reverse();
 
+  const lastReading = lastReadingResult.rows[0] || null;
+
+  let effectiveHrv = data.hrv ?? null;
+  let effectiveSleep = data.sleep_duration ?? null;
+  let effectiveSteps = data.steps ?? null;
+  const imputed_metrics: string[] = [];
+
+  if (effectiveHrv == null && lastReading?.hrv != null) {
+    effectiveHrv = parseFloat(lastReading.hrv);
+    imputed_metrics.push("hrv (last known)");
+  }
+  if (effectiveSleep == null && lastReading?.sleep_duration_minutes != null) {
+    effectiveSleep = parseFloat(lastReading.sleep_duration_minutes);
+    imputed_metrics.push("sleep_duration (last known)");
+  }
+  if (effectiveSteps == null && lastReading?.steps != null) {
+    effectiveSteps = parseInt(lastReading.steps);
+    imputed_metrics.push("steps (last known)");
+  }
+
   const resilience = computeNeuroResilienceScore(
-    data.hrv,
-    data.sleep_duration,
-    data.steps,
+    effectiveHrv,
+    effectiveSleep,
+    effectiveSteps,
     historicalScores.length > 0 ? historicalScores : undefined
   );
 
@@ -222,9 +260,9 @@ export async function ingestWearableData(data: WearableData): Promise<{
      RETURNING id`,
     [
       data.user_id,
-      data.hrv,
-      data.sleep_duration,
-      data.steps,
+      effectiveHrv,
+      effectiveSleep,
+      effectiveSteps,
       data.source,
       resilience.neuro_resilience_score,
       data.recorded_at || new Date().toISOString(),
@@ -238,9 +276,10 @@ export async function ingestWearableData(data: WearableData): Promise<{
     strain_recovery_state: resilience.breakdown.strain_recovery_state,
     sleep_floor_applied: resilience.breakdown.sleep_floor_applied,
     ema_applied: resilience.ema_applied,
+    imputed_metrics,
   });
 
-  return { id: result.rows[0].id, neuro_resilience: resilience };
+  return { id: result.rows[0].id, neuro_resilience: resilience, imputed_metrics };
 }
 
 export async function getWearableHistory(userId: string, limit = 30): Promise<any[]> {
