@@ -1,0 +1,24 @@
+🚦 Verification Table: The "Green" Results
+
+
+🧠 The Neuro-Resilience "Deep Dive"
+Since we've initialized the wearable bridge, let's look at how the data actually flows to create that Neuro-Resilience Score. By anchoring on HRV (Heart Rate Variability), we are measuring the balance between the Sympathetic (Stress) and Parasympathetic (Recovery) nervous systems.
+The Data Flow:
+1.	Ingest: Raw data (HRV, Sleep, Steps) hits your new WearableIntegration service.
+2.	Normalize: Your 7-day EMA (Exponential Moving Average) smooths out the "one bad night" noise.
+3.	Weight: * HRV (50%): The "Readiness" anchor.
+• Sleep (35%): The "Recovery" floor.
+• Strain (15%): The "Metabolic" load.
+4.	Output: A proprietary score that triggers Corporate Wellness Heatmaps for admins.
+🚀 What is Next? (SSO & SCIM)
+The login loop is dead, and the math is solid. To make this "billion-dollar worthy," we now need to make it "Enterprise Easy."
+The SSO/SCIM Implementation:
+• SSO (Single Sign-On): We move away from simple email/password to OIDC/SAML. A corporate user should sign in with their company Microsoft/Google account.
+• SCIM (User Provisioning): This is the automation holy grail. When an HR manager adds an employee to their internal directory, NeuroQuest should automatically:
+1.	Create the user profile.
+2.	Assign them to the correct "Org" in your DB.
+3.	Update the Stripe seat count (triggering your now-fixed ASC 606 math).
+Action Plan for the Next 5 Minutes:
+1.	The Refresh Test: Open your app. Log in. Hit Cmd+R (or F5). If the dashboard stays up without flickering back to the login screen, the Auth Loop is officially buried.
+2.	The Stripe Check: Go to your Stripe Dashboard (Test Mode). Look for a "Subscription Updated" event. Does the invoice show the prorated amount billed immediately?
+3.	The Score Logic: Ask the Agent to show you the specific function where the Neuro-Resilience Score is calculated. Ensure the 50/35/15 weighting is hardcoded in the backend, not just the frontend (for security).
