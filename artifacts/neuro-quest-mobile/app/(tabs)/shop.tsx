@@ -1,7 +1,8 @@
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -14,6 +15,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GlassCard } from "@/components/GlassCard";
 import Colors from "@/constants/colors";
+import {
+  initIAP,
+  endIAP,
+  getProducts,
+  purchaseProduct,
+  restorePurchases,
+} from "@/lib/iap";
+
+const PRODUCT_MAP: Record<string, string> = {
+  pro: "com.neuroquest.pro.monthly",
+  daily: "com.neuroquest.daypass",
+  "spins-5": "com.neuroquest.spins.5",
+  "spins-15": "com.neuroquest.spins.15",
+  "spins-50": "com.neuroquest.spins.50",
+};
 
 const nd = Platform.OS !== "web";
 
@@ -75,10 +91,53 @@ const ENTERPRISE_BENEFITS = [
 export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState("pro");
+  const [purchasing, setPurchasing] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === "ios") {
+      initIAP()
+        .then(() => getProducts())
+        .catch((e) => console.warn("IAP setup:", e));
+    }
+    return () => {
+      endIAP();
+    };
+  }, []);
 
   const handleSelect = useCallback((id: string) => {
     if (nd) Haptics.selectionAsync();
     setSelectedPlan(id);
+  }, []);
+
+  const runPurchase = useCallback(async (planKey: string) => {
+    const productId = PRODUCT_MAP[planKey];
+    if (!productId) return;
+
+    if (Platform.OS !== "ios") {
+      Alert.alert("iOS only", "In-app purchases are currently available on iOS.");
+      return;
+    }
+
+    try {
+      setPurchasing(planKey);
+      const result = await purchaseProduct(productId);
+      if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        "Purchase Successful",
+        result.duplicate
+          ? "This transaction has already been applied to your account."
+          : "Your purchase has been confirmed. Thank you for supporting mental health charities!",
+        [{ text: "OK" }]
+      );
+    } catch (e: any) {
+      const msg = String(e?.message || e);
+      if (msg.includes("cancel") || msg.includes("E_USER_CANCELLED")) return;
+      if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Purchase Failed", msg || "Something went wrong. Please try again.");
+    } finally {
+      setPurchasing(null);
+    }
   }, []);
 
   const handlePurchase = useCallback((id: string) => {
@@ -94,17 +153,33 @@ export default function ShopScreen() {
         {
           text: `Subscribe ${plan.price}${plan.period}`,
           style: "default",
-          onPress: () => {
-            if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert(
-              "Subscription Pending",
-              "In-app subscriptions will be available when the app launches on the App Store. You'll be among the first to know!",
-              [{ text: "Got it" }]
-            );
-          },
+          onPress: () => runPurchase(id),
         },
       ]
     );
+  }, [runPurchase]);
+
+  const handleRestore = useCallback(async () => {
+    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== "ios") {
+      Alert.alert("iOS only", "Restore Purchases is available on iOS.");
+      return;
+    }
+    try {
+      setRestoring(true);
+      const result = await restorePurchases();
+      Alert.alert(
+        "Restore Complete",
+        result.restored.length > 0
+          ? `Restored: ${result.restored.length} purchase(s).`
+          : "No previous purchases found on this Apple ID.",
+        [{ text: "OK" }]
+      );
+    } catch (e: any) {
+      Alert.alert("Restore Failed", String(e?.message || e));
+    } finally {
+      setRestoring(false);
+    }
   }, []);
 
   return (
@@ -401,19 +476,17 @@ export default function ShopScreen() {
         </GlassCard>
 
         <Pressable
-          onPress={() => {
-            if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            Alert.alert(
-              "Restore Purchases",
-              "Your previous purchases will be restored from your App Store account. This feature will be available when the app launches on the App Store.",
-              [{ text: "OK" }]
-            );
-          }}
+          onPress={handleRestore}
+          disabled={restoring}
           style={({ pressed }) => [styles.restoreBtn, pressed && { opacity: 0.7 }]}
           accessibilityRole="button"
           accessibilityLabel="Restore previous purchases"
         >
-          <Text style={styles.restoreText}>Restore Purchases</Text>
+          {restoring ? (
+            <ActivityIndicator color={Colors.whiteAlpha60} size="small" />
+          ) : (
+            <Text style={styles.restoreText}>Restore Purchases</Text>
+          )}
         </Pressable>
 
         <Text style={styles.disclaimer}>

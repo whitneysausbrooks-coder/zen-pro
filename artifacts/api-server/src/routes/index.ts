@@ -9,6 +9,7 @@ import sponsorRouter from "./sponsor";
 import adminRouter from "./admin";
 import notificationsRouter from "./notifications";
 import ssoScimRouter from "./sso-scim";
+import iapRouter from "./iap";
 
 const router: IRouter = Router();
 
@@ -16,6 +17,7 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use("/quest", questRouter);
 router.use(stripeRouter);
+router.use(iapRouter);
 router.use(ssoScimRouter);
 router.use(enterpriseRouter);
 router.use(stripeEnterpriseRouter);
