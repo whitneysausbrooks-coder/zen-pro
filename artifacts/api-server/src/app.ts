@@ -5,10 +5,10 @@ import path from "path";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import router from "./routes";
 import { WebhookHandlers } from "./webhookHandlers";
+import { processEnterpriseWebhook } from "./lib/enterpriseWebhook";
 
 const app: Express = express();
 
-// ⚠️ Stripe webhook MUST be registered before express.json() — it needs the raw Buffer
 app.post(
   "/api/stripe/webhook",
   express.raw({ type: "application/json" }),
@@ -21,6 +21,23 @@ app.post(
       return res.json({ received: true });
     } catch (err: any) {
       console.error("Webhook error:", err.message);
+      return res.status(400).json({ error: "Webhook error" });
+    }
+  }
+);
+
+app.post(
+  "/api/stripe-enterprise/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    const signature = req.headers["stripe-signature"];
+    if (!signature) return res.status(400).json({ error: "Missing stripe-signature" });
+    const sig = Array.isArray(signature) ? signature[0] : signature;
+    try {
+      await processEnterpriseWebhook(req.body as Buffer, sig);
+      return res.json({ received: true });
+    } catch (err: any) {
+      console.error("Enterprise webhook error:", err.message);
       return res.status(400).json({ error: "Webhook error" });
     }
   }

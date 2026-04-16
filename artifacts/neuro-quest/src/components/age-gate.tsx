@@ -4,6 +4,7 @@ import { Shield, AlertTriangle } from "lucide-react"
 
 const AGE_KEY = "nq_age_verified"
 const LEGAL_PATHS = ["/privacy", "/terms", "/copyright"]
+const ENTERPRISE_PATHS = ["/admin-dashboard", "/admin", "/enterprise"]
 
 export function AgeGate({ children }: { children: React.ReactNode }) {
   const [verified, setVerified] = useState<boolean | null>(null)
@@ -14,8 +15,15 @@ export function AgeGate({ children }: { children: React.ReactNode }) {
     setVerified(stored === "1")
   }, [])
 
-  const isLegalPage = typeof window !== "undefined" && LEGAL_PATHS.some(p => window.location.pathname.endsWith(p))
+  const pathname = typeof window !== "undefined" ? window.location.pathname : ""
+  const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") || ""
+  const relativePath = basePath ? pathname.replace(basePath, "") : pathname
+
+  const isLegalPage = LEGAL_PATHS.some(p => relativePath.endsWith(p))
   if (isLegalPage) return <>{children}</>
+
+  const isEnterprisePage = ENTERPRISE_PATHS.some(p => relativePath.startsWith(p))
+  if (isEnterprisePage) return <>{children}</>
 
   if (verified === null) return null
 

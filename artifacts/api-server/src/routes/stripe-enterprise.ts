@@ -19,6 +19,28 @@ router.use("/stripe-enterprise/{*path}", requireEnterpriseAuth);
 
 const ENTERPRISE_PRICE_PER_SEAT = 1200;
 
+async function syncSubscriptionToDb(
+  companyId: string,
+  subscriptionId: string,
+  status: string,
+  seats: number,
+  periodEnd: Date | null
+): Promise<void> {
+  try {
+    await query(
+      `UPDATE companies
+       SET subscription_status = $1,
+           subscription_id = $2,
+           seat_count = $3,
+           billing_period_end = $4
+       WHERE id = $5 OR stripe_customer_id = $6`,
+      [status, subscriptionId, seats, periodEnd, companyId, companyId]
+    );
+  } catch (err: any) {
+    console.error("Failed to sync subscription to DB:", err.message);
+  }
+}
+
 router.post("/stripe-enterprise/create-company", async (req, res) => {
   if (!isStripeConfigured()) {
     return res.status(503).json({ error: "Stripe not configured" });
@@ -64,6 +86,7 @@ router.post("/stripe-enterprise/create-company", async (req, res) => {
     });
   } catch (err: any) {
     console.error("Enterprise Stripe customer error:", err.message);
+    await auditLog(null, "stripe_customer_create_failed", "companies", { error: err.message });
     return res.status(500).json({ error: "Failed to create Stripe customer" });
   }
 });
@@ -145,6 +168,7 @@ router.post("/stripe-enterprise/subscribe", async (req, res) => {
     });
   } catch (err: any) {
     console.error("Enterprise checkout error:", err.message);
+    await auditLog(null, "enterprise_checkout_failed", "companies", { error: err.message });
     return res.status(500).json({ error: "Failed to create checkout session" });
   }
 });
@@ -190,6 +214,11 @@ router.post("/stripe-enterprise/update-seats", async (req, res) => {
       quantity: new_employee_count,
     });
 
+    await syncSubscriptionToDb(
+      company_id, sub.id, "active", new_employee_count,
+      new Date((sub.current_period_end as number) * 1000)
+    );
+
     await auditLog(null, "enterprise_seats_updated", "companies", {
       company_id,
       new_employee_count,
@@ -203,59 +232,92 @@ router.post("/stripe-enterprise/update-seats", async (req, res) => {
     });
   } catch (err: any) {
     console.error("Seat update error:", err.message);
+    await auditLog(null, "seat_update_failed", "companies", { error: err.message });
     return res.status(500).json({ error: "Failed to update seats" });
   }
 });
 
 router.get("/stripe-enterprise/billing/:companyId", async (req, res) => {
-  if (!isStripeConfigured()) {
-    return res.status(503).json({ error: "Stripe not configured" });
-  }
-
   const companyId = req.params.companyId;
   if (!z.string().uuid().safeParse(companyId).success) {
     return res.status(400).json({ error: "Invalid company ID" });
   }
 
   try {
-    const stripe = getStripeClient();
-
     const companyResult = await query(
-      `SELECT name, stripe_customer_id FROM companies WHERE id = $1`,
+      `SELECT name, stripe_customer_id, subscription_status, subscription_id,
+              seat_count, billing_period_end
+       FROM companies WHERE id = $1`,
       [companyId]
     );
-    if (companyResult.rows.length === 0 || !companyResult.rows[0].stripe_customer_id) {
-      return res.json({ has_subscription: false, company_name: companyResult.rows[0]?.name });
+    if (companyResult.rows.length === 0) {
+      return res.json({ has_subscription: false });
     }
 
-    const customerId = companyResult.rows[0].stripe_customer_id;
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      status: "active",
-      limit: 1,
-    });
+    const company = companyResult.rows[0];
 
-    if (subscriptions.data.length === 0) {
+    if (company.subscription_status === "active" && company.subscription_id) {
       return res.json({
-        has_subscription: false,
-        company_name: companyResult.rows[0].name,
-        stripe_customer_id: customerId,
+        has_subscription: true,
+        company_name: company.name,
+        subscription_id: company.subscription_id,
+        status: company.subscription_status,
+        seats: company.seat_count || 0,
+        per_seat_price: ENTERPRISE_PRICE_PER_SEAT / 100,
+        monthly_total: (ENTERPRISE_PRICE_PER_SEAT * (company.seat_count || 0)) / 100,
+        current_period_end: company.billing_period_end
+          ? new Date(company.billing_period_end).toISOString()
+          : null,
       });
     }
 
-    const sub = subscriptions.data[0];
-    const seats = sub.items.data[0]?.quantity || 0;
+    if (!isStripeConfigured() || !company.stripe_customer_id) {
+      return res.json({
+        has_subscription: false,
+        company_name: company.name,
+        subscription_status: company.subscription_status || "none",
+      });
+    }
 
-    return res.json({
-      has_subscription: true,
-      company_name: companyResult.rows[0].name,
-      subscription_id: sub.id,
-      status: sub.status,
-      seats,
-      per_seat_price: ENTERPRISE_PRICE_PER_SEAT / 100,
-      monthly_total: (ENTERPRISE_PRICE_PER_SEAT * seats) / 100,
-      current_period_end: new Date((sub.current_period_end as number) * 1000).toISOString(),
-    });
+    try {
+      const stripe = getStripeClient();
+      const subscriptions = await stripe.subscriptions.list({
+        customer: company.stripe_customer_id,
+        status: "active",
+        limit: 1,
+      });
+
+      if (subscriptions.data.length === 0) {
+        return res.json({
+          has_subscription: false,
+          company_name: company.name,
+          stripe_customer_id: company.stripe_customer_id,
+        });
+      }
+
+      const sub = subscriptions.data[0];
+      const seats = sub.items.data[0]?.quantity || 0;
+      const periodEnd = new Date((sub.current_period_end as number) * 1000);
+
+      await syncSubscriptionToDb(companyId, sub.id, "active", seats, periodEnd);
+
+      return res.json({
+        has_subscription: true,
+        company_name: company.name,
+        subscription_id: sub.id,
+        status: sub.status,
+        seats,
+        per_seat_price: ENTERPRISE_PRICE_PER_SEAT / 100,
+        monthly_total: (ENTERPRISE_PRICE_PER_SEAT * seats) / 100,
+        current_period_end: periodEnd.toISOString(),
+      });
+    } catch (stripeErr: any) {
+      return res.json({
+        has_subscription: false,
+        company_name: company.name,
+        subscription_status: company.subscription_status || "none",
+      });
+    }
   } catch (err: any) {
     console.error("Billing status error:", err.message);
     return res.status(500).json({ error: "Failed to fetch billing info" });
@@ -297,6 +359,7 @@ router.post("/stripe-enterprise/portal", async (req, res) => {
     return res.json({ url: portalSession.url });
   } catch (err: any) {
     console.error("Portal error:", err.message);
+    await auditLog(null, "billing_portal_failed", "companies", { error: err.message });
     return res.status(500).json({ error: "Failed to create billing portal" });
   }
 });
