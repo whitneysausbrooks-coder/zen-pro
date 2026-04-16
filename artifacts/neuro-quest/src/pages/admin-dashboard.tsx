@@ -21,6 +21,17 @@ interface TrendDay {
   avg_cohesion: string;
 }
 
+interface RiskFactor {
+  factor: string;
+  affected_employees: number;
+}
+
+interface OutcomeMetrics {
+  burnout_change_30d: number | null;
+  wri_change_30d: number | null;
+  projected_retention_impact: number | null;
+}
+
 interface DashboardData {
   view: "executive" | "manager";
   avg_wri: number;
@@ -29,6 +40,12 @@ interface DashboardData {
   burnout_severity: "low" | "moderate" | "high" | "critical";
   burnout_alert: string | null;
   trend_7d: TrendDay[];
+  top_risk_factors?: RiskFactor[];
+  outcomes?: OutcomeMetrics;
+  projected_burnout_7d?: number | null;
+  projected_burnout_30d?: number | null;
+  trend_direction?: string;
+  engine_version?: string;
   high_risk_employees?: number;
   high_risk_label?: string;
   team_cohesion?: number;
@@ -60,6 +77,13 @@ const severityColors: Record<string, string> = {
   moderate: "#FBBF24",
   high: "#F97316",
   critical: "#EF4444",
+};
+
+const trendDirectionLabels: Record<string, { label: string; color: string }> = {
+  improving: { label: "Improving", color: "#4ADE80" },
+  stable: { label: "Stable", color: "#60A5FA" },
+  declining: { label: "Declining", color: "#F97316" },
+  critical_decline: { label: "Critical Decline", color: "#EF4444" },
 };
 
 function MetricCard({
@@ -176,6 +200,85 @@ function TrendLineChart({ data }: { data: TrendDay[] }) {
   );
 }
 
+function OutcomeCard({ outcomes }: { outcomes: OutcomeMetrics }) {
+  const items = [
+    {
+      label: "Burnout Risk Change (30d)",
+      value: outcomes.burnout_change_30d,
+      suffix: "%",
+      good: (v: number) => v < 0,
+      icon: "📉",
+    },
+    {
+      label: "WRI Change (30d)",
+      value: outcomes.wri_change_30d,
+      suffix: "%",
+      good: (v: number) => v > 0,
+      icon: "📈",
+    },
+    {
+      label: "Projected Retention Impact",
+      value: outcomes.projected_retention_impact,
+      suffix: "%",
+      good: (v: number) => v > 0,
+      icon: "👥",
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-3 gap-3">
+      {items.map((item) => {
+        const val = item.value;
+        const hasData = val !== null && val !== undefined;
+        const isGood = hasData && item.good(val);
+        const color = hasData ? (isGood ? "#4ADE80" : "#F87171") : "rgba(255,255,255,0.25)";
+        return (
+          <motion.div
+            key={item.label}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4"
+          >
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-sm">{item.icon}</span>
+              <p className="text-[10px] font-medium tracking-[0.12em] text-white/30 uppercase">
+                {item.label}
+              </p>
+            </div>
+            <p className="text-2xl font-bold" style={{ color }}>
+              {hasData ? `${val > 0 ? "+" : ""}${val}${item.suffix}` : "—"}
+            </p>
+            {hasData && (
+              <p className="text-[10px] mt-1" style={{ color: color + "80" }}>
+                {isGood ? "Positive trend" : "Needs attention"}
+              </p>
+            )}
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RiskFactorsPanel({ factors }: { factors: RiskFactor[] }) {
+  if (factors.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      {factors.map((f, i) => (
+        <div
+          key={i}
+          className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2.5"
+        >
+          <span className="text-xs text-white/50">{f.factor}</span>
+          <span className="text-[10px] font-medium text-white/30">
+            {f.affected_employees} employee{f.affected_employees !== 1 ? "s" : ""}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [, navigate] = useLocation();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -220,6 +323,7 @@ export default function AdminDashboard() {
   };
 
   const sevColor = dashboard ? severityColors[dashboard.burnout_severity] || "#999" : "#999";
+  const trendInfo = dashboard?.trend_direction ? trendDirectionLabels[dashboard.trend_direction] : null;
 
   return (
     <div className="min-h-screen bg-[#0a0a14] text-white antialiased">
@@ -233,6 +337,9 @@ export default function AdminDashboard() {
             <h1 className="text-[28px] font-semibold text-white/90 tracking-tight">
               Workforce Resilience Dashboard
             </h1>
+            {dashboard?.engine_version && (
+              <p className="text-[10px] text-white/20 mt-1">Engine v{dashboard.engine_version}</p>
+            )}
           </div>
           <button
             onClick={() => navigate("/")}
@@ -312,19 +419,29 @@ export default function AdminDashboard() {
                   }}
                 >
                   <span className="text-base mt-0.5">⚠</span>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-sm font-medium text-white/75">{dashboard.burnout_alert}</p>
-                    <span
-                      className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider"
-                      style={{
-                        backgroundColor: sevColor + "15",
-                        color: sevColor,
-                        border: `1px solid ${sevColor}25`,
-                      }}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: sevColor }} />
-                      {dashboard.burnout_severity} risk
-                    </span>
+                    <div className="flex items-center gap-3 mt-2">
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider"
+                        style={{
+                          backgroundColor: sevColor + "15",
+                          color: sevColor,
+                          border: `1px solid ${sevColor}25`,
+                        }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: sevColor }} />
+                        {dashboard.burnout_severity} risk
+                      </span>
+                      {trendInfo && (
+                        <span
+                          className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                          style={{ color: trendInfo.color, backgroundColor: trendInfo.color + "15" }}
+                        >
+                          Trend: {trendInfo.label}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -365,6 +482,32 @@ export default function AdminDashboard() {
                 )}
               </div>
 
+              {dashboard.outcomes && (
+                <div>
+                  <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase mb-3">
+                    Measurable Outcomes (30-Day)
+                  </p>
+                  <OutcomeCard outcomes={dashboard.outcomes} />
+                </div>
+              )}
+
+              {dashboard.projected_burnout_7d !== null && dashboard.projected_burnout_7d !== undefined && (
+                <div className="grid grid-cols-2 gap-4">
+                  <MetricCard
+                    label="Projected Risk (7 Days)"
+                    value={`${dashboard.projected_burnout_7d}%`}
+                    subtitle="Linear regression on recent data"
+                    color={dashboard.projected_burnout_7d > 60 ? "#EF4444" : dashboard.projected_burnout_7d > 35 ? "#FBBF24" : "#4ADE80"}
+                  />
+                  <MetricCard
+                    label="Projected Risk (30 Days)"
+                    value={`${dashboard.projected_burnout_30d ?? "—"}%`}
+                    subtitle="Based on current trajectory"
+                    color={(dashboard.projected_burnout_30d ?? 0) > 60 ? "#EF4444" : (dashboard.projected_burnout_30d ?? 0) > 35 ? "#FBBF24" : "#4ADE80"}
+                  />
+                </div>
+              )}
+
               {dashboard.view === "manager" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <MetricCard
@@ -395,6 +538,15 @@ export default function AdminDashboard() {
                 </p>
                 <TrendLineChart data={dashboard.trend_7d} />
               </div>
+
+              {dashboard.top_risk_factors && dashboard.top_risk_factors.length > 0 && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+                  <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase mb-4">
+                    Top Risk Factors (Explainability)
+                  </p>
+                  <RiskFactorsPanel factors={dashboard.top_risk_factors} />
+                </div>
+              )}
 
               {billing && (
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">

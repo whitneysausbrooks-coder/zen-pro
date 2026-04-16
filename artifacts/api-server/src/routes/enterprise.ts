@@ -484,8 +484,22 @@ router.get("/enterprise/company/:companyId/dashboard", async (req, res) => {
     const avgWri = totalEmployees > 0 ? rows.reduce((s: number, r: any) => s + parseFloat(r.wri), 0) / totalEmployees : 0;
     const avgBurnoutRisk = totalEmployees > 0 ? rows.reduce((s: number, r: any) => s + parseFloat(r.burnout_risk), 0) / totalEmployees : 0;
 
-    const wriValues = rows.map((r: any) => parseFloat(r.wri));
-    const burnoutAnalysis = analyzeBurnoutV2({ wriHistory: wriValues });
+    const trend14d = await query(
+      `SELECT
+         DATE(rs.created_at) as day,
+         ROUND(AVG(rs.wri)::numeric, 2) as avg_wri,
+         ROUND(AVG(rs.burnout_risk)::numeric, 2) as avg_burnout_risk
+       FROM resilience_scores rs
+       JOIN enterprise_users u ON rs.user_id = u.id
+       WHERE u.company_id = $1
+         AND rs.created_at >= NOW() - INTERVAL '14 days'
+       GROUP BY DATE(rs.created_at)
+       ORDER BY day ASC`,
+      [companyId]
+    );
+
+    const temporalWriSeries = trend14d.rows.map((r: any) => parseFloat(r.avg_wri));
+    const burnoutAnalysis = analyzeBurnoutV2({ wriHistory: temporalWriSeries });
 
     const allReasons = rows
       .filter((r: any) => r.reasons)
