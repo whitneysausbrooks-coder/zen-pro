@@ -21,6 +21,44 @@ router.use("/stripe-enterprise/{*path}", requireEnterpriseAuth);
 
 const ENTERPRISE_PRICE_PER_SEAT = 1200;
 const SAAS_TAX_CODE = "txcd_10103001";
+const BILLING_ADMIN_ROLES = ["admin"];
+
+async function requireBillingRole(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const callerEmail = req.headers["x-enterprise-caller"] as string;
+  const companyId = req.body?.company_id || req.params?.companyId;
+
+  if (!callerEmail || !companyId) {
+    next();
+    return;
+  }
+
+  try {
+    const result = await query(
+      `SELECT role FROM enterprise_users WHERE email = $1 AND company_id = $2`,
+      [callerEmail, companyId]
+    );
+
+    if (result.rows.length > 0) {
+      const role = result.rows[0].role;
+      if (!BILLING_ADMIN_ROLES.includes(role)) {
+        await auditLog(null, "billing_action_denied", "stripe", {
+          caller_email: callerEmail,
+          company_id: companyId,
+          role,
+          action: req.path,
+        });
+        res.status(403).json({
+          error: "Insufficient permissions. Only admin users can perform billing actions.",
+          required_role: "admin",
+          current_role: role,
+        });
+        return;
+      }
+    }
+  } catch {}
+
+  next();
+}
 
 router.post("/stripe-enterprise/create-company", async (req, res) => {
   if (!isStripeConfigured()) {
@@ -98,7 +136,7 @@ router.post("/stripe-enterprise/create-company", async (req, res) => {
   }
 });
 
-router.post("/stripe-enterprise/subscribe", async (req, res) => {
+router.post("/stripe-enterprise/subscribe", requireBillingRole, async (req, res) => {
   if (!isStripeConfigured()) {
     return res.status(503).json({ error: "Stripe not configured" });
   }
@@ -200,7 +238,7 @@ router.post("/stripe-enterprise/subscribe", async (req, res) => {
   }
 });
 
-router.post("/stripe-enterprise/update-seats", async (req, res) => {
+router.post("/stripe-enterprise/update-seats", requireBillingRole, async (req, res) => {
   if (!isStripeConfigured()) {
     return res.status(503).json({ error: "Stripe not configured" });
   }
@@ -489,7 +527,7 @@ router.get("/stripe-enterprise/upcoming/:companyId", async (req, res) => {
   }
 });
 
-router.post("/stripe-enterprise/portal", async (req, res) => {
+router.post("/stripe-enterprise/portal", requireBillingRole, async (req, res) => {
   if (!isStripeConfigured()) {
     return res.status(503).json({ error: "Stripe not configured" });
   }

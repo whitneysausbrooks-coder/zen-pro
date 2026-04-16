@@ -1,0 +1,24 @@
+Your current webhook + DB sync + audit setup is functional, but 2026 reality shows that most Stripe integrations quietly leak revenue or create compliance headaches due to duplicates, out-of-order events, failed deliveries, reconciliation drift, and weak dunning. These cause state mismatches, duplicate charges, missed cancellations, or silent past-due issues that erode trust and MRR at scale.
+Do This Now (Phase 1: Reliability Hardening – Highest Priority)
+This directly follows current Stripe best practices: strict signature verification, full idempotency via processed event tracking, fast acknowledgments, async-safe processing, reconciliation, and robust dunning.
+Copy-paste this prompt directly into your AI Agent:
+“Next priority: Harden the Stripe enterprise B2B billing system for zero-defect production reliability using 2026 Stripe best practices.
+1.  Upgrade the Webhook Handler (/api/stripe-enterprise/webhook):
+	•  Strictly verify signatures using the raw request body on every request and reject invalid ones immediately (return non-2xx only on signature failure).
+	•  Full idempotency: Use a processed_events table (or unique constraint/index on event.id). Check if the event.id was already successfully processed before any business logic. Return HTTP 200 immediately for duplicates. Record the event.id after successful completion inside a database transaction.
+	•  Handle out-of-order or delayed events safely: Do not assume arrival order. When needed, fetch the latest state from the Stripe API or use a simple state machine for subscription_status transitions.
+	•  Fast response + reliability: Return 200 within 5 seconds (ack quickly to stop Stripe retries). Process heavy work asynchronously if possible (queue + retries + dead-letter queue for failures).
+	•  Log every event (full payload details, success/failure, processing time) into audit_logs.
+2.  Add Reconciliation Job (daily cron, or hourly for active companies):
+	•  Compare your companies table fields (subscription_status, seat_count, billing_period_end, subscription_id, etc.) against live Stripe data via API.
+	•  Detect, log, and alert on any discrepancies (e.g., active in DB but canceled or past_due in Stripe).
+	•  Implement safe auto-correction for common cases or flag for manual review.
+3.  Strengthen Dunning & Payment Failure Handling:
+	•  On invoice.payment_failed: Use Stripe Smart Retries, send clear customer notifications, apply a configurable grace period, then transition to past_due with enforcement (e.g., limit excess seats or non-critical features).
+	•  Ensure clean handling of proration, mid-cycle seat changes, and true-ups.
+	•  Use idempotency keys on all write operations to the Stripe API.
+4.  Testing & Observability:
+	•  Comprehensive tests for all 5 webhook events, duplicate deliveries, out-of-order scenarios, reconciliation mismatches, and time-based cases (use Stripe test clocks).
+	•  Add metrics: webhook success rate, mismatch count, payment failure reasons.
+	•  Wrap all state changes in database transactions. Treat Stripe as the authoritative source of truth for billing state while optimizing your DB for fast reads.
+Prioritize: idempotency everywhere, no duplicate charges or state corruption, and 99.99%+ reliability on all billing paths.”
