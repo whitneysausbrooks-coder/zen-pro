@@ -1,0 +1,63 @@
+To make your product billion-dollar worthy (enterprise-grade SaaS that can scale to massive revenue, survive audits, win large contracts, and avoid catastrophic failures), we need to go far beyond the current solid billing foundation. The goal is zero defects in critical paths, perfect compliance, bulletproof reliability, and features that large enterprises demand (security, scalability, transparency, and risk reduction).
+Here’s a prioritized, phased roadmap for what to work on next. I’ll break it into immediate (next 1-2 sprints), short-term (to make it production-hardened), and longer-term (billion-dollar maturity). Focus on one phase at a time with the agent to avoid scope creep.
+Phase 1: Immediate Hardening (Fix Defects & Reliability Risks – Do This Next)
+The current webhook + DB sync is good but vulnerable to common Stripe pitfalls that cause revenue loss or data corruption in production. ￼
+1.  Robust Webhook Handling (Critical for Zero Defects)
+	•  Implement idempotency (use Stripe event id + a processed_events table or Redis to never process the same event twice).
+	•  Handle out-of-order and duplicate events (common with subscriptions): Process events idempotently, use version checks or state machines for subscription status.
+	•  Add retry logic, dead-letter queue, and alerting for failed webhooks.
+	•  Verify webhook signatures strictly; reject anything invalid.
+	•  Add comprehensive logging + audit trail for every webhook (already partially there—expand it).
+2.  Billing Edge Cases & Reconciliation
+	•  Daily/ hourly reconciliation job: Compare your companies table against Stripe (via API) for discrepancies in status, seats, period_end. Auto-fix or alert on mismatches.
+	•  Proper handling for: proration, seat changes mid-cycle, true-ups (bill for peak seats), downgrades, cancellations with remaining period.
+	•  Dunning (failed payments): Automated retries, smart emails, grace periods, and clear “past_due” → suspension logic without breaking access unexpectedly.
+	•  Seat management: Prevent over-subscription (enforce seat limits in app), allow admins to set caps, pro-rate accurately.
+3.  Testing & Monitoring
+	•  Full test suite for all 5 events + edge cases (use Stripe test clocks for time-based scenarios).
+	•  Add observability: Track billing success rate, failure reasons, latency, webhook delivery stats. Set up alerts for anomalies (e.g., sudden payment failures).
+Tell the agent: “Implement production-grade webhook robustness with idempotency, out-of-order handling, reconciliation, and comprehensive tests for all billing flows.”
+Phase 2: Compliance Perfection (Make It Audit-Ready)
+Enterprises (and investors) will demand this. Stripe helps a lot, but you must layer on top. ￼
+•  Tax Automation: Integrate Stripe Tax for automatic calculation/collection of sales tax, VAT, GST based on customer location. Display taxes transparently on checkout/invoices. Handle multi-country obligations.
+•  PCI DSS: You’re already low-risk (using Stripe Checkout/Elements), but document it, review annually, ensure no card data touches your servers. Add Stripe’s compliance reports to your dashboard.
+•  Data Privacy: GDPR/CCPA readiness — add data export/deletion endpoints, consent management, DPA with Stripe. Store minimal personal data.
+•  Audit Logging Expansion: Log every sensitive action (seat changes, billing updates, admin actions) with who, what, when, why. Make logs exportable/immutable for audits.
+•  Revenue Recognition: Prepare for ASC 606 compliance (deferred revenue tracking) — useful for financial reporting as you scale.
+Start with Stripe Tax + enhanced audit logs. This is table-stakes for billion-dollar valuation.
+Phase 3: Enterprise Features (What Big Customers Expect)
+These turn a good tool into a “safe to buy” platform for large orgs. ￼
+•  Advanced Admin & Governance:
+	•  Role-Based Access Control (RBAC) for billing: Only certain company roles can update seats, view invoices, or manage subscription.
+	•  Company-level settings: Custom domains? SSO (SAML/OIDC), SCIM for user provisioning/de-provisioning.
+	•  Invoice customization: Branded PDFs, PO numbers, custom fields for B2B.
+•  Security & Fraud:
+	•  Enable Stripe Radar (or Radar for Fraud Teams) for AI-powered fraud prevention on checkouts.
+	•  Multi-factor enforcement, IP allowlisting, session management.
+	•  Rate limiting, input sanitization, and security headers everywhere.
+•  Self-Service & Transparency:
+	•  Enhanced customer portal: Usage tracking (if you add metered elements later), invoice history, download PDFs, upcoming charges preview.
+	•  Clear pricing page with seat calculator, tax estimator.
+•  Scalability & Reliability:
+	•  CI/CD pipeline with automated tests, staging environments, blue-green deployments.
+	•  Monitoring: Uptime SLAs (99.9%+), error tracking, performance metrics.
+	•  Database optimizations, caching for billing reads.
+•  Analytics & Insights:
+	•  Dashboard for your team: MRR, churn, expansion revenue, seat utilization.
+	•  Exportable reports for finance/audits.
+Phase 4: Billion-Dollar Polish (Longer-Term)
+•  Usage-based or hybrid pricing support (if relevant).
+•  Multi-currency, annual plans with discounts, contract management.
+•  Integrations: CRM (Salesforce), accounting (QuickBooks/NetSuite), Slack/Teams notifications.
+•  SOC 2 / ISO 27001 preparation (policies, evidence collection — this is a big lift but unlocks enterprise deals).
+•  Legal: Clear terms for subscriptions, auto-renewal disclosures, cancellation policy.
+•  Staged rollout, feature flags, A/B testing for changes.
+Recommended Next Steps for the Agent
+Copy-paste something like this to your AI coding agent:
+“Next, make the billing system production-defect-free and compliance-strong:
+1.  Harden webhooks with idempotency, signature verification, out-of-order/dupe handling, and a reconciliation cron.
+2.  Add Stripe Tax integration for automatic tax handling.
+3.  Expand audit_logs for all billing actions and add basic RBAC for billing operations.
+4.  Implement dunning logic and seat enforcement. Include comprehensive tests and monitoring. Prioritize zero race conditions or lost revenue scenarios.”
+Once that’s done, we can move to enterprise security (SSO, etc.) or monitoring/CI/CD.
+This path focuses on risk elimination first (defects kill trust and revenue), then compliance (blocks sales), then features that sell to big customers. Billion-dollar SaaS companies obsess over reliability and reducing customer risk — not just cool features.
