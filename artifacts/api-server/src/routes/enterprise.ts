@@ -16,6 +16,12 @@ import {
 } from "../lib/scoringEngine";
 import { checkSeatAvailability, getCompanyBillingStatus } from "../lib/seatEnforcement";
 import { runReconciliation } from "../lib/billingReconciliation";
+import {
+  getCurrentRevenueSummary,
+  getMonthlyRevenueBreakdown,
+  getRevenueJournal,
+  snapshotRevenueRecognition,
+} from "../lib/revenueRecognition";
 
 const router: IRouter = Router();
 
@@ -700,6 +706,114 @@ router.get("/enterprise/audit-log", async (req, res) => {
   } catch (err: any) {
     console.error("Error fetching audit logs:", err.message);
     return res.status(500).json({ error: "Failed to fetch audit logs" });
+  }
+});
+
+router.get("/enterprise/revenue/summary", async (_req, res) => {
+  try {
+    const summary = await getCurrentRevenueSummary();
+    await auditLog(null, "revenue_summary_viewed", "revenue_recognition");
+    return res.json({
+      as_of: new Date().toISOString(),
+      currency: "usd",
+      total_recognized_cents: summary.total_recognized,
+      total_deferred_cents: summary.total_deferred,
+      total_contract_value_cents: summary.total_contract_value,
+      total_recognized: summary.total_recognized / 100,
+      total_deferred: summary.total_deferred / 100,
+      total_contract_value: summary.total_contract_value / 100,
+      percent_recognized: summary.total_contract_value > 0
+        ? Math.round((summary.total_recognized / summary.total_contract_value) * 10000) / 100
+        : 0,
+      active_companies: summary.companies.length,
+      companies: summary.companies.map((c) => ({
+        ...c,
+        contract_value_display: (c.contract_value / 100).toFixed(2),
+        recognized_display: (c.recognized / 100).toFixed(2),
+        deferred_display: (c.deferred / 100).toFixed(2),
+        daily_rate_display: (c.daily_rate / 100).toFixed(2),
+      })),
+    });
+  } catch (err: any) {
+    console.error("Revenue summary error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch revenue summary" });
+  }
+});
+
+router.get("/enterprise/revenue/monthly", async (req, res) => {
+  try {
+    const months = Math.min(parseInt(req.query.months as string) || 12, 24);
+    const breakdown = await getMonthlyRevenueBreakdown(months);
+    await auditLog(null, "revenue_monthly_viewed", "revenue_recognition");
+    return res.json({
+      months: breakdown.map((m) => ({
+        ...m,
+        recognized_display: (m.recognized / 100).toFixed(2),
+        new_bookings_display: (m.new_bookings / 100).toFixed(2),
+        cancellations_display: (m.cancellations / 100).toFixed(2),
+        seat_changes_display: (m.seat_changes / 100).toFixed(2),
+        refunds_display: (m.refunds / 100).toFixed(2),
+      })),
+    });
+  } catch (err: any) {
+    console.error("Revenue monthly error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch monthly revenue" });
+  }
+});
+
+router.get("/enterprise/revenue/journal", async (req, res) => {
+  try {
+    const companyId = req.query.company_id as string | undefined;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
+    const format = req.query.format as string | undefined;
+
+    if (companyId && !z.string().uuid().safeParse(companyId).success) {
+      return res.status(400).json({ error: "Invalid company ID" });
+    }
+
+    const result = await getRevenueJournal(companyId, limit, offset);
+    await auditLog(null, "revenue_journal_viewed", "revenue_journal");
+
+    if (format === "csv") {
+      const csvHeader = "date,company,type,amount_cents,amount_usd,description,subscription_id,seats,invoice_id\n";
+      const csvRows = result.entries.map((e: any) =>
+        [
+          e.entry_date, e.company_name || e.company_id, e.entry_type,
+          e.amount, (e.amount / 100).toFixed(2), (e.description || "").replace(/"/g, '""'),
+          e.subscription_id || "", e.seat_count || "", e.invoice_id || "",
+        ].map(v => `"${v}"`).join(",")
+      ).join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=revenue_journal_export.csv");
+      return res.send(csvHeader + csvRows);
+    }
+
+    return res.json({
+      entries: result.entries,
+      total: result.total,
+      limit,
+      offset,
+    });
+  } catch (err: any) {
+    console.error("Revenue journal error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch revenue journal" });
+  }
+});
+
+router.post("/enterprise/revenue/snapshot/:companyId", async (req, res) => {
+  const companyId = req.params.companyId;
+  if (!z.string().uuid().safeParse(companyId).success) {
+    return res.status(400).json({ error: "Invalid company ID" });
+  }
+
+  try {
+    await snapshotRevenueRecognition(companyId);
+    await auditLog(null, "revenue_snapshot_created", "revenue_recognition", { company_id: companyId });
+    return res.json({ success: true, company_id: companyId, snapshot_at: new Date().toISOString() });
+  } catch (err: any) {
+    console.error("Revenue snapshot error:", err.message);
+    return res.status(500).json({ error: "Failed to create revenue snapshot" });
   }
 });
 

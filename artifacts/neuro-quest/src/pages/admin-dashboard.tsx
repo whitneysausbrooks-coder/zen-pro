@@ -98,6 +98,47 @@ interface InvoiceEntry {
   total: number;
 }
 
+interface RevenueData {
+  as_of: string;
+  total_recognized: number;
+  total_deferred: number;
+  total_contract_value: number;
+  percent_recognized: number;
+  active_companies: number;
+  companies: Array<{
+    company_id: string;
+    company_name: string;
+    seat_count: number;
+    contract_value: number;
+    recognized: number;
+    deferred: number;
+    percent_recognized: number;
+    daily_rate: number;
+    period_start: string | null;
+    period_end: string | null;
+  }>;
+}
+
+interface RevenueMonth {
+  month: string;
+  recognized: number;
+  new_bookings: number;
+  cancellations: number;
+  seat_changes: number;
+  refunds: number;
+}
+
+interface JournalEntry {
+  id: string;
+  entry_date: string;
+  entry_type: string;
+  amount: number;
+  description: string;
+  company_name: string | null;
+  seat_count: number | null;
+  invoice_id: string | null;
+}
+
 interface AuditEntry {
   id: string;
   user_id: string | null;
@@ -322,6 +363,9 @@ export default function AdminDashboard() {
   const [webhookMetrics, setWebhookMetrics] = useState<WebhookMetrics | null>(null);
   const [invoices, setInvoices] = useState<InvoiceEntry[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
+  const [revenueData, setRevenueData] = useState<RevenueData | null>(null);
+  const [revenueMonthly, setRevenueMonthly] = useState<RevenueMonth[]>([]);
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [companyId, setCompanyId] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(false);
@@ -334,13 +378,16 @@ export default function AdminDashboard() {
     if (!id || !apiKey) return;
     setLoading(true);
     try {
-      const [dashRes, billingRes, seatRes, metricsRes, invoiceRes, auditRes] = await Promise.all([
+      const [dashRes, billingRes, seatRes, metricsRes, invoiceRes, auditRes, revSummaryRes, revMonthlyRes, revJournalRes] = await Promise.all([
         fetch(`${BASE}/api/enterprise/company/${id}/dashboard?view=${view}`, { headers }),
         fetch(`${BASE}/api/stripe-enterprise/billing/${id}`, { headers }),
         fetch(`${BASE}/api/enterprise/seats/${id}`, { headers }),
         fetch(`${BASE}/api/stripe-enterprise/webhook-metrics`, { headers }),
         fetch(`${BASE}/api/stripe-enterprise/invoices/${id}`, { headers }),
         fetch(`${BASE}/api/enterprise/audit-log?limit=20`, { headers }),
+        fetch(`${BASE}/api/enterprise/revenue/summary`, { headers }),
+        fetch(`${BASE}/api/enterprise/revenue/monthly`, { headers }),
+        fetch(`${BASE}/api/enterprise/revenue/journal?limit=10`, { headers }),
       ]);
 
       if (dashRes.ok) {
@@ -360,6 +407,15 @@ export default function AdminDashboard() {
       if (auditRes.ok) {
         const data = await auditRes.json();
         setAuditLogs(data.logs || []);
+      }
+      if (revSummaryRes.ok) setRevenueData(await revSummaryRes.json());
+      if (revMonthlyRes.ok) {
+        const data = await revMonthlyRes.json();
+        setRevenueMonthly(data.months || []);
+      }
+      if (revJournalRes.ok) {
+        const data = await revJournalRes.json();
+        setJournalEntries(data.entries || []);
       }
     } catch {}
     setLoading(false);
@@ -714,6 +770,162 @@ export default function AdminDashboard() {
                         {webhookMetrics.dlq_pending}
                       </p>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {revenueData && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase">
+                      Revenue Recognition (ASC 606)
+                    </p>
+                    <span className="text-[10px] text-white/20">
+                      {new Date(revenueData.as_of).toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Contract Value</p>
+                      <p className="text-lg font-bold text-white/80">
+                        ${revenueData.total_contract_value.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Recognized</p>
+                      <p className="text-lg font-bold text-emerald-400">
+                        ${revenueData.total_recognized.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Deferred</p>
+                      <p className="text-lg font-bold text-amber-400">
+                        ${revenueData.total_deferred.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">% Recognized</p>
+                      <p className="text-lg font-bold text-indigo-400">
+                        {revenueData.percent_recognized}%
+                      </p>
+                    </div>
+                  </div>
+
+                  {revenueData.total_contract_value > 0 && (
+                    <div className="relative h-3 bg-white/[0.04] rounded-full overflow-hidden">
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700"
+                        style={{ width: `${revenueData.percent_recognized}%` }}
+                      />
+                    </div>
+                  )}
+
+                  {revenueData.companies.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] text-white/25 uppercase tracking-wider">Per-Company Breakdown</p>
+                      {revenueData.companies.map((c) => (
+                        <div key={c.company_id} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2.5">
+                          <div>
+                            <p className="text-xs text-white/60">{c.company_name}</p>
+                            <p className="text-[10px] text-white/25 mt-0.5">
+                              {c.seat_count} seats · ${(c.daily_rate / 100).toFixed(2)}/day
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-4 text-right">
+                            <div>
+                              <p className="text-xs text-emerald-400">${(c.recognized / 100).toFixed(2)}</p>
+                              <p className="text-[9px] text-white/20">recognized</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-amber-400">${(c.deferred / 100).toFixed(2)}</p>
+                              <p className="text-[9px] text-white/20">deferred</p>
+                            </div>
+                            <span className="text-[10px] font-medium text-indigo-400/70 min-w-[3rem] text-right">
+                              {c.percent_recognized}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {revenueMonthly.length > 0 && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+                  <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase mb-4">
+                    Monthly Revenue Breakdown
+                  </p>
+                  <div className="space-y-2">
+                    {revenueMonthly.map((m) => (
+                      <div key={m.month} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2.5">
+                        <span className="text-xs text-white/60 min-w-[4rem]">{m.month}</span>
+                        <div className="flex items-center gap-4">
+                          <span className="text-xs text-emerald-400">${(m.recognized / 100).toFixed(2)}</span>
+                          {m.new_bookings > 0 && <span className="text-[10px] text-blue-400">+${(m.new_bookings / 100).toFixed(2)} new</span>}
+                          {m.cancellations > 0 && <span className="text-[10px] text-red-400">-${(m.cancellations / 100).toFixed(2)} churn</span>}
+                          {m.seat_changes !== 0 && <span className="text-[10px] text-purple-400">{m.seat_changes > 0 ? "+" : ""}${(m.seat_changes / 100).toFixed(2)} seats</span>}
+                          {m.refunds > 0 && <span className="text-[10px] text-red-300">-${(m.refunds / 100).toFixed(2)} refund</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {journalEntries.length > 0 && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase">
+                      Revenue Journal (Recent)
+                    </p>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`${BASE}/api/enterprise/revenue/journal?format=csv`, { headers });
+                          if (res.ok) {
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = "revenue_journal_export.csv";
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          }
+                        } catch {}
+                      }}
+                      className="text-[10px] text-indigo-400/60 hover:text-indigo-400 transition"
+                    >
+                      Export CSV
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    {journalEntries.map((e) => (
+                      <div key={e.id} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2">
+                        <div className="flex-1">
+                          <p className="text-xs text-white/50">{e.description}</p>
+                          <p className="text-[10px] text-white/20 mt-0.5">
+                            {new Date(e.entry_date).toLocaleDateString()} · {e.company_name || "—"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-medium ${e.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {e.amount >= 0 ? "+" : ""}${(e.amount / 100).toFixed(2)}
+                          </span>
+                          <span className={`text-[9px] px-2 py-0.5 rounded-full ${
+                            e.entry_type === "invoice_paid" ? "bg-emerald-400/15 text-emerald-400" :
+                            e.entry_type === "new_subscription" ? "bg-blue-400/15 text-blue-400" :
+                            e.entry_type === "seat_change" ? "bg-purple-400/15 text-purple-400" :
+                            e.entry_type === "cancellation" ? "bg-red-400/15 text-red-400" :
+                            e.entry_type === "refund" ? "bg-red-300/15 text-red-300" :
+                            "bg-white/5 text-white/30"
+                          }`}>
+                            {e.entry_type.replace(/_/g, " ")}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

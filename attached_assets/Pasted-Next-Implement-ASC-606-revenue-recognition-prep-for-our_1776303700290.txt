@@ -1,0 +1,45 @@
+Next: Implement ASC 606 revenue recognition prep for our per-seat B2B subscriptions.
+
+We need GAAP-compliant deferred revenue tracking and ratable recognition so we have accurate financial reporting (recognized revenue vs. deferred/unearned revenue) without external tools yet.
+
+Key requirements:
+
+1. **Data Model**:
+   - Add necessary fields or a lightweight revenue_schedules / deferred_revenue table (or extend companies/subscriptions) to track per company/subscription:
+     - Total transaction price (from Stripe)
+     - Recognized revenue to date
+     - Remaining deferred revenue balance
+     - Recognition schedule details (start/end dates, daily or monthly rate, adjusted for seat_count)
+
+2. **Recognition Logic** (straight-line / ratable over time):
+   - Revenue is recognized daily or monthly as the service is provided ("stand-ready" obligation).
+   - For monthly billing: Recognize 1/N of the period amount each day.
+   - Handle proration automatically for partial periods.
+   - Use subscription start/end dates and billing_period_end from Stripe.
+
+3. **Handle Edge Cases** (critical for zero defects):
+   - Mid-cycle seat changes (/update-seats): Treat as prospective contract modification — adjust the remaining recognition rate going forward (no retroactive catch-up in most SaaS cases).
+   - Cancellations: Stop recognition after the effective end date; release any remaining deferred if non-refundable.
+   - Refunds/credits: Adjust deferred or recognized amounts accordingly.
+   - True-ups or upgrades/downgrades: Recalculate remaining period revenue based on new seat_count.
+   - Past_due or suspended subscriptions: Pause recognition during non-service periods if applicable.
+
+4. **Daily/Monthly Job**:
+   - Create a cron job that processes active subscriptions, calculates daily recognition, updates recognized/deferred balances, and records journal-entry-like entries for audit.
+
+5. **Dashboard & Reporting**:
+   - Add views/endpoints showing:
+     - Total recognized revenue (MTD, YTD)
+     - Current deferred revenue balance
+     - Simple revenue waterfall summary (by month or per company)
+     - Exportable report (CSV or PDF) for finance/audits
+
+6. **Audit & Logging**:
+   - Log every recognition event, adjustment, or schedule change in audit_logs (who/what/when/amount/reason).
+   - Make Stripe the authoritative source for billing events; compute recognition in our system for fast queries.
+
+7. **Testing**:
+   - Comprehensive tests for: new subscriptions, seat changes mid-month, cancellations, proration, annual vs monthly plans, refunds.
+   - Include example calculations (e.g., $12/seat/month with 5 seats added on day 15 of a 30-day month).
+
+Aim for clean, accurate financial visibility that matches ASC 606 five-step model (identify contract → performance obligation over time → allocate price → recognize as satisfied). Keep it efficient and integrated with our existing Stripe

@@ -1,5 +1,11 @@
 import { getStripeClient, isStripeConfigured } from "../stripeClient";
 import { query, auditLog, withTransaction } from "./db";
+import {
+  recordNewSubscription,
+  recordSubscriptionRevenue,
+  recordSeatChange,
+  recordCancellation,
+} from "./revenueRecognition";
 import type Stripe from "stripe";
 
 const GRACE_PERIOD_DAYS = 7;
@@ -117,11 +123,22 @@ async function handleCheckoutCompleted(event: Stripe.Event): Promise<void> {
     });
   }
 
+  const resolvedCompanyId = companyId || session.metadata?.nq_company_id;
+  const seats = sub.items.data[0]?.quantity || 0;
+
+  if (resolvedCompanyId) {
+    try {
+      await recordNewSubscription(resolvedCompanyId, subId, seats);
+    } catch (err: any) {
+      console.error("Revenue recording error (new sub):", err.message);
+    }
+  }
+
   await auditLog(null, "enterprise_subscription_created", "companies", {
     event_id: event.id,
-    company_id: companyId || session.metadata?.nq_company_id,
+    company_id: resolvedCompanyId,
     subscription_id: subId,
-    seats: sub.items.data[0]?.quantity,
+    seats,
     status: sub.status,
   });
 }
@@ -135,13 +152,24 @@ async function handleSubscriptionUpdated(event: Stripe.Event): Promise<void> {
   const companyId = await syncSubscriptionTransactional(liveSub);
 
   const prev = (event.data as any).previous_attributes;
+  const currentSeats = liveSub.items.data[0]?.quantity || 0;
+  const previousSeats = prev?.items?.data?.[0]?.quantity;
+
+  if (companyId && previousSeats !== undefined && previousSeats !== currentSeats) {
+    try {
+      await recordSeatChange(companyId, liveSub.id, previousSeats, currentSeats);
+    } catch (err: any) {
+      console.error("Revenue recording error (seat change):", err.message);
+    }
+  }
+
   await auditLog(null, "enterprise_subscription_updated", "companies", {
     event_id: event.id,
     subscription_id: liveSub.id,
     status: liveSub.status,
     previous_status: prev?.status,
-    seats: liveSub.items.data[0]?.quantity,
-    previous_seats: prev?.items?.data?.[0]?.quantity,
+    seats: currentSeats,
+    previous_seats: previousSeats,
     company_id: companyId,
   });
 }
@@ -165,10 +193,27 @@ async function handleSubscriptionDeleted(event: Stripe.Event): Promise<void> {
     }
   });
 
+  let resolvedCompanyId = companyId;
+  if (!resolvedCompanyId && customerId) {
+    const lookup = await query(
+      `SELECT id FROM companies WHERE stripe_customer_id = $1 LIMIT 1`,
+      [customerId]
+    );
+    resolvedCompanyId = lookup.rows[0]?.id || null;
+  }
+
+  if (resolvedCompanyId) {
+    try {
+      await recordCancellation(resolvedCompanyId, sub.id, sub.items.data[0]?.quantity || 0);
+    } catch (err: any) {
+      console.error("Revenue recording error (cancellation):", err.message);
+    }
+  }
+
   await auditLog(null, "enterprise_subscription_canceled", "companies", {
     event_id: event.id,
     subscription_id: sub.id,
-    company_id: companyId,
+    company_id: resolvedCompanyId || companyId,
   });
 }
 
@@ -194,6 +239,18 @@ async function handlePaymentSucceeded(event: Stripe.Event): Promise<void> {
       [companyId]
     );
   });
+
+  try {
+    await recordSubscriptionRevenue(
+      companyId,
+      subId,
+      sub.items.data[0]?.quantity || 0,
+      invoice.amount_paid || 0,
+      invoice.id
+    );
+  } catch (err: any) {
+    console.error("Revenue recording error (payment):", err.message);
+  }
 
   await auditLog(null, "enterprise_invoice_paid", "companies", {
     event_id: event.id,
