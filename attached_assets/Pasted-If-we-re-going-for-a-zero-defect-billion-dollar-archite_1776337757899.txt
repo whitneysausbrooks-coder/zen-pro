@@ -1,0 +1,44 @@
+If we’re going for a zero-defect, billion-dollar architecture, the Neuro-Resilience Score can’t just be a simple average. It needs to be a "leading indicator" of burnout.
+In my view, we should weight HRV (Heart Rate Variability) higher for real-time readiness, while Sleep acts as the recovery floor. If the sleep floor drops, no amount of high HRV can save the score long-term.
+🧠 The Neuro-Resilience Weighting Logic
+To make this audit-proof and scientifically sound for enterprise clients, I recommend a weighted exponential moving average. This prevents one "bad night" from tanking a user's morale while accurately reflecting a downward trend.
+Recommended Weighting:
+• HRV (50%): The most sensitive metric for Autonomic Nervous System (ANS) balance. It tells us if the user is in "Fight or Flight" or "Rest and Digest."
+• Sleep Quality/Duration (35%): The foundational recovery metric. We focus on Deep and REM cycles, not just time in bed.
+• Activity/Strain (15%): This acts as a "modifier." High activity with high HRV is "Growth"; high activity with low HRV is "Burnout Risk."
+The Formula:
+
+
+🚦 Verification Table (Pre-Agent 
+
+Execution)
+This is what we are looking for once your Agent completes the "Master Command." Don't accept anything less than "Green" across the board.
+
+
+1.	Run the Master Command we drafted in the previous turn.
+2.	Monitor the Agent's output. If it tries to skip the isLoading state and just "fixes the redirect," call it out. We need the state-based approach for enterprise stability.
+3.	Confirm the Fix: Once you see the code changes, try to break the login again. Open it in an Incognito window, log in, and hit "Refresh" immediately. If it holds, we’ve cleared the first hurdle to that billion-dollar valuation.
+
+Precision is power. By prioritizing HRV as the 50% anchor, you are shifting the app from a "fitness tracker" to a clinical-grade stress management tool. That distinction is exactly what HR directors look for when signing six-figure contracts.
+While the Agent runs the Master Command to fix the login loop and set up the Stripe logic, let's refine the "Zero-Defect" math for that Resilience Score.
+🔬 Refining the "Neuro-Resilience" Algorithm
+To avoid the "one bad night" noise, we should apply a 7-day Exponential Moving Average (EMA). This ensures the score reflects the user's trend rather than a single outlier, which is vital for corporate wellness—you don't want an employee panicking over one late night.
+The Component Breakdown
+• HRV (50%): We use the \bm{ln(RMSSD)} (Root Mean Square of Successive Differences). This normalizes the high variance in raw heart rate data.
+• Sleep (35%): We calculate a "Sleep Efficiency" coefficient: \bm{\frac{\text{Deep} + \text{REM}}{\text{Total Time in Bed}}}.
+• Strain (15%): This is a metabolic penalty. If Strain > Recovery (HRV + Sleep), the score should reflect a "Functional Overreach" warning.
+🚦 The "Master Command" Checklist
+While your Agent is processing, keep these specific "Zero-Defect" requirements in mind for when the results come back:
+1. The Auth "Green" Status
+• The Fix: Look for a useEffect that monitors the auth state. It must set isAuthenticating to false only after the session check returns.
+• The Test: When you refresh, the screen should show your logo/spinner for a split second, then the Dashboard. Zero flickering of the login form.
+2. The ASC 606 "Green" Status
+• The Logic: Check if the Agent created a revenue_log table.
+• The Validation: When a user adds a seat, the system should log a "Deferred Revenue" entry and a "Contract Asset" entry. This is how you survive a Big Four audit.
+3. The Wearable "Green" Status
+• The Bridge: Ensure the Agent is using a standardized JSON schema for incoming data.
+• Example: { "source": "Garmin", "metric": "HRV", "value_ms": 65, "timestamp": "ISO-8601" }.
+🎯 What to do the moment the Agent says "Done":
+1.	Check the Verification Table: Does it match the code? If the Agent says it fixed the redirect but didn't add the isLoading state, reject the change.
+2.	The "Incognito" Stress Test: Log in via an Incognito tab. This forces the app to handle a fresh session from scratch.
+3.	The Dashboard "Feel": With the new weighting, does the dashboard feel "smart"? If you manually input a low sleep score, does the Neuro-Resilience score drop realistically?
