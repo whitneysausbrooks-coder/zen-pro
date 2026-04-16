@@ -1,10 +1,13 @@
 import { getStripeClient, isStripeConfigured } from "../stripeClient";
 import { query, auditLog, withTransaction } from "./db";
 import {
-  recordNewSubscription,
-  recordSubscriptionRevenue,
-  recordSeatChange,
-  recordCancellation,
+  handleNewSubscription,
+  handleInvoicePaid,
+  handleSeatChangeProspective,
+  handleCancellation,
+  handleRefund,
+  handleSuspension,
+  handleReactivation,
 } from "./revenueRecognition";
 import type Stripe from "stripe";
 
@@ -125,10 +128,13 @@ async function handleCheckoutCompleted(event: Stripe.Event): Promise<void> {
 
   const resolvedCompanyId = companyId || session.metadata?.nq_company_id;
   const seats = sub.items.data[0]?.quantity || 0;
+  const periodStart = new Date((sub.current_period_start as number) * 1000);
+  const periodEnd = new Date((sub.current_period_end as number) * 1000);
+  const amountBilled = seats * 1200;
 
   if (resolvedCompanyId) {
     try {
-      await recordNewSubscription(resolvedCompanyId, subId, seats);
+      await handleNewSubscription(resolvedCompanyId, subId, periodStart, periodEnd, seats, amountBilled);
     } catch (err: any) {
       console.error("Revenue recording error (new sub):", err.message);
     }
@@ -157,7 +163,7 @@ async function handleSubscriptionUpdated(event: Stripe.Event): Promise<void> {
 
   if (companyId && previousSeats !== undefined && previousSeats !== currentSeats) {
     try {
-      await recordSeatChange(companyId, liveSub.id, previousSeats, currentSeats);
+      await handleSeatChangeProspective(companyId, liveSub.id, currentSeats, previousSeats);
     } catch (err: any) {
       console.error("Revenue recording error (seat change):", err.message);
     }
@@ -204,7 +210,10 @@ async function handleSubscriptionDeleted(event: Stripe.Event): Promise<void> {
 
   if (resolvedCompanyId) {
     try {
-      await recordCancellation(resolvedCompanyId, sub.id, sub.items.data[0]?.quantity || 0);
+      const periodEnd = sub.current_period_end
+        ? new Date((sub.current_period_end as number) * 1000)
+        : undefined;
+      await handleCancellation(resolvedCompanyId, sub.id, periodEnd);
     } catch (err: any) {
       console.error("Revenue recording error (cancellation):", err.message);
     }
@@ -231,6 +240,13 @@ async function handlePaymentSucceeded(event: Stripe.Event): Promise<void> {
 
   await syncSubscriptionTransactional(sub);
 
+  const companyState = await query(
+    `SELECT suspended_at, subscription_status FROM companies WHERE id = $1`,
+    [companyId]
+  );
+  const wasSuspended = companyState.rows[0]?.suspended_at != null ||
+    companyState.rows[0]?.subscription_status === "past_due";
+
   await withTransaction(async (client) => {
     await client.query(
       `UPDATE companies
@@ -240,10 +256,22 @@ async function handlePaymentSucceeded(event: Stripe.Event): Promise<void> {
     );
   });
 
+  if (wasSuspended) {
+    try {
+      await handleReactivation(companyId, subId);
+    } catch (err: any) {
+      console.error("Revenue recording error (reactivation):", err.message);
+    }
+  }
+
   try {
-    await recordSubscriptionRevenue(
+    const periodStart = new Date((sub.current_period_start as number) * 1000);
+    const periodEnd = new Date((sub.current_period_end as number) * 1000);
+    await handleInvoicePaid(
       companyId,
       subId,
+      periodStart,
+      periodEnd,
       sub.items.data[0]?.quantity || 0,
       invoice.amount_paid || 0,
       invoice.id
@@ -310,6 +338,14 @@ async function handlePaymentFailed(event: Stripe.Event): Promise<void> {
   });
 
   if (attempts >= MAX_DUNNING_ATTEMPTS) {
+    try {
+      const subId = typeof invoice.subscription === "string"
+        ? invoice.subscription : invoice.subscription!.toString();
+      await handleSuspension(companyId, subId);
+    } catch (err: any) {
+      console.error("Revenue recording error (suspension):", err.message);
+    }
+
     await auditLog(null, "enterprise_account_suspended", "companies", {
       event_id: event.id,
       company_id: companyId,
@@ -329,12 +365,48 @@ async function handlePaymentFailed(event: Stripe.Event): Promise<void> {
   });
 }
 
+async function handleChargeRefunded(event: Stripe.Event): Promise<void> {
+  const charge = event.data.object as Stripe.Charge;
+  const customerId = typeof charge.customer === "string" ? charge.customer : charge.customer?.toString();
+  if (!customerId) return;
+
+  const companyResult = await query(
+    `SELECT id, subscription_id FROM companies WHERE stripe_customer_id = $1 LIMIT 1`,
+    [customerId]
+  );
+  if (companyResult.rows.length === 0) return;
+
+  const company = companyResult.rows[0];
+  const amountRefunded = charge.amount_refunded || 0;
+
+  if (amountRefunded > 0) {
+    try {
+      await handleRefund(
+        company.id,
+        amountRefunded,
+        company.subscription_id || undefined,
+        (charge as any).invoice || undefined
+      );
+    } catch (err: any) {
+      console.error("Revenue recording error (refund):", err.message);
+    }
+  }
+
+  await auditLog(null, "enterprise_charge_refunded", "companies", {
+    event_id: event.id,
+    charge_id: charge.id,
+    company_id: company.id,
+    amount_refunded: amountRefunded,
+  });
+}
+
 const EVENT_HANDLERS: Record<string, (event: Stripe.Event) => Promise<void>> = {
   "checkout.session.completed": handleCheckoutCompleted,
   "customer.subscription.updated": handleSubscriptionUpdated,
   "customer.subscription.deleted": handleSubscriptionDeleted,
   "invoice.payment_succeeded": handlePaymentSucceeded,
   "invoice.payment_failed": handlePaymentFailed,
+  "charge.refunded": handleChargeRefunded,
 };
 
 export async function processEnterpriseWebhook(

@@ -105,27 +105,34 @@ interface RevenueData {
   total_contract_value: number;
   percent_recognized: number;
   active_companies: number;
+  active_schedules: number;
+  mtd: { recognized: number; count: number; recognized_display: string };
+  ytd: { recognized: number; count: number; recognized_display: string };
+  lifetime: { recognized: number; billed: number; refunded: number; recognized_display: string; billed_display: string; refunded_display: string };
   companies: Array<{
     company_id: string;
     company_name: string;
+    subscription_id: string;
     seat_count: number;
-    contract_value: number;
+    total_amount: number;
     recognized: number;
     deferred: number;
     percent_recognized: number;
     daily_rate: number;
-    period_start: string | null;
-    period_end: string | null;
+    period_start: string;
+    period_end: string;
+    status: string;
   }>;
 }
 
 interface RevenueMonth {
   month: string;
   recognized: number;
-  new_bookings: number;
-  cancellations: number;
+  billed: number;
+  refunded: number;
+  deferred_released: number;
   seat_changes: number;
-  refunds: number;
+  net: number;
 }
 
 interface JournalEntry {
@@ -386,7 +393,7 @@ export default function AdminDashboard() {
         fetch(`${BASE}/api/stripe-enterprise/invoices/${id}`, { headers }),
         fetch(`${BASE}/api/enterprise/audit-log?limit=20`, { headers }),
         fetch(`${BASE}/api/enterprise/revenue/summary`, { headers }),
-        fetch(`${BASE}/api/enterprise/revenue/monthly`, { headers }),
+        fetch(`${BASE}/api/enterprise/revenue/waterfall`, { headers }),
         fetch(`${BASE}/api/enterprise/revenue/journal?limit=10`, { headers }),
       ]);
 
@@ -781,7 +788,7 @@ export default function AdminDashboard() {
                       Revenue Recognition (ASC 606)
                     </p>
                     <span className="text-[10px] text-white/20">
-                      {new Date(revenueData.as_of).toLocaleString()}
+                      {new Date(revenueData.as_of).toLocaleString()} · {revenueData.active_schedules} active schedules
                     </span>
                   </div>
 
@@ -812,6 +819,24 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">MTD Recognized</p>
+                      <p className="text-md font-bold text-emerald-300">${revenueData.mtd.recognized_display}</p>
+                      <p className="text-[9px] text-white/20">{revenueData.mtd.count} entries</p>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">YTD Recognized</p>
+                      <p className="text-md font-bold text-emerald-300">${revenueData.ytd.recognized_display}</p>
+                      <p className="text-[9px] text-white/20">{revenueData.ytd.count} entries</p>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Lifetime</p>
+                      <p className="text-md font-bold text-emerald-300">${revenueData.lifetime.recognized_display}</p>
+                      <p className="text-[9px] text-white/20">billed: ${revenueData.lifetime.billed_display} · refunded: ${revenueData.lifetime.refunded_display}</p>
+                    </div>
+                  </div>
+
                   {revenueData.total_contract_value > 0 && (
                     <div className="relative h-3 bg-white/[0.04] rounded-full overflow-hidden">
                       <div
@@ -823,13 +848,16 @@ export default function AdminDashboard() {
 
                   {revenueData.companies.length > 0 && (
                     <div className="space-y-2">
-                      <p className="text-[10px] text-white/25 uppercase tracking-wider">Per-Company Breakdown</p>
-                      {revenueData.companies.map((c) => (
-                        <div key={c.company_id} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2.5">
+                      <p className="text-[10px] text-white/25 uppercase tracking-wider">Per-Company Schedule Breakdown</p>
+                      {revenueData.companies.map((c, i) => (
+                        <div key={`${c.company_id}-${i}`} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2.5">
                           <div>
                             <p className="text-xs text-white/60">{c.company_name}</p>
                             <p className="text-[10px] text-white/25 mt-0.5">
-                              {c.seat_count} seats · ${(c.daily_rate / 100).toFixed(2)}/day
+                              {c.seat_count} seats · ${(c.daily_rate / 100).toFixed(2)}/day · {c.status}
+                            </p>
+                            <p className="text-[9px] text-white/15 mt-0.5">
+                              {new Date(c.period_start).toLocaleDateString()} - {new Date(c.period_end).toLocaleDateString()}
                             </p>
                           </div>
                           <div className="flex items-center gap-4 text-right">
@@ -855,18 +883,19 @@ export default function AdminDashboard() {
               {revenueMonthly.length > 0 && (
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
                   <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase mb-4">
-                    Monthly Revenue Breakdown
+                    Revenue Waterfall (Monthly)
                   </p>
                   <div className="space-y-2">
                     {revenueMonthly.map((m) => (
                       <div key={m.month} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2.5">
                         <span className="text-xs text-white/60 min-w-[4rem]">{m.month}</span>
                         <div className="flex items-center gap-4">
-                          <span className="text-xs text-emerald-400">${(m.recognized / 100).toFixed(2)}</span>
-                          {m.new_bookings > 0 && <span className="text-[10px] text-blue-400">+${(m.new_bookings / 100).toFixed(2)} new</span>}
-                          {m.cancellations > 0 && <span className="text-[10px] text-red-400">-${(m.cancellations / 100).toFixed(2)} churn</span>}
+                          <span className="text-xs text-emerald-400">${(m.recognized / 100).toFixed(2)} rec</span>
+                          {m.billed > 0 && <span className="text-[10px] text-blue-400">+${(m.billed / 100).toFixed(2)} billed</span>}
+                          {m.refunded > 0 && <span className="text-[10px] text-red-400">-${(m.refunded / 100).toFixed(2)} refund</span>}
                           {m.seat_changes !== 0 && <span className="text-[10px] text-purple-400">{m.seat_changes > 0 ? "+" : ""}${(m.seat_changes / 100).toFixed(2)} seats</span>}
-                          {m.refunds > 0 && <span className="text-[10px] text-red-300">-${(m.refunds / 100).toFixed(2)} refund</span>}
+                          {m.deferred_released > 0 && <span className="text-[10px] text-amber-400">${(m.deferred_released / 100).toFixed(2)} released</span>}
+                          <span className="text-[10px] font-medium text-white/50">net: ${(m.net / 100).toFixed(2)}</span>
                         </div>
                       </div>
                     ))}
@@ -914,11 +943,12 @@ export default function AdminDashboard() {
                             {e.amount >= 0 ? "+" : ""}${(e.amount / 100).toFixed(2)}
                           </span>
                           <span className={`text-[9px] px-2 py-0.5 rounded-full ${
-                            e.entry_type === "invoice_paid" ? "bg-emerald-400/15 text-emerald-400" :
-                            e.entry_type === "new_subscription" ? "bg-blue-400/15 text-blue-400" :
+                            e.entry_type === "recognition" ? "bg-emerald-400/15 text-emerald-400" :
+                            e.entry_type === "billing" ? "bg-blue-400/15 text-blue-400" :
                             e.entry_type === "seat_change" ? "bg-purple-400/15 text-purple-400" :
                             e.entry_type === "cancellation" ? "bg-red-400/15 text-red-400" :
                             e.entry_type === "refund" ? "bg-red-300/15 text-red-300" :
+                            e.entry_type === "deferred_release" ? "bg-amber-400/15 text-amber-400" :
                             "bg-white/5 text-white/30"
                           }`}>
                             {e.entry_type.replace(/_/g, " ")}

@@ -17,10 +17,10 @@ import {
 import { checkSeatAvailability, getCompanyBillingStatus } from "../lib/seatEnforcement";
 import { runReconciliation } from "../lib/billingReconciliation";
 import {
-  getCurrentRevenueSummary,
-  getMonthlyRevenueBreakdown,
+  getRevenueSummary,
+  getRevenueWaterfall,
   getRevenueJournal,
-  snapshotRevenueRecognition,
+  runDailyRecognition,
 } from "../lib/revenueRecognition";
 
 const router: IRouter = Router();
@@ -711,24 +711,39 @@ router.get("/enterprise/audit-log", async (req, res) => {
 
 router.get("/enterprise/revenue/summary", async (_req, res) => {
   try {
-    const summary = await getCurrentRevenueSummary();
+    const summary = await getRevenueSummary();
     await auditLog(null, "revenue_summary_viewed", "revenue_recognition");
     return res.json({
-      as_of: new Date().toISOString(),
+      ...summary,
       currency: "usd",
-      total_recognized_cents: summary.total_recognized,
-      total_deferred_cents: summary.total_deferred,
-      total_contract_value_cents: summary.total_contract_value,
-      total_recognized: summary.total_recognized / 100,
-      total_deferred: summary.total_deferred / 100,
-      total_contract_value: summary.total_contract_value / 100,
-      percent_recognized: summary.total_contract_value > 0
-        ? Math.round((summary.total_recognized / summary.total_contract_value) * 10000) / 100
-        : 0,
+      current_period: {
+        ...summary.current_period,
+        total_contract_value_display: (summary.current_period.total_contract_value / 100).toFixed(2),
+        recognized_display: (summary.current_period.recognized / 100).toFixed(2),
+        deferred_display: (summary.current_period.deferred / 100).toFixed(2),
+      },
+      mtd: {
+        ...summary.mtd,
+        recognized_display: (summary.mtd.recognized / 100).toFixed(2),
+      },
+      ytd: {
+        ...summary.ytd,
+        recognized_display: (summary.ytd.recognized / 100).toFixed(2),
+      },
+      lifetime: {
+        ...summary.lifetime,
+        recognized_display: (summary.lifetime.recognized / 100).toFixed(2),
+        billed_display: (summary.lifetime.billed / 100).toFixed(2),
+        refunded_display: (summary.lifetime.refunded / 100).toFixed(2),
+      },
+      total_recognized: summary.current_period.recognized / 100,
+      total_deferred: summary.current_period.deferred / 100,
+      total_contract_value: summary.current_period.total_contract_value / 100,
+      percent_recognized: summary.current_period.percent_recognized,
       active_companies: summary.companies.length,
       companies: summary.companies.map((c) => ({
         ...c,
-        contract_value_display: (c.contract_value / 100).toFixed(2),
+        total_amount_display: (c.total_amount / 100).toFixed(2),
         recognized_display: (c.recognized / 100).toFixed(2),
         deferred_display: (c.deferred / 100).toFixed(2),
         daily_rate_display: (c.daily_rate / 100).toFixed(2),
@@ -740,30 +755,30 @@ router.get("/enterprise/revenue/summary", async (_req, res) => {
   }
 });
 
-router.get("/enterprise/revenue/monthly", async (req, res) => {
+router.get("/enterprise/revenue/waterfall", async (req, res) => {
   try {
     const months = Math.min(parseInt(req.query.months as string) || 12, 24);
-    const breakdown = await getMonthlyRevenueBreakdown(months);
-    await auditLog(null, "revenue_monthly_viewed", "revenue_recognition");
+    const waterfall = await getRevenueWaterfall(months);
+    await auditLog(null, "revenue_waterfall_viewed", "revenue_recognition");
     return res.json({
-      months: breakdown.map((m) => ({
+      months: waterfall.map((m) => ({
         ...m,
         recognized_display: (m.recognized / 100).toFixed(2),
-        new_bookings_display: (m.new_bookings / 100).toFixed(2),
-        cancellations_display: (m.cancellations / 100).toFixed(2),
-        seat_changes_display: (m.seat_changes / 100).toFixed(2),
-        refunds_display: (m.refunds / 100).toFixed(2),
+        billed_display: (m.billed / 100).toFixed(2),
+        refunded_display: (m.refunded / 100).toFixed(2),
+        net_display: (m.net / 100).toFixed(2),
       })),
     });
   } catch (err: any) {
-    console.error("Revenue monthly error:", err.message);
-    return res.status(500).json({ error: "Failed to fetch monthly revenue" });
+    console.error("Revenue waterfall error:", err.message);
+    return res.status(500).json({ error: "Failed to fetch revenue waterfall" });
   }
 });
 
 router.get("/enterprise/revenue/journal", async (req, res) => {
   try {
     const companyId = req.query.company_id as string | undefined;
+    const entryType = req.query.entry_type as string | undefined;
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
     const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
     const format = req.query.format as string | undefined;
@@ -772,16 +787,17 @@ router.get("/enterprise/revenue/journal", async (req, res) => {
       return res.status(400).json({ error: "Invalid company ID" });
     }
 
-    const result = await getRevenueJournal(companyId, limit, offset);
+    const result = await getRevenueJournal({ companyId, entryType, limit, offset });
     await auditLog(null, "revenue_journal_viewed", "revenue_journal");
 
     if (format === "csv") {
-      const csvHeader = "date,company,type,amount_cents,amount_usd,description,subscription_id,seats,invoice_id\n";
+      const csvHeader = "date,company,type,amount_cents,amount_usd,description,subscription_id,seats,invoice_id,schedule_id\n";
       const csvRows = result.entries.map((e: any) =>
         [
           e.entry_date, e.company_name || e.company_id, e.entry_type,
           e.amount, (e.amount / 100).toFixed(2), (e.description || "").replace(/"/g, '""'),
           e.subscription_id || "", e.seat_count || "", e.invoice_id || "",
+          e.schedule_id || "",
         ].map(v => `"${v}"`).join(",")
       ).join("\n");
       res.setHeader("Content-Type", "text/csv");
@@ -801,19 +817,18 @@ router.get("/enterprise/revenue/journal", async (req, res) => {
   }
 });
 
-router.post("/enterprise/revenue/snapshot/:companyId", async (req, res) => {
-  const companyId = req.params.companyId;
-  if (!z.string().uuid().safeParse(companyId).success) {
-    return res.status(400).json({ error: "Invalid company ID" });
-  }
-
+router.post("/enterprise/revenue/run-recognition", async (_req, res) => {
   try {
-    await snapshotRevenueRecognition(companyId);
-    await auditLog(null, "revenue_snapshot_created", "revenue_recognition", { company_id: companyId });
-    return res.json({ success: true, company_id: companyId, snapshot_at: new Date().toISOString() });
+    const result = await runDailyRecognition();
+    await auditLog(null, "revenue_recognition_manual_run", "revenue_recognition", result);
+    return res.json({
+      success: true,
+      ...result,
+      total_recognized_display: (result.total_recognized_today / 100).toFixed(2),
+    });
   } catch (err: any) {
-    console.error("Revenue snapshot error:", err.message);
-    return res.status(500).json({ error: "Failed to create revenue snapshot" });
+    console.error("Revenue recognition run error:", err.message);
+    return res.status(500).json({ error: "Failed to run revenue recognition" });
   }
 });
 

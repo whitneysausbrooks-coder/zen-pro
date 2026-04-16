@@ -67,16 +67,11 @@ export async function handleNewSubscription(
   periodStart: Date,
   periodEnd: Date,
   seatCount: number,
-  amountBilled: number
+  _amountBilled: number
 ): Promise<void> {
   await createRevenueSchedule(
     companyId, subscriptionId, periodStart, periodEnd, seatCount,
     "new_subscription"
-  );
-
-  await recordJournalEntry(companyId, "billing", amountBilled,
-    `Invoice billed: ${seatCount} seats × $${(PRICE_PER_SEAT_CENTS / 100).toFixed(2)} = $${(amountBilled / 100).toFixed(2)} (deferred)`,
-    { subscription_id: subscriptionId, seat_count: seatCount }
   );
 }
 
@@ -87,7 +82,8 @@ export async function handleSeatChangeProspective(
   previousSeatCount: number
 ): Promise<void> {
   const activeSchedules = await query(
-    `SELECT id, period_start, period_end, seat_count, total_amount, recognized_to_date, deferred_balance, daily_rate
+    `SELECT id, period_start, period_end, seat_count, total_amount,
+            recognized_to_date, deferred_balance, daily_rate, last_recognized_date
      FROM revenue_schedules
      WHERE company_id = $1 AND subscription_id = $2 AND status = 'active'
      ORDER BY created_at DESC LIMIT 1`,
@@ -103,11 +99,10 @@ export async function handleSeatChangeProspective(
   if (now >= periodEnd) return;
 
   const remainingDays = daysBetween(now, periodEnd);
-  const oldRemainingValue = schedule.daily_rate * remainingDays;
-  const newRemainingValue = Math.round((newSeatCount * PRICE_PER_SEAT_CENTS) / daysBetween(new Date(schedule.period_start), periodEnd)) * remainingDays;
+  const newRemainingValue = Math.round((newSeatCount * PRICE_PER_SEAT_CENTS * remainingDays) / daysBetween(new Date(schedule.period_start), periodEnd));
   const newDailyRate = Math.round(newRemainingValue / remainingDays);
+  const adjustment = newRemainingValue - schedule.deferred_balance;
   const newTotalAmount = schedule.recognized_to_date + newRemainingValue;
-  const adjustment = newRemainingValue - oldRemainingValue;
 
   await withTransaction(async (client: pg.PoolClient) => {
     await client.query(
@@ -123,9 +118,9 @@ export async function handleSeatChangeProspective(
           total_amount, recognized_to_date, deferred_balance, daily_rate,
           status, last_recognized_date, modification_reason, parent_schedule_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', $10, $11, $12)`,
-      [companyId, subscriptionId, now, periodEnd, newSeatCount,
+      [companyId, subscriptionId, schedule.period_start, periodEnd, newSeatCount,
        newTotalAmount, schedule.recognized_to_date, newRemainingValue,
-       newDailyRate, schedule.last_recognized_date,
+       newDailyRate, schedule.last_recognized_date || null,
        `seat_change: ${previousSeatCount} → ${newSeatCount}`,
        schedule.id]
     );
