@@ -58,7 +58,7 @@ The monorepo leverages TypeScript composite projects with project references for
 - **Streak System:** Tracks `streak_count` and `last_game_date` with visual cues.
 - **Push Notifications:** Web Push API for smart, admin-triggered pushes.
 - **Raid Mode:** Admin-toggled global event doubling compassion points.
-- **Auth & Paywall:** Replit Auth integration with `AuthGate` and `PaywallGate`.
+- **Auth & Paywall:** Clerk authentication (SSO-ready, Organization support) with `AuthGate` and `PaywallGate`.
 - **Legal:** In-app legal screen (Mobile) and dedicated web pages for policies and disclosures.
 - **Accessibility (Mobile):** Extensive use of accessibility roles, labels, states, and `accessibilityLiveRegion`.
 - **Anti-Exploit:** Premium spin lock with fail-safe timeout and robust state preservation.
@@ -97,5 +97,5 @@ The monorepo leverages TypeScript composite projects with project references for
 -   **Orval:** OpenAPI client code generation.
 -   **React Query:** Frontend data fetching and caching.
 -   **Stripe:** Payment gateway.
--   **Replit Auth:** User authentication.
+-   **Clerk:** User authentication (SSO, Organizations, enterprise identity).
 -   **Web Push API (VAPID):** Push notifications.

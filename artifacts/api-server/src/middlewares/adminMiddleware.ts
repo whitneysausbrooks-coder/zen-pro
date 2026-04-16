@@ -1,4 +1,5 @@
-import { type Request, type Response, type NextFunction } from "express";
+import { getAuth } from "@clerk/express";
+import type { Request, Response, NextFunction } from "express";
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const adminIds = (process.env.ADMIN_USER_IDS ?? "")
@@ -11,11 +12,13 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
     return;
   }
 
-  const userId = req.user?.id;
+  const auth = getAuth(req);
+  const userId = (auth?.sessionClaims?.userId || auth?.userId) as string | undefined;
   if (!userId || !adminIds.includes(userId)) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
 
+  req.userId = userId;
   next();
 }
