@@ -1,0 +1,46 @@
+We have a working MVP: React Native employee app with WRI/ERI/CPS/NSB scoring, burnout risk calculation, reset protocols, mocked wearables, NestJS/Prisma backend (PostgreSQL), resilience_scores table, and basic company-level aggregation endpoint.
+
+Goal: Transform from consumer/gamified app into a trustworthy B2B enterprise wellness platform that executives will actually buy. Focus on Trust + Stability + Measurable Outcomes (e.g. Burnout ↓18%, Retention ↑12%).
+
+**Immediate Priority (PART 3 — what actually sells):**
+Build a minimal, high-trust executive dashboard for company admins/execs.
+
+Requirements:
+- Endpoint: Enhance or use /company/:id/dashboard (or create /company/:id/metrics if needed).
+- Data to display (executive view):
+  • Average Workforce Resilience Index (WRI) — big prominent number + label
+  • Average Burnout Risk % across the company
+  • 7-day trend for both WRI and Burnout Risk (simple line chart)
+  • Anonymized "High Risk Employees: X (at >70% risk)" 
+  • Team Cohesion delta (e.g. -12% or +8%)
+- Separate or tabbed Manager view: "High Risk Employees: 4 (anonymized list or count only)", "Team Cohesion Drop"
+
+Style & Tone (PART 4 — critical):
+- Enterprise calm + trust: clean glassmorphism or subtle bordered cards, lots of white space, professional sans-serif fonts (e.g. Inter or system), neutral colors (grays, soft blues, no bright gradients or casino vibes).
+- Example card:
+  <View style={styles.card}>
+    <Text style={styles.label}>Workforce Resilience</Text>
+    <Text style={styles.value}>{avgWRI}</Text>
+    <Text style={styles.sub}>Burnout Risk: {avgBurnoutRisk}%</Text>
+  </View>
+- No spins, coins, energy scores, or dopamine elements anywhere in the admin view.
+
+Tech Recommendations (2026 best practices):
+- For web admin portal (recommended addition if you don't have one yet): Next.js + shadcn/ui + Tailwind for components. Use Recharts or Tremor for the simple trend line chart.
+- If staying pure React Native for now: Use a clean card layout + react-native-simple-line-chart or similar lightweight line component.
+- Keep it minimal: 1–2 screens max to start. Make data fetch from the existing Prisma aggregate (avg wri, avg burnoutRisk, recent scores for trend).
+
+After dashboard:
+1. Apply the same calm UI overhaul to the employee-facing React Native app (replace gamified elements).
+2. Upgrade burnoutEngine with trend + anomaly detection (downward 3-day trend +15 risk, sudden drops flagged).
+3. Then move to Stripe B2B per-employee seat-based subscriptions (company as customer, quantity = # of employees, usage-based upgrades).
+
+Start by showing:
+- The updated backend endpoint code
+- The new dashboard component(s)
+- How it integrates with the existing schema and scoring engine
+- Any new Prisma queries needed
+
+Success metric: The dashboard should feel instantly trustworthy to a busy executive — clear numbers, subtle trends, zero clutter. It must prove measurable outcomes.
+
+Output clean, production-ready code with comments. Prioritize simplicity and reliability over fancy features.

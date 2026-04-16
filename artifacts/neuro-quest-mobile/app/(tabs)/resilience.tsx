@@ -33,11 +33,13 @@ function ScoreRing({
   score,
   size,
   label,
+  sublabel,
   color,
 }: {
   score: number;
   size: number;
   label: string;
+  sublabel?: string;
   color: string;
 }) {
   const animValue = useRef(new Animated.Value(0)).current;
@@ -45,7 +47,7 @@ function ScoreRing({
   useEffect(() => {
     Animated.timing(animValue, {
       toValue: score / 100,
-      duration: 1200,
+      duration: 1400,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
@@ -58,8 +60,8 @@ function ScoreRing({
           width: size,
           height: size,
           borderRadius: size / 2,
-          borderWidth: 3,
-          borderColor: "rgba(255,255,255,0.06)",
+          borderWidth: 2,
+          borderColor: "rgba(255,255,255,0.04)",
           justifyContent: "center",
           alignItems: "center",
         }}
@@ -70,7 +72,7 @@ function ScoreRing({
             width: size,
             height: size,
             borderRadius: size / 2,
-            borderWidth: 3,
+            borderWidth: 2.5,
             borderColor: color,
             opacity: animValue,
           }}
@@ -78,21 +80,32 @@ function ScoreRing({
         <Text
           style={{
             fontFamily: "PlayfairDisplay_700Bold",
-            fontSize: size * 0.3,
+            fontSize: size * 0.28,
             color: Colors.white,
           }}
         >
           {Math.round(score)}
         </Text>
+        {sublabel && (
+          <Text
+            style={{
+              fontFamily: "Inter_400Regular",
+              fontSize: 10,
+              color: Colors.whiteAlpha30,
+              marginTop: 2,
+            }}
+          >
+            {sublabel}
+          </Text>
+        )}
       </View>
       <Text
         style={{
-          fontFamily: "Inter_600SemiBold",
-          fontSize: 11,
-          color: Colors.whiteAlpha60,
-          marginTop: 6,
-          letterSpacing: 0.5,
-          textTransform: "uppercase",
+          fontFamily: "Inter_500Medium",
+          fontSize: 12,
+          color: Colors.whiteAlpha50,
+          marginTop: 8,
+          letterSpacing: 0.3,
         }}
       >
         {label}
@@ -126,11 +139,7 @@ function MetricBar({
   return (
     <View style={styles.metricRow}>
       <View style={styles.metricLabelRow}>
-        <MaterialCommunityIcons
-          name={icon as any}
-          size={16}
-          color={color}
-        />
+        <MaterialCommunityIcons name={icon as any} size={15} color={color} />
         <Text style={styles.metricLabel}>{label}</Text>
         <Text style={[styles.metricValue, { color }]}>{Math.round(value)}</Text>
       </View>
@@ -148,6 +157,29 @@ function MetricBar({
           ]}
         />
       </View>
+    </View>
+  );
+}
+
+function StatusPill({ label, color }: { label: string; color: string }) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        backgroundColor: color + "14",
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: color + "30",
+      }}
+    >
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+      <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 12, color, letterSpacing: 0.3 }}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -180,8 +212,7 @@ export default function ResilienceScreen() {
     } catch {}
   }, []);
 
-  useEffect(() => {
-  }, []);
+  useEffect(() => {}, []);
 
   const demoScore: ScoreData = scores || {
     eri: 72,
@@ -195,10 +226,12 @@ export default function ResilienceScreen() {
 
   const burnoutLevel =
     demoScore.burnout_risk > 70
-      ? { label: "High", color: "#EF4444", icon: "alert-circle" }
+      ? { label: "High Risk", color: "#EF4444", icon: "alert-circle" as const }
       : demoScore.burnout_risk > 40
-      ? { label: "Moderate", color: Colors.balanceAmber, icon: "alert-triangle" }
-      : { label: "Low", color: Colors.empathyGreen, icon: "shield-checkmark" };
+      ? { label: "Moderate", color: "#FBBF24", icon: "alert-triangle" as const }
+      : { label: "Low Risk", color: "#4ADE80", icon: "shield-checkmark" as const };
+
+  const energyRecovery = Math.round(100 - demoScore.burnout_risk);
 
   const startBreathing = useCallback(() => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -238,7 +271,7 @@ export default function ResilienceScreen() {
         if (breathIntervalRef.current) clearInterval(breathIntervalRef.current);
         setBreathingActive(false);
         if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("Reset Complete", "+10 Neural Energy earned. Your nervous system thanks you.");
+        Alert.alert("Session Complete", "Energy Recovery Score improved. Your nervous system thanks you.");
       }
     }, 1000);
   }, []);
@@ -253,7 +286,7 @@ export default function ResilienceScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <LinearGradient
-          colors={[Colors.celestialPurple, Colors.forestDeep, Colors.black]}
+          colors={["#1a1a2e", "#16213e", "#0f0f23"]}
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.breathContainer}>
@@ -263,8 +296,10 @@ export default function ResilienceScreen() {
               setBreathingActive(false);
             }}
             style={styles.breathClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close breathing exercise"
           >
-            <Ionicons name="close" size={24} color={Colors.whiteAlpha60} />
+            <Ionicons name="close" size={22} color={Colors.whiteAlpha50} />
           </Pressable>
           <Text style={styles.breathTitle}>Reset Protocol</Text>
           <Text style={styles.breathSubtitle}>4-3-5 Box Breathing</Text>
@@ -281,7 +316,7 @@ export default function ResilienceScreen() {
           <Text style={styles.breathTimerText}>
             {Math.floor(breathTimer / 60)}:{String(breathTimer % 60).padStart(2, "0")}
           </Text>
-          <Text style={styles.breathReward}>+10 NE on completion</Text>
+          <Text style={styles.breathReward}>Improving your Energy Recovery Score</Text>
         </View>
       </View>
     );
@@ -290,8 +325,8 @@ export default function ResilienceScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient
-        colors={[Colors.celestialPurple, Colors.forestDeep, Colors.black]}
-        locations={[0, 0.3, 0.7]}
+        colors={["#1a1a2e", "#16213e", "#0f0f23"]}
+        locations={[0, 0.35, 0.7]}
         style={StyleSheet.absoluteFill}
       />
       <ScrollView
@@ -299,129 +334,118 @@ export default function ResilienceScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.eyebrow}>WORKFORCE RESILIENCE</Text>
-        <Text style={styles.title}>Your Resilience</Text>
+        <View style={styles.header}>
+          <Text style={styles.eyebrow}>WORKFORCE RESILIENCE</Text>
+          <Text style={styles.title}>Your Resilience</Text>
+        </View>
 
-        <GlassCard style={styles.mainScoreCard} borderColor="rgba(167,139,250,0.2)">
-          <View style={styles.scoreRingRow}>
+        <GlassCard style={styles.mainScoreCard} borderColor="rgba(255,255,255,0.06)">
+          <View style={styles.scoreRow}>
             <ScoreRing
               score={demoScore.wri}
-              size={120}
-              label="WRI Score"
-              color={Colors.neuralPurple}
+              size={130}
+              label="Resilience Index"
+              sublabel="out of 100"
+              color="#7C8CF8"
             />
           </View>
-          <View style={styles.burnoutRow}>
-            <Ionicons
-              name={burnoutLevel.icon as any}
-              size={18}
-              color={burnoutLevel.color}
-            />
-            <Text style={[styles.burnoutText, { color: burnoutLevel.color }]}>
-              Burnout Risk: {burnoutLevel.label} ({Math.round(demoScore.burnout_risk)}%)
-            </Text>
+          <View style={{ height: 16 }} />
+          <View style={styles.pillRow}>
+            <StatusPill label={burnoutLevel.label} color={burnoutLevel.color} />
+            <StatusPill label={`Recovery: ${energyRecovery}%`} color="#7C8CF8" />
           </View>
         </GlassCard>
 
-        <GlassCard style={styles.metricsCard} borderColor={Colors.glassBorderLight}>
-          <Text style={styles.cardEyebrow}>COMPONENT SCORES</Text>
-          <MetricBar
-            label="Emotional Resilience"
-            value={demoScore.eri}
-            color={Colors.compassionPink}
-            icon="heart-pulse"
-          />
-          <MetricBar
-            label="Cognitive Performance"
-            value={demoScore.cps}
-            color={Colors.mindfulBlue}
-            icon="head-cog"
-          />
-          <MetricBar
-            label="Nervous System Balance"
-            value={demoScore.nsb}
-            color={Colors.empathyGreen}
-            icon="leaf"
-          />
-          <MetricBar
-            label="Team Cohesion"
-            value={demoScore.cohesion}
-            color={Colors.balanceAmber}
-            icon="account-group"
-          />
+        <View style={{ height: 12 }} />
+
+        <GlassCard style={styles.metricsCard} borderColor="rgba(255,255,255,0.05)">
+          <Text style={styles.sectionLabel}>Component Scores</Text>
+          <View style={{ height: 4 }} />
+          <MetricBar label="Emotional Resilience" value={demoScore.eri} color="#F472B6" icon="heart-pulse" />
+          <MetricBar label="Cognitive Performance" value={demoScore.cps} color="#60A5FA" icon="head-cog" />
+          <MetricBar label="Nervous System Balance" value={demoScore.nsb} color="#4ADE80" icon="leaf" />
+          <MetricBar label="Team Cohesion" value={demoScore.cohesion} color="#FBBF24" icon="account-group" />
         </GlassCard>
+
+        <View style={{ height: 12 }} />
 
         <Pressable
           onPress={startBreathing}
-          style={({ pressed }) => [pressed && { opacity: 0.9 }]}
+          style={({ pressed }) => [pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}
           accessibilityRole="button"
           accessibilityLabel="Start reset protocol breathing exercise"
         >
-          <GlassCard style={styles.resetCard} borderColor="rgba(74,222,128,0.2)">
-            <LinearGradient
-              colors={["rgba(74,222,128,0.08)", "rgba(96,165,250,0.06)", "transparent"]}
-              style={StyleSheet.absoluteFill}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            />
+          <GlassCard style={styles.resetCard} borderColor="rgba(74,222,128,0.12)">
             <View style={styles.resetRow}>
               <View style={styles.resetIconCircle}>
-                <MaterialCommunityIcons name="meditation" size={28} color={Colors.empathyGreen} />
+                <MaterialCommunityIcons name="meditation" size={26} color="#4ADE80" />
               </View>
               <View style={styles.resetText}>
                 <Text style={styles.resetTitle}>Reset Protocol</Text>
-                <Text style={styles.resetDesc}>
-                  2-min guided breathing · +10 Neural Energy
-                </Text>
+                <Text style={styles.resetDesc}>2-min guided breathing session</Text>
               </View>
-              <Feather name="play-circle" size={28} color={Colors.empathyGreen} />
+              <Feather name="play-circle" size={26} color="rgba(74,222,128,0.6)" />
             </View>
           </GlassCard>
         </Pressable>
 
-        <GlassCard style={styles.insightsCard} borderColor={Colors.glassBorderLight}>
-          <Text style={styles.cardEyebrow}>INSIGHTS</Text>
+        <View style={{ height: 12 }} />
+
+        <GlassCard style={styles.insightsCard} borderColor="rgba(255,255,255,0.05)">
+          <Text style={styles.sectionLabel}>Insights</Text>
+          <View style={{ height: 4 }} />
           {demoScore.nsb < 50 && (
             <View style={styles.insightRow}>
-              <Ionicons name="fitness" size={16} color={Colors.balanceAmber} />
+              <View style={[styles.insightDot, { backgroundColor: "#FBBF24" }]} />
               <Text style={styles.insightText}>
-                Your nervous system balance is below optimal. Try the Reset Protocol or a 10-minute walk.
+                Nervous system balance is below optimal. Consider the Reset Protocol or a brief walk.
               </Text>
             </View>
           )}
           {demoScore.cps > 70 && (
             <View style={styles.insightRow}>
-              <Ionicons name="sparkles" size={16} color={Colors.mindfulBlue} />
+              <View style={[styles.insightDot, { backgroundColor: "#60A5FA" }]} />
               <Text style={styles.insightText}>
-                Cognitive performance is strong today. Great time for deep focus work.
+                Cognitive performance is strong. Ideal window for deep focus work.
               </Text>
             </View>
           )}
           {demoScore.eri > 60 && (
             <View style={styles.insightRow}>
-              <Ionicons name="heart" size={16} color={Colors.compassionPink} />
+              <View style={[styles.insightDot, { backgroundColor: "#F472B6" }]} />
               <Text style={styles.insightText}>
-                Emotional resilience is healthy. Your capacity for empathy is elevated.
+                Emotional resilience is healthy. Capacity for empathy is elevated.
               </Text>
             </View>
           )}
           {demoScore.burnout_risk > 50 && (
             <View style={styles.insightRow}>
-              <Ionicons name="alert-circle" size={16} color="#EF4444" />
+              <View style={[styles.insightDot, { backgroundColor: "#EF4444" }]} />
               <Text style={styles.insightText}>
                 Elevated burnout risk detected. Prioritize rest and recovery today.
               </Text>
             </View>
           )}
+          {demoScore.nsb >= 50 && demoScore.cps <= 70 && demoScore.eri <= 60 && demoScore.burnout_risk <= 50 && (
+            <View style={styles.insightRow}>
+              <View style={[styles.insightDot, { backgroundColor: "#4ADE80" }]} />
+              <Text style={styles.insightText}>
+                All metrics within healthy range. Keep up the good work.
+              </Text>
+            </View>
+          )}
         </GlassCard>
 
-        <GlassCard style={styles.scienceCard} borderColor={Colors.glassBorderLight}>
-          <Text style={styles.cardEyebrow}>THE SCIENCE</Text>
-          <Text style={styles.scienceText}>
-            Your Workforce Resilience Index (WRI) is calculated from three validated biomarkers:
-            heart rate variability (nervous system), sleep architecture (cognitive), and
-            self-reported mood/engagement (emotional). Scores are deterministic, bounded 0–100,
-            and never shared with employers as individual data — only anonymized team averages.
+        <View style={{ height: 12 }} />
+
+        <GlassCard style={styles.privacyCard} borderColor="rgba(255,255,255,0.04)">
+          <View style={styles.privacyHeader}>
+            <Ionicons name="lock-closed" size={14} color={Colors.whiteAlpha30} />
+            <Text style={styles.privacyTitle}>Privacy</Text>
+          </View>
+          <Text style={styles.privacyText}>
+            Your individual scores are never shared with your employer. Only anonymized team
+            averages are visible to managers. Data is encrypted at rest and in transit.
           </Text>
         </GlassCard>
       </ScrollView>
@@ -430,83 +454,97 @@ export default function ResilienceScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.black },
+  container: { flex: 1, backgroundColor: "#0f0f23" },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 16 },
+  content: { paddingHorizontal: 20, paddingTop: 20 },
+  header: { marginBottom: 24 },
   eyebrow: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_500Medium",
     fontSize: 11,
-    color: Colors.neuralPurple,
-    letterSpacing: 2,
+    color: "#7C8CF8",
+    letterSpacing: 2.5,
     textTransform: "uppercase",
-    marginBottom: 4,
+    marginBottom: 6,
+    opacity: 0.8,
   },
   title: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 32,
-    color: Colors.white,
-    marginBottom: 20,
+    fontSize: 30,
+    color: "#F0F0F5",
+    letterSpacing: -0.3,
   },
-  mainScoreCard: { padding: 24, marginBottom: 16, alignItems: "center" },
-  scoreRingRow: { marginBottom: 16 },
-  burnoutRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  burnoutText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
-  metricsCard: { padding: 20, marginBottom: 16 },
-  cardEyebrow: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 11,
-    color: Colors.goldDim,
-    letterSpacing: 1.5,
-    marginBottom: 16,
+  mainScoreCard: { padding: 28, alignItems: "center" },
+  scoreRow: { marginBottom: 0 },
+  pillRow: { flexDirection: "row", gap: 10, justifyContent: "center" },
+  sectionLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.45)",
+    letterSpacing: 0.5,
+    marginBottom: 14,
   },
-  metricRow: { marginBottom: 16 },
-  metricLabelRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
-  metricLabel: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.whiteAlpha60, flex: 1 },
-  metricValue: { fontFamily: "Inter_700Bold", fontSize: 14 },
+  metricsCard: { padding: 22 },
+  metricRow: { marginBottom: 18 },
+  metricLabelRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  metricLabel: { fontFamily: "Inter_400Regular", fontSize: 13, color: "rgba(255,255,255,0.55)", flex: 1 },
+  metricValue: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
   metricTrack: {
-    height: 6,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    height: 5,
+    backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: 3,
     overflow: "hidden",
   },
   metricFill: { height: "100%", borderRadius: 3 },
-  resetCard: { padding: 20, marginBottom: 16 },
+  resetCard: { padding: 22 },
   resetRow: { flexDirection: "row", alignItems: "center", gap: 14 },
   resetIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(74,222,128,0.12)",
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "rgba(74,222,128,0.08)",
     justifyContent: "center",
     alignItems: "center",
   },
   resetText: { flex: 1 },
   resetTitle: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 16,
-    color: Colors.white,
-    marginBottom: 2,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+    color: "#F0F0F5",
+    marginBottom: 3,
   },
   resetDesc: {
     fontFamily: "Inter_400Regular",
     fontSize: 13,
-    color: Colors.whiteAlpha60,
+    color: "rgba(255,255,255,0.40)",
   },
-  insightsCard: { padding: 20, marginBottom: 16 },
-  insightRow: { flexDirection: "row", gap: 10, marginBottom: 12, alignItems: "flex-start" },
+  insightsCard: { padding: 22 },
+  insightRow: { flexDirection: "row", gap: 12, marginBottom: 14, alignItems: "flex-start" },
+  insightDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 6,
+  },
   insightText: {
     fontFamily: "Inter_400Regular",
     fontSize: 13,
-    color: Colors.whiteAlpha60,
+    color: "rgba(255,255,255,0.50)",
     flex: 1,
-    lineHeight: 19,
-  },
-  scienceCard: { padding: 20, marginBottom: 16 },
-  scienceText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-    color: Colors.whiteAlpha50,
     lineHeight: 20,
+  },
+  privacyCard: { padding: 20 },
+  privacyHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
+  privacyTitle: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: Colors.whiteAlpha30,
+    letterSpacing: 0.5,
+  },
+  privacyText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.28)",
+    lineHeight: 18,
   },
   breathContainer: {
     flex: 1,
@@ -514,44 +552,44 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 40,
   },
-  breathClose: { position: "absolute", top: 20, right: 20, padding: 8 },
+  breathClose: { position: "absolute", top: 20, right: 20, padding: 10 },
   breathTitle: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 28,
-    color: Colors.white,
-    marginBottom: 4,
+    fontSize: 26,
+    color: "#F0F0F5",
+    marginBottom: 6,
   },
   breathSubtitle: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_400Regular",
     fontSize: 14,
-    color: Colors.whiteAlpha50,
-    marginBottom: 40,
+    color: "rgba(255,255,255,0.35)",
+    marginBottom: 44,
   },
   breathCircle: {
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: "rgba(167,139,250,0.12)",
-    borderWidth: 2,
-    borderColor: Colors.neuralPurple,
+    backgroundColor: "rgba(124,140,248,0.08)",
+    borderWidth: 1.5,
+    borderColor: "rgba(124,140,248,0.3)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: 36,
   },
   breathPhaseText: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 18,
-    color: Colors.white,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 17,
+    color: "#F0F0F5",
   },
   breathTimerText: {
     fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 48,
-    color: Colors.white,
-    marginBottom: 8,
+    fontSize: 44,
+    color: "#F0F0F5",
+    marginBottom: 10,
   },
   breathReward: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_400Regular",
     fontSize: 13,
-    color: Colors.empathyGreen,
+    color: "rgba(124,140,248,0.6)",
   },
 });

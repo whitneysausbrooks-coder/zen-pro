@@ -80,6 +80,7 @@ The monorepo leverages TypeScript composite projects with project references for
 - **Company Dashboard Endpoint:** `/api/enterprise/company/:companyId/dashboard?view=executive|manager` — Executive view: avg WRI, burnout risk, severity, 7-day trend. Manager view: adds high-risk employee count (anonymized), team cohesion score, cohesion delta %.
 - **Mobile Resilience Tab:** `artifacts/neuro-quest-mobile/app/(tabs)/resilience.tsx` — WRI score ring, burnout risk indicator, component score bars, Reset Protocol (4-3-5 box breathing, 2-min, +10 NE), personalized insights, privacy explainer.
 - **Admin Dashboard (Web):** `artifacts/neuro-quest/src/pages/admin-dashboard.tsx` at `/admin-dashboard` — Executive/Manager view toggle, 7-day trend chart (WRI vs burnout), burnout severity badges, cohesion delta tracking, alert banners, audit log table. API key authentication required.
+- **Stripe B2B Billing:** `artifacts/api-server/src/routes/stripe-enterprise.ts` — 5 endpoints: POST create-company (Stripe customer), POST subscribe (per-seat checkout at $12/seat/mo), POST update-seats (quantity adjustment), GET billing/:companyId (subscription status), POST portal (Stripe billing portal). All auth-protected with `x-enterprise-key`.
 - **Privacy:** Employee-level data never exposed to employers. Only anonymized team averages shown. Full audit trail for SOC 2 compliance.
 
 ## External Dependencies
