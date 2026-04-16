@@ -63,6 +63,16 @@ interface BillingData {
   status?: string;
 }
 
+interface SeatStatus {
+  status: string;
+  is_active: boolean;
+  is_suspended: boolean;
+  is_past_due: boolean;
+  seats_used: number;
+  seats_total: number;
+  dunning_attempts: number;
+}
+
 interface AuditEntry {
   id: string;
   user_id: string | null;
@@ -283,10 +293,12 @@ export default function AdminDashboard() {
   const [, navigate] = useLocation();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [billing, setBilling] = useState<BillingData | null>(null);
+  const [seatStatus, setSeatStatus] = useState<SeatStatus | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
   const [companyId, setCompanyId] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
   const [activeView, setActiveView] = useState<"executive" | "manager">("executive");
 
   const headers = { "x-enterprise-key": apiKey };
@@ -295,9 +307,10 @@ export default function AdminDashboard() {
     if (!id || !apiKey) return;
     setLoading(true);
     try {
-      const [dashRes, billingRes, auditRes] = await Promise.all([
+      const [dashRes, billingRes, seatRes, auditRes] = await Promise.all([
         fetch(`${BASE}/api/enterprise/company/${id}/dashboard?view=${view}`, { headers }),
         fetch(`${BASE}/api/stripe-enterprise/billing/${id}`, { headers }),
+        fetch(`${BASE}/api/enterprise/seats/${id}`, { headers }),
         fetch(`${BASE}/api/enterprise/audit-log?limit=20`, { headers }),
       ]);
 
@@ -309,12 +322,22 @@ export default function AdminDashboard() {
       }
 
       if (billingRes.ok) setBilling(await billingRes.json());
+      if (seatRes.ok) setSeatStatus(await seatRes.json());
       if (auditRes.ok) {
         const data = await auditRes.json();
         setAuditLogs(data.logs || []);
       }
     } catch {}
     setLoading(false);
+  };
+
+  const triggerReconciliation = async () => {
+    setReconciling(true);
+    try {
+      await fetch(`${BASE}/api/enterprise/reconcile`, { method: "POST", headers });
+      fetchDashboard(companyId, activeView);
+    } catch {}
+    setReconciling(false);
   };
 
   const loadAll = (view: "executive" | "manager") => {
@@ -548,12 +571,22 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {billing && (
-                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
-                  <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase mb-3">
-                    Subscription
-                  </p>
-                  {billing.has_subscription ? (
+              {(billing || seatStatus) && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase">
+                      Billing & Seats
+                    </p>
+                    <button
+                      onClick={triggerReconciliation}
+                      disabled={reconciling}
+                      className="text-[10px] font-medium px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white/40 hover:text-white/60 transition disabled:opacity-30"
+                    >
+                      {reconciling ? "Syncing..." : "Reconcile with Stripe"}
+                    </button>
+                  </div>
+
+                  {billing?.has_subscription ? (
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-white/70">
@@ -569,6 +602,54 @@ export default function AdminDashboard() {
                     </div>
                   ) : (
                     <p className="text-sm text-white/40">No active subscription · $12/seat/month</p>
+                  )}
+
+                  {seatStatus && (
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                        <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Seats Used</p>
+                        <p className="text-lg font-bold text-white/80">
+                          {seatStatus.seats_used}<span className="text-white/30">/{seatStatus.seats_total || "—"}</span>
+                        </p>
+                      </div>
+                      <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                        <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Status</p>
+                        <p className={`text-lg font-bold ${
+                          seatStatus.is_active ? "text-emerald-400" :
+                          seatStatus.is_suspended ? "text-red-400" :
+                          seatStatus.is_past_due ? "text-amber-400" :
+                          "text-white/40"
+                        }`}>
+                          {seatStatus.status}
+                        </p>
+                      </div>
+                      <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                        <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Dunning</p>
+                        <p className={`text-lg font-bold ${
+                          seatStatus.dunning_attempts >= 3 ? "text-red-400" :
+                          seatStatus.dunning_attempts > 0 ? "text-amber-400" :
+                          "text-emerald-400"
+                        }`}>
+                          {seatStatus.dunning_attempts > 0 ? `${seatStatus.dunning_attempts}/3 fails` : "Clean"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {seatStatus?.is_suspended && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
+                      <p className="text-xs text-red-300 font-medium">
+                        Account suspended — 3 consecutive payment failures. Employee access restricted until billing is resolved.
+                      </p>
+                    </div>
+                  )}
+
+                  {seatStatus?.is_past_due && !seatStatus.is_suspended && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-3">
+                      <p className="text-xs text-amber-300 font-medium">
+                        Payment past due — {seatStatus.dunning_attempts} failed attempt{seatStatus.dunning_attempts !== 1 ? "s" : ""}. Account will be suspended after 3 failures.
+                      </p>
+                    </div>
                   )}
                 </div>
               )}

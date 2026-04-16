@@ -1,0 +1,50 @@
+Here’s exactly what’s next to push your product toward billion-dollar caliber with zero defects and perfect compliance.
+Your current setup (age gate removal + full per-seat Stripe B2B billing with webhooks and DB sync) is solid for an MVP. But production reality hits hard: webhooks fail, events arrive out-of-order/duplicated, taxes get missed, discrepancies appear between your DB and Stripe, and enterprises won’t sign without audit-ready controls.
+Immediate Next Step (Phase 1: Hardening – Do This Right Now)
+Tell your AI Agent to focus on production-grade robustness first. This eliminates the most common revenue-killing defects.
+Prompt to copy-paste into your Agent:
+“Next priority: Make the Stripe B2B billing system production-defect-free and zero race conditions.
+1.  Robust Webhook Handler at /api/stripe-enterprise/webhook:
+	•  Strictly verify signatures and reject invalid ones.
+	•  Full idempotency: Use a processed_events table (or Redis) keyed on Stripe event ID to never process duplicates.
+	•  Handle out-of-order and delayed events safely (use subscription state machine or version checks).
+	•  Async processing with retries, dead-letter queue for failures, and detailed logging.
+	•  Alert on repeated failures.
+2.  Daily Reconciliation Job:
+	•  Cron that compares your companies table (subscription_status, seat_count, billing_period_end, etc.) against Stripe API data.
+	•  Auto-detect and log/alert on discrepancies (e.g., active in DB but canceled in Stripe).
+	•  Safe auto-fix where possible, or manual review queue.
+3.  Dunning & Grace Period Logic:
+	•  On invoice.payment_failed: Trigger retries, email sequence, grace period, then clear “past_due” status with seat enforcement (block excess seats or features if needed).
+	•  Proper proration, mid-cycle seat changes, and true-up handling.
+4.  Comprehensive Tests:
+	•  Unit + integration tests for all 5 webhook events + edge cases (use Stripe test clocks for time manipulation).
+	•  Test duplicate/out-of-order scenarios explicitly.
+5.  Observability:
+	•  Track metrics: webhook success rate, reconciliation mismatches, payment failure reasons.
+	•  Add to your audit_logs for every change.
+Aim for zero lost revenue scenarios and 99.99%+ reliability. Make Stripe the source of truth for billing state, but keep fast DB reads.”
+This directly addresses the top failure modes in Stripe integrations (duplicates, ordering issues, reconciliation drift, dunning gaps).
+Right After That: Compliance Foundation (Phase 2)
+Once hardening is done, add Stripe Tax — it’s the fastest way to get tax compliance right without manual headaches.
+•  Enable automatic tax calculation/collection on all checkouts and subscriptions (based on customer location).
+•  Set proper SaaS tax codes.
+•  Handle registrations and filings (Stripe can simplify this significantly).
+Follow-up prompt: “Integrate Stripe Tax fully: enable automatic_tax on relevant Checkout Sessions and subscriptions, set SaaS tax codes, update /create-company and /subscribe endpoints to pass customer address/location, and display taxes transparently on invoices/portals. Add to audit logs.”
+This makes you audit-ready for sales tax/VAT/GST and avoids nasty surprises as you scale (especially with US economic nexus rules).
+Then Move To (Short-Term Polish)
+•  Enhanced Dashboard Billing View: Show upcoming charges, invoice history (PDF downloads), usage/seat trends, and clear “No active subscription” pricing upsell.
+•  Basic RBAC for Billing: Only authorized company admins can update seats or access the portal.
+•  Expanded Audit Logging: Every billing action (seat change, subscription update, admin override) logged immutably with who/when/what.
+Longer-Term Billion-Dollar Moves (After Stability)
+•  Revenue recognition prep (ASC 606 alignment via deferred revenue tracking).
+•  Monitoring + alerts + CI/CD for the billing paths.
+•  Enterprise asks: SSO/SCIM readiness, SOC 2 evidence collection (start with asset inventory, access reviews, vendor assessments — Stripe already helps here).
+•  Usage metering foundation if you ever want hybrid pricing.
+Why this order?
+Reliability first (defects = lost money + angry customers).
+Compliance second (blocks enterprise sales and invites penalties).
+Features third (once the foundation won’t break).
+This path minimizes risk while building the trust large customers demand. Billion-dollar SaaS companies obsess over these “boring” details because they prevent catastrophic failures at scale.
+Run the hardening prompt with your agent now. Once it’s complete and tested, reply here with the update (or new screenshots), and we’ll tackle the next layer — including any specific tests or edge cases you want covered.
+What do you want to prioritize first, or any constraints on your stack (tech, target customers, etc.)?

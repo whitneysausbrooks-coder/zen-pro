@@ -14,6 +14,8 @@ import {
   ENGINE_VERSION,
   type PersonalBaseline,
 } from "../lib/scoringEngine";
+import { checkSeatAvailability, getCompanyBillingStatus } from "../lib/seatEnforcement";
+import { runReconciliation } from "../lib/billingReconciliation";
 
 const router: IRouter = Router();
 
@@ -58,6 +60,24 @@ router.post("/enterprise/users", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
   try {
+    if (parsed.data.company_id) {
+      const seatCheck = await checkSeatAvailability(parsed.data.company_id);
+      if (!seatCheck.allowed) {
+        await auditLog(null, "user_create_blocked_seats", "enterprise_users", {
+          email: parsed.data.email,
+          company_id: parsed.data.company_id,
+          reason: seatCheck.reason,
+          seats_used: seatCheck.current_employees,
+          seats_total: seatCheck.seat_count,
+        });
+        return res.status(403).json({
+          error: seatCheck.reason,
+          seats_used: seatCheck.current_employees,
+          seats_total: seatCheck.seat_count,
+        });
+      }
+    }
+
     const result = await query(
       `INSERT INTO enterprise_users (email, company_id, role)
        VALUES ($1, $2, $3)
@@ -583,6 +603,31 @@ router.get("/enterprise/company/:companyId/dashboard", async (req, res) => {
 
 router.get("/enterprise/reset-protocol", (_req, res) => {
   return res.json(runResetProtocol());
+});
+
+router.get("/enterprise/seats/:companyId", async (req, res) => {
+  const companyId = req.params.companyId;
+  if (!z.string().uuid().safeParse(companyId).success) {
+    return res.status(400).json({ error: "Invalid company ID" });
+  }
+
+  try {
+    const status = await getCompanyBillingStatus(companyId);
+    return res.json(status);
+  } catch (err: any) {
+    console.error("Error checking seats:", err.message);
+    return res.status(500).json({ error: "Failed to check seat status" });
+  }
+});
+
+router.post("/enterprise/reconcile", async (_req, res) => {
+  try {
+    const result = await runReconciliation();
+    return res.json({ success: true, ...result });
+  } catch (err: any) {
+    console.error("Reconciliation error:", err.message);
+    return res.status(500).json({ error: "Reconciliation failed" });
+  }
 });
 
 router.get("/enterprise/audit-log", async (req, res) => {

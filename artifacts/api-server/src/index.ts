@@ -1,4 +1,5 @@
 import app from "./app";
+import { startReconciliationScheduler } from "./lib/billingReconciliation";
 
 const rawPort = process.env["PORT"];
 
@@ -16,4 +17,5 @@ if (Number.isNaN(port) || port <= 0) {
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
+  startReconciliationScheduler();
 });
