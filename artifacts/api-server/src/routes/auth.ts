@@ -20,6 +20,8 @@ import {
 } from "../lib/auth";
 
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
+const AUTH_ATTEMPT_COOKIE = "nq_auth_attempt";
+const MAX_AUTH_ATTEMPTS = 3;
 
 const router: IRouter = Router();
 
@@ -57,6 +59,39 @@ function getSafeReturnTo(value: unknown): string {
   return value;
 }
 
+function getAuthAttemptCount(req: Request): number {
+  const raw = req.cookies?.[AUTH_ATTEMPT_COOKIE];
+  const n = parseInt(raw, 10);
+  return Number.isNaN(n) ? 0 : n;
+}
+
+function setAuthAttemptCookie(res: Response, count: number) {
+  res.cookie(AUTH_ATTEMPT_COOKIE, String(count), {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 5 * 60 * 1000,
+  });
+}
+
+function clearAuthAttemptCookie(res: Response) {
+  res.clearCookie(AUTH_ATTEMPT_COOKIE, { path: "/" });
+}
+
+function clearOidcCookies(res: Response) {
+  res.clearCookie("code_verifier", { path: "/" });
+  res.clearCookie("nonce", { path: "/" });
+  res.clearCookie("state", { path: "/" });
+  res.clearCookie("return_to", { path: "/" });
+}
+
+function redirectWithAuthError(res: Response, returnTo: string, error: string) {
+  clearOidcCookies(res);
+  const sep = returnTo.includes("?") ? "&" : "?";
+  res.redirect(`${returnTo}${sep}auth_error=${encodeURIComponent(error)}`);
+}
+
 async function upsertUser(claims: Record<string, unknown>) {
   const userData = {
     id: claims.sub as string,
@@ -91,49 +126,73 @@ router.get("/auth/user", (req: Request, res: Response) => {
 });
 
 router.get("/login", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
+  const attempts = getAuthAttemptCount(req);
+  if (attempts >= MAX_AUTH_ATTEMPTS) {
+    clearAuthAttemptCookie(res);
+    clearOidcCookies(res);
+    const returnTo = getSafeReturnTo(req.query.returnTo);
+    redirectWithAuthError(res, returnTo, "too_many_attempts");
+    return;
+  }
 
-  const returnTo = getSafeReturnTo(req.query.returnTo);
+  try {
+    const config = await getOidcConfig();
+    const callbackUrl = `${getOrigin(req)}/api/callback`;
 
-  const state = oidc.randomState();
-  const nonce = oidc.randomNonce();
-  const codeVerifier = oidc.randomPKCECodeVerifier();
-  const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
+    const returnTo = getSafeReturnTo(req.query.returnTo);
 
-  const redirectTo = oidc.buildAuthorizationUrl(config, {
-    redirect_uri: callbackUrl,
-    scope: "openid email profile offline_access",
-    code_challenge: codeChallenge,
-    code_challenge_method: "S256",
-    prompt: "login consent",
-    state,
-    nonce,
-  });
+    const state = oidc.randomState();
+    const nonce = oidc.randomNonce();
+    const codeVerifier = oidc.randomPKCECodeVerifier();
+    const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
 
-  setOidcCookie(res, "code_verifier", codeVerifier);
-  setOidcCookie(res, "nonce", nonce);
-  setOidcCookie(res, "state", state);
-  setOidcCookie(res, "return_to", returnTo);
+    const redirectTo = oidc.buildAuthorizationUrl(config, {
+      redirect_uri: callbackUrl,
+      scope: "openid email profile offline_access",
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+      prompt: "login consent",
+      state,
+      nonce,
+    });
 
-  res.redirect(redirectTo.href);
+    setOidcCookie(res, "code_verifier", codeVerifier);
+    setOidcCookie(res, "nonce", nonce);
+    setOidcCookie(res, "state", state);
+    setOidcCookie(res, "return_to", returnTo);
+    setAuthAttemptCookie(res, attempts + 1);
+
+    res.redirect(redirectTo.href);
+  } catch (err) {
+    console.error("Login route error:", err);
+    const returnTo = getSafeReturnTo(req.query.returnTo);
+    redirectWithAuthError(res, returnTo, "login_failed");
+  }
 });
 
-// Query params are not validated because the OIDC provider may include
-// parameters not expressed in the schema.
 router.get("/callback", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
+  const returnTo = getSafeReturnTo(req.cookies?.return_to);
 
   const codeVerifier = req.cookies?.code_verifier;
   const nonce = req.cookies?.nonce;
   const expectedState = req.cookies?.state;
 
   if (!codeVerifier || !expectedState) {
-    res.redirect("/api/login");
+    console.error("Auth callback: missing OIDC cookies (code_verifier or state)");
+    redirectWithAuthError(res, returnTo, "session_expired");
     return;
   }
 
+  let config;
+  try {
+    config = await getOidcConfig();
+  } catch (err) {
+    console.error("Auth callback: OIDC config error:", err);
+    redirectWithAuthError(res, returnTo, "provider_unavailable");
+    return;
+  }
+
+  const callbackUrl = `${getOrigin(req)}/api/callback`;
   const currentUrl = new URL(
     `${callbackUrl}?${new URL(req.url, `http://${req.headers.host}`).searchParams}`,
   );
@@ -146,45 +205,53 @@ router.get("/callback", async (req: Request, res: Response) => {
       expectedState,
       idTokenExpected: true,
     });
-  } catch {
-    res.redirect("/api/login");
+  } catch (err) {
+    console.error("Auth callback: token exchange failed:", err);
+    redirectWithAuthError(res, returnTo, "token_exchange_failed");
     return;
   }
 
-  const returnTo = getSafeReturnTo(req.cookies?.return_to);
-
-  res.clearCookie("code_verifier", { path: "/" });
-  res.clearCookie("nonce", { path: "/" });
-  res.clearCookie("state", { path: "/" });
-  res.clearCookie("return_to", { path: "/" });
+  clearOidcCookies(res);
 
   const claims = tokens.claims();
   if (!claims) {
-    res.redirect("/api/login");
+    console.error("Auth callback: no claims in ID token");
+    redirectWithAuthError(res, returnTo, "no_claims");
     return;
   }
 
-  const dbUser = await upsertUser(
-    claims as unknown as Record<string, unknown>,
-  );
+  let dbUser;
+  try {
+    dbUser = await upsertUser(claims as unknown as Record<string, unknown>);
+  } catch (err) {
+    console.error("Auth callback: user upsert failed:", err);
+    redirectWithAuthError(res, returnTo, "account_error");
+    return;
+  }
 
-  const now = Math.floor(Date.now() / 1000);
-  const sessionData: SessionData = {
-    user: {
-      id: dbUser.id,
-      email: dbUser.email,
-      firstName: dbUser.firstName,
-      lastName: dbUser.lastName,
-      profileImageUrl: dbUser.profileImageUrl,
-    },
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token,
-    expires_at: tokens.expiresIn() ? now + tokens.expiresIn()! : claims.exp,
-  };
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const sessionData: SessionData = {
+      user: {
+        id: dbUser.id,
+        email: dbUser.email,
+        firstName: dbUser.firstName,
+        lastName: dbUser.lastName,
+        profileImageUrl: dbUser.profileImageUrl,
+      },
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expires_at: tokens.expiresIn() ? now + tokens.expiresIn()! : claims.exp,
+    };
 
-  const sid = await createSession(sessionData);
-  setSessionCookie(res, sid);
-  res.redirect(returnTo);
+    const sid = await createSession(sessionData);
+    setSessionCookie(res, sid);
+    clearAuthAttemptCookie(res);
+    res.redirect(returnTo);
+  } catch (err) {
+    console.error("Auth callback: session creation failed:", err);
+    redirectWithAuthError(res, returnTo, "login_failed");
+  }
 });
 
 router.get("/logout", async (req: Request, res: Response) => {
@@ -193,6 +260,7 @@ router.get("/logout", async (req: Request, res: Response) => {
 
   const sid = getSessionId(req);
   await clearSession(res, sid);
+  clearAuthAttemptCookie(res);
 
   const endSessionUrl = oidc.buildEndSessionUrl(config, {
     client_id: process.env.REPL_ID!,

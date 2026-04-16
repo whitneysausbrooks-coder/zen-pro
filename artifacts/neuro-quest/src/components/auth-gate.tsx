@@ -1,6 +1,6 @@
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { Brain, Shield, Sparkles, LogIn } from "lucide-react"
+import { Brain, Shield, LogIn, AlertTriangle } from "lucide-react"
 import { useAuth } from "@workspace/replit-auth-web"
 import { LuxuryButton } from "@/components/ui/luxury-button"
 
@@ -8,8 +8,30 @@ interface AuthGateProps {
   children: React.ReactNode
 }
 
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  session_expired: "Your sign-in session expired. Please try again.",
+  token_exchange_failed: "Sign-in could not be completed. Please try again.",
+  no_claims: "We couldn't verify your identity. Please try again.",
+  account_error: "There was a problem setting up your account. Please try again.",
+  provider_unavailable: "The sign-in service is temporarily unavailable. Please try again shortly.",
+  too_many_attempts: "Too many sign-in attempts. Please wait a moment and try again.",
+  login_failed: "Sign-in failed. Please try again.",
+}
+
 export function AuthGate({ children }: AuthGateProps) {
   const { isLoading, isAuthenticated, login } = useAuth()
+  const [authError, setAuthError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const error = params.get("auth_error")
+    if (error) {
+      setAuthError(AUTH_ERROR_MESSAGES[error] || "Sign-in failed. Please try again.")
+      const url = new URL(window.location.href)
+      url.searchParams.delete("auth_error")
+      window.history.replaceState({}, "", url.pathname + url.search)
+    }
+  }, [])
 
   if (isLoading) {
     return (
@@ -64,6 +86,17 @@ export function AuthGate({ children }: AuthGateProps) {
             </div>
 
             <div className="px-6 pb-5">
+              {authError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-500/10 border border-red-500/20 mb-4"
+                >
+                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-300/80 leading-relaxed">{authError}</p>
+                </motion.div>
+              )}
+
               <div className="space-y-2.5 mb-6">
                 {[
                   { icon: "🧠", text: "Neuroplasticity games that rewire your brain" },
@@ -84,9 +117,9 @@ export function AuthGate({ children }: AuthGateProps) {
                 ))}
               </div>
 
-              <LuxuryButton onClick={login} className="w-full gap-3 py-4 text-base">
+              <LuxuryButton onClick={() => { setAuthError(null); login(); }} className="w-full gap-3 py-4 text-base">
                 <LogIn className="w-5 h-5" />
-                Sign In to Play Free
+                {authError ? "Try Again" : "Sign In to Play Free"}
               </LuxuryButton>
 
               <div className="flex items-center gap-2 mt-4 justify-center">
