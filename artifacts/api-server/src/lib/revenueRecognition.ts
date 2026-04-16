@@ -1,85 +1,445 @@
 import { query, auditLog, withTransaction } from "./db";
+import type pg from "pg";
 
 const PRICE_PER_SEAT_CENTS = 1200;
 
-interface RevenueSnapshot {
-  company_id: string;
-  subscription_id: string | null;
-  period_start: Date;
-  period_end: Date;
-  seat_count: number;
-  total_contract_value: number;
-  revenue_recognized: number;
-  revenue_deferred: number;
-  daily_rate: number;
-}
-
-interface RevenueSummary {
-  total_recognized: number;
-  total_deferred: number;
-  total_contract_value: number;
-  companies: Array<{
-    company_id: string;
-    company_name: string;
-    subscription_id: string | null;
-    seat_count: number;
-    period_start: string | null;
-    period_end: string | null;
-    contract_value: number;
-    recognized: number;
-    deferred: number;
-    percent_recognized: number;
-    daily_rate: number;
-  }>;
-}
-
-interface MonthlyBreakdown {
-  month: string;
-  recognized: number;
-  deferred: number;
-  new_bookings: number;
-  cancellations: number;
-  seat_changes: number;
-  refunds: number;
-}
-
 function daysBetween(start: Date, end: Date): number {
-  return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+  const ms = end.getTime() - start.getTime();
+  return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
 }
 
-function daysElapsed(start: Date, now: Date, end: Date): number {
-  const elapsed = Math.ceil((Math.min(now.getTime(), end.getTime()) - start.getTime()) / (1000 * 60 * 60 * 24));
-  return Math.max(0, elapsed);
+function toDateStr(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
-export function calculateRevenueAllocation(
-  seatCount: number,
+function startOfMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+}
+
+function startOfYear(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+}
+
+export async function createRevenueSchedule(
+  companyId: string,
+  subscriptionId: string,
   periodStart: Date,
   periodEnd: Date,
-  asOfDate: Date = new Date()
-): RevenueSnapshot & { percent_recognized: number } {
-  const totalValue = seatCount * PRICE_PER_SEAT_CENTS;
+  seatCount: number,
+  reason: string,
+  parentScheduleId?: string
+): Promise<string> {
+  const totalAmount = seatCount * PRICE_PER_SEAT_CENTS;
   const totalDays = daysBetween(periodStart, periodEnd);
-  const dailyRate = Math.round(totalValue / totalDays);
-  const elapsed = daysElapsed(periodStart, asOfDate, periodEnd);
-  const recognized = Math.min(dailyRate * elapsed, totalValue);
-  const deferred = Math.max(0, totalValue - recognized);
+  const dailyRate = Math.round(totalAmount / totalDays);
 
-  return {
-    company_id: "",
-    subscription_id: null,
-    period_start: periodStart,
-    period_end: periodEnd,
+  const result = await query(
+    `INSERT INTO revenue_schedules
+       (company_id, subscription_id, period_start, period_end, seat_count,
+        total_amount, recognized_to_date, deferred_balance, daily_rate,
+        status, modification_reason, parent_schedule_id)
+     VALUES ($1, $2, $3, $4, $5, $6, 0, $6, $7, 'active', $8, $9)
+     RETURNING id`,
+    [companyId, subscriptionId, periodStart, periodEnd, seatCount,
+     totalAmount, dailyRate, reason, parentScheduleId || null]
+  );
+
+  const scheduleId = result.rows[0].id;
+
+  await auditLog(null, "revenue_schedule_created", "revenue_schedules", {
+    schedule_id: scheduleId,
+    company_id: companyId,
+    subscription_id: subscriptionId,
+    period_start: toDateStr(periodStart),
+    period_end: toDateStr(periodEnd),
     seat_count: seatCount,
-    total_contract_value: totalValue,
-    revenue_recognized: recognized,
-    revenue_deferred: deferred,
+    total_amount: totalAmount,
     daily_rate: dailyRate,
-    percent_recognized: totalDays > 0 ? Math.round((elapsed / totalDays) * 10000) / 100 : 0,
-  };
+    reason,
+  });
+
+  return scheduleId;
 }
 
-export async function recordRevenueEvent(
+export async function handleNewSubscription(
+  companyId: string,
+  subscriptionId: string,
+  periodStart: Date,
+  periodEnd: Date,
+  seatCount: number,
+  amountBilled: number
+): Promise<void> {
+  await createRevenueSchedule(
+    companyId, subscriptionId, periodStart, periodEnd, seatCount,
+    "new_subscription"
+  );
+
+  await recordJournalEntry(companyId, "billing", amountBilled,
+    `Invoice billed: ${seatCount} seats × $${(PRICE_PER_SEAT_CENTS / 100).toFixed(2)} = $${(amountBilled / 100).toFixed(2)} (deferred)`,
+    { subscription_id: subscriptionId, seat_count: seatCount }
+  );
+}
+
+export async function handleSeatChangeProspective(
+  companyId: string,
+  subscriptionId: string,
+  newSeatCount: number,
+  previousSeatCount: number
+): Promise<void> {
+  const activeSchedules = await query(
+    `SELECT id, period_start, period_end, seat_count, total_amount, recognized_to_date, deferred_balance, daily_rate
+     FROM revenue_schedules
+     WHERE company_id = $1 AND subscription_id = $2 AND status = 'active'
+     ORDER BY created_at DESC LIMIT 1`,
+    [companyId, subscriptionId]
+  );
+
+  if (activeSchedules.rows.length === 0) return;
+
+  const schedule = activeSchedules.rows[0];
+  const now = new Date();
+  const periodEnd = new Date(schedule.period_end);
+
+  if (now >= periodEnd) return;
+
+  const remainingDays = daysBetween(now, periodEnd);
+  const oldRemainingValue = schedule.daily_rate * remainingDays;
+  const newRemainingValue = Math.round((newSeatCount * PRICE_PER_SEAT_CENTS) / daysBetween(new Date(schedule.period_start), periodEnd)) * remainingDays;
+  const newDailyRate = Math.round(newRemainingValue / remainingDays);
+  const newTotalAmount = schedule.recognized_to_date + newRemainingValue;
+  const adjustment = newRemainingValue - oldRemainingValue;
+
+  await withTransaction(async (client: pg.PoolClient) => {
+    await client.query(
+      `UPDATE revenue_schedules
+       SET status = 'superseded', updated_at = NOW(), modification_reason = 'seat_change_superseded'
+       WHERE id = $1`,
+      [schedule.id]
+    );
+
+    await client.query(
+      `INSERT INTO revenue_schedules
+         (company_id, subscription_id, period_start, period_end, seat_count,
+          total_amount, recognized_to_date, deferred_balance, daily_rate,
+          status, last_recognized_date, modification_reason, parent_schedule_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', $10, $11, $12)`,
+      [companyId, subscriptionId, now, periodEnd, newSeatCount,
+       newTotalAmount, schedule.recognized_to_date, newRemainingValue,
+       newDailyRate, schedule.last_recognized_date,
+       `seat_change: ${previousSeatCount} → ${newSeatCount}`,
+       schedule.id]
+    );
+  });
+
+  await recordJournalEntry(companyId, "seat_change", adjustment,
+    `Seat change: ${previousSeatCount} → ${newSeatCount} (prospective, ${remainingDays}d remaining, rate ${(schedule.daily_rate / 100).toFixed(2)} → ${(newDailyRate / 100).toFixed(2)}/day)`,
+    { subscription_id: subscriptionId, seat_count: newSeatCount, previous_seats: previousSeatCount, remaining_days: remainingDays }
+  );
+
+  await auditLog(null, "revenue_schedule_modified", "revenue_schedules", {
+    company_id: companyId,
+    old_schedule_id: schedule.id,
+    previous_seats: previousSeatCount,
+    new_seats: newSeatCount,
+    adjustment_cents: adjustment,
+    new_daily_rate: newDailyRate,
+    remaining_days: remainingDays,
+    treatment: "prospective",
+  });
+}
+
+export async function handleCancellation(
+  companyId: string,
+  subscriptionId: string,
+  effectiveEndDate?: Date
+): Promise<void> {
+  const schedules = await query(
+    `SELECT id, recognized_to_date, deferred_balance, seat_count
+     FROM revenue_schedules
+     WHERE company_id = $1 AND subscription_id = $2 AND status = 'active'`,
+    [companyId, subscriptionId]
+  );
+
+  for (const sched of schedules.rows) {
+    const releasedDeferred = sched.deferred_balance;
+
+    await withTransaction(async (client: pg.PoolClient) => {
+      if (effectiveEndDate) {
+        await client.query(
+          `UPDATE revenue_schedules
+           SET period_end = $1, status = 'canceled', deferred_balance = 0, updated_at = NOW(),
+               modification_reason = 'canceled'
+           WHERE id = $2`,
+          [effectiveEndDate, sched.id]
+        );
+      } else {
+        await client.query(
+          `UPDATE revenue_schedules
+           SET status = 'canceled', deferred_balance = 0, updated_at = NOW(),
+               modification_reason = 'canceled'
+           WHERE id = $1`,
+          [sched.id]
+        );
+      }
+    });
+
+    if (releasedDeferred > 0) {
+      await recordJournalEntry(companyId, "deferred_release", releasedDeferred,
+        `Cancellation: released $${(releasedDeferred / 100).toFixed(2)} deferred revenue (non-refundable)`,
+        { subscription_id: subscriptionId, seat_count: sched.seat_count }
+      );
+    }
+
+    await recordJournalEntry(companyId, "cancellation", 0,
+      `Subscription canceled: ${sched.seat_count} seats, recognition stopped`,
+      { subscription_id: subscriptionId, seat_count: sched.seat_count }
+    );
+  }
+
+  await auditLog(null, "revenue_schedule_canceled", "revenue_schedules", {
+    company_id: companyId,
+    subscription_id: subscriptionId,
+    schedules_canceled: schedules.rows.length,
+  });
+}
+
+export async function handleInvoicePaid(
+  companyId: string,
+  subscriptionId: string,
+  periodStart: Date,
+  periodEnd: Date,
+  seatCount: number,
+  amountPaid: number,
+  invoiceId: string
+): Promise<void> {
+  const existing = await query(
+    `SELECT id FROM revenue_schedules
+     WHERE company_id = $1 AND subscription_id = $2 AND status = 'active'
+       AND period_start <= $3 AND period_end >= $4`,
+    [companyId, subscriptionId, periodEnd, periodStart]
+  );
+
+  if (existing.rows.length === 0) {
+    await createRevenueSchedule(
+      companyId, subscriptionId, periodStart, periodEnd, seatCount,
+      "invoice_paid_new_period"
+    );
+  }
+
+  await recordJournalEntry(companyId, "billing", amountPaid,
+    `Invoice paid #${invoiceId}: ${seatCount} seats, $${(amountPaid / 100).toFixed(2)} billed (deferred)`,
+    { subscription_id: subscriptionId, seat_count: seatCount, invoice_id: invoiceId }
+  );
+}
+
+export async function handleRefund(
+  companyId: string,
+  amountRefunded: number,
+  subscriptionId?: string,
+  invoiceId?: string
+): Promise<void> {
+  if (subscriptionId) {
+    const sched = await query(
+      `SELECT id, deferred_balance, recognized_to_date
+       FROM revenue_schedules
+       WHERE company_id = $1 AND subscription_id = $2 AND status = 'active'
+       ORDER BY created_at DESC LIMIT 1`,
+      [companyId, subscriptionId]
+    );
+
+    if (sched.rows.length > 0) {
+      const s = sched.rows[0];
+      const deferredReduction = Math.min(amountRefunded, s.deferred_balance);
+      const recognizedReduction = amountRefunded - deferredReduction;
+
+      await query(
+        `UPDATE revenue_schedules
+         SET deferred_balance = deferred_balance - $1,
+             recognized_to_date = GREATEST(0, recognized_to_date - $2),
+             total_amount = total_amount - $3,
+             updated_at = NOW()
+         WHERE id = $4`,
+        [deferredReduction, recognizedReduction, amountRefunded, s.id]
+      );
+    }
+  }
+
+  await recordJournalEntry(companyId, "refund", -amountRefunded,
+    `Refund: -$${(amountRefunded / 100).toFixed(2)}`,
+    { subscription_id: subscriptionId, invoice_id: invoiceId }
+  );
+
+  await auditLog(null, "revenue_refund_recorded", "revenue_schedules", {
+    company_id: companyId,
+    amount_refunded: amountRefunded,
+    subscription_id: subscriptionId,
+    invoice_id: invoiceId,
+  });
+}
+
+export async function handleSuspension(companyId: string, subscriptionId: string): Promise<void> {
+  await query(
+    `UPDATE revenue_schedules SET status = 'paused', updated_at = NOW(), modification_reason = 'suspended'
+     WHERE company_id = $1 AND subscription_id = $2 AND status = 'active'`,
+    [companyId, subscriptionId]
+  );
+
+  await auditLog(null, "revenue_recognition_paused", "revenue_schedules", {
+    company_id: companyId,
+    subscription_id: subscriptionId,
+    reason: "account_suspended",
+  });
+}
+
+export async function handleReactivation(companyId: string, subscriptionId: string): Promise<void> {
+  await query(
+    `UPDATE revenue_schedules SET status = 'active', updated_at = NOW(), modification_reason = 'reactivated'
+     WHERE company_id = $1 AND subscription_id = $2 AND status = 'paused'`,
+    [companyId, subscriptionId]
+  );
+
+  await auditLog(null, "revenue_recognition_resumed", "revenue_schedules", {
+    company_id: companyId,
+    subscription_id: subscriptionId,
+  });
+}
+
+export async function runDailyRecognition(asOfDate?: Date): Promise<{
+  schedules_processed: number;
+  total_recognized_today: number;
+  errors: string[];
+}> {
+  const today = asOfDate || new Date();
+  const todayStr = toDateStr(today);
+  const result = { schedules_processed: 0, total_recognized_today: 0, errors: [] as string[] };
+
+  const schedules = await query(
+    `SELECT rs.id, rs.company_id, rs.subscription_id, rs.period_start, rs.period_end,
+            rs.seat_count, rs.total_amount, rs.recognized_to_date, rs.deferred_balance,
+            rs.daily_rate, rs.last_recognized_date
+     FROM revenue_schedules rs
+     WHERE rs.status = 'active'
+       AND rs.period_start <= $1
+       AND rs.period_end > $1
+       AND (rs.last_recognized_date IS NULL OR rs.last_recognized_date < $1)`,
+    [todayStr]
+  );
+
+  for (const sched of schedules.rows) {
+    try {
+      const lastRecDate = sched.last_recognized_date
+        ? new Date(sched.last_recognized_date)
+        : new Date(sched.period_start);
+      const daysSinceLast = daysBetween(lastRecDate, today);
+      const recognizeAmount = Math.min(
+        sched.daily_rate * daysSinceLast,
+        sched.deferred_balance
+      );
+
+      if (recognizeAmount <= 0) continue;
+
+      await withTransaction(async (client: pg.PoolClient) => {
+        await client.query(
+          `UPDATE revenue_schedules
+           SET recognized_to_date = recognized_to_date + $1,
+               deferred_balance = GREATEST(0, deferred_balance - $1),
+               last_recognized_date = $2,
+               updated_at = NOW()
+           WHERE id = $3`,
+          [recognizeAmount, todayStr, sched.id]
+        );
+
+        await client.query(
+          `INSERT INTO revenue_journal
+             (company_id, entry_date, entry_type, amount, description,
+              subscription_id, seat_count, schedule_id, metadata)
+           VALUES ($1, $2, 'recognition', $3, $4, $5, $6, $7, $8)`,
+          [
+            sched.company_id,
+            todayStr,
+            recognizeAmount,
+            `Daily recognition: ${daysSinceLast}d × $${(sched.daily_rate / 100).toFixed(2)}/day = $${(recognizeAmount / 100).toFixed(2)}`,
+            sched.subscription_id,
+            sched.seat_count,
+            sched.id,
+            JSON.stringify({
+              days_recognized: daysSinceLast,
+              daily_rate: sched.daily_rate,
+              before_recognized: sched.recognized_to_date,
+              after_recognized: sched.recognized_to_date + recognizeAmount,
+              before_deferred: sched.deferred_balance,
+              after_deferred: Math.max(0, sched.deferred_balance - recognizeAmount),
+            }),
+          ]
+        );
+      });
+
+      result.schedules_processed++;
+      result.total_recognized_today += recognizeAmount;
+    } catch (err: any) {
+      result.errors.push(`Schedule ${sched.id}: ${err.message}`);
+    }
+  }
+
+  const expiredSchedules = await query(
+    `SELECT id, company_id, deferred_balance, seat_count, subscription_id
+     FROM revenue_schedules
+     WHERE status = 'active' AND period_end <= $1 AND deferred_balance > 0`,
+    [todayStr]
+  );
+
+  for (const sched of expiredSchedules.rows) {
+    try {
+      await withTransaction(async (client: pg.PoolClient) => {
+        await client.query(
+          `UPDATE revenue_schedules
+           SET recognized_to_date = recognized_to_date + deferred_balance,
+               deferred_balance = 0,
+               last_recognized_date = $1,
+               status = 'completed',
+               updated_at = NOW()
+           WHERE id = $2`,
+          [todayStr, sched.id]
+        );
+
+        await client.query(
+          `INSERT INTO revenue_journal
+             (company_id, entry_date, entry_type, amount, description,
+              subscription_id, seat_count, schedule_id)
+           VALUES ($1, $2, 'recognition', $3, $4, $5, $6, $7)`,
+          [
+            sched.company_id,
+            todayStr,
+            sched.deferred_balance,
+            `Period-end catch-up recognition: $${(sched.deferred_balance / 100).toFixed(2)} (rounding)`,
+            sched.subscription_id,
+            sched.seat_count,
+            sched.id,
+          ]
+        );
+      });
+
+      result.schedules_processed++;
+      result.total_recognized_today += sched.deferred_balance;
+    } catch (err: any) {
+      result.errors.push(`Expired schedule ${sched.id}: ${err.message}`);
+    }
+  }
+
+  if (result.schedules_processed > 0) {
+    await auditLog(null, "daily_recognition_complete", "revenue_schedules", {
+      date: todayStr,
+      schedules_processed: result.schedules_processed,
+      total_recognized_cents: result.total_recognized_today,
+      total_recognized_usd: (result.total_recognized_today / 100).toFixed(2),
+      errors: result.errors.length,
+    });
+  }
+
+  return result;
+}
+
+async function recordJournalEntry(
   companyId: string,
   entryType: string,
   amountCents: number,
@@ -87,7 +447,9 @@ export async function recordRevenueEvent(
   metadata?: Record<string, any>
 ): Promise<void> {
   await query(
-    `INSERT INTO revenue_journal (company_id, entry_date, entry_type, amount, description, subscription_id, seat_count, invoice_id, metadata)
+    `INSERT INTO revenue_journal
+       (company_id, entry_date, entry_type, amount, description,
+        subscription_id, seat_count, invoice_id, metadata)
      VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8)`,
     [
       companyId,
@@ -100,111 +462,141 @@ export async function recordRevenueEvent(
       metadata ? JSON.stringify(metadata) : null,
     ]
   );
-
-  await auditLog(null, "revenue_event_recorded", "revenue_journal", {
-    company_id: companyId,
-    entry_type: entryType,
-    amount_cents: amountCents,
-    description,
-  });
 }
 
-export async function snapshotRevenueRecognition(companyId: string): Promise<void> {
-  const companyRes = await query(
-    `SELECT id, subscription_id, subscription_status, seat_count, billing_period_end
-     FROM companies WHERE id = $1`,
-    [companyId]
-  );
+export async function getRevenueSummary(): Promise<{
+  as_of: string;
+  current_period: { total_contract_value: number; recognized: number; deferred: number; percent_recognized: number };
+  mtd: { recognized: number; count: number };
+  ytd: { recognized: number; count: number };
+  lifetime: { recognized: number; billed: number; refunded: number };
+  active_schedules: number;
+  companies: Array<{
+    company_id: string;
+    company_name: string;
+    subscription_id: string;
+    seat_count: number;
+    period_start: string;
+    period_end: string;
+    total_amount: number;
+    recognized: number;
+    deferred: number;
+    daily_rate: number;
+    percent_recognized: number;
+    status: string;
+  }>;
+}> {
+  const now = new Date();
+  const mtdStart = startOfMonth(now);
+  const ytdStart = startOfYear(now);
 
-  if (companyRes.rows.length === 0) return;
-  const company = companyRes.rows[0];
+  const [schedules, mtdRec, ytdRec, lifetimeRec, lifetimeBilled, lifetimeRefunded] = await Promise.all([
+    query(
+      `SELECT rs.*, c.name as company_name
+       FROM revenue_schedules rs
+       LEFT JOIN companies c ON c.id = rs.company_id
+       WHERE rs.status IN ('active', 'paused')
+       ORDER BY rs.created_at DESC`
+    ),
+    query(
+      `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt
+       FROM revenue_journal
+       WHERE entry_type = 'recognition' AND entry_date >= $1`,
+      [toDateStr(mtdStart)]
+    ),
+    query(
+      `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt
+       FROM revenue_journal
+       WHERE entry_type = 'recognition' AND entry_date >= $1`,
+      [toDateStr(ytdStart)]
+    ),
+    query(
+      `SELECT COALESCE(SUM(amount), 0) as total
+       FROM revenue_journal WHERE entry_type = 'recognition'`
+    ),
+    query(
+      `SELECT COALESCE(SUM(amount), 0) as total
+       FROM revenue_journal WHERE entry_type = 'billing'`
+    ),
+    query(
+      `SELECT COALESCE(SUM(ABS(amount)), 0) as total
+       FROM revenue_journal WHERE entry_type = 'refund'`
+    ),
+  ]);
 
-  if (!company.subscription_id || !company.billing_period_end || company.subscription_status === "canceled") {
-    return;
-  }
-
-  const periodEnd = new Date(company.billing_period_end);
-  const totalDays = 30;
-  const periodStart = new Date(periodEnd.getTime() - totalDays * 24 * 60 * 60 * 1000);
-  const seats = company.seat_count || 0;
-
-  const alloc = calculateRevenueAllocation(seats, periodStart, periodEnd);
-
-  await query(
-    `INSERT INTO revenue_recognition (company_id, subscription_id, period_start, period_end, seat_count, total_contract_value, revenue_recognized, revenue_deferred, daily_rate, event_type)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'snapshot')`,
-    [
-      companyId,
-      company.subscription_id,
-      periodStart,
-      periodEnd,
-      seats,
-      alloc.total_contract_value,
-      alloc.revenue_recognized,
-      alloc.revenue_deferred,
-      alloc.daily_rate,
-    ]
-  );
-}
-
-export async function getCurrentRevenueSummary(): Promise<RevenueSummary> {
-  const companies = await query(
-    `SELECT c.id, c.name, c.subscription_id, c.subscription_status, c.seat_count, c.billing_period_end
-     FROM companies c
-     WHERE c.subscription_status IN ('active', 'past_due')
-       AND c.subscription_id IS NOT NULL
-       AND c.billing_period_end IS NOT NULL`
-  );
-
+  let totalContract = 0;
   let totalRecognized = 0;
   let totalDeferred = 0;
-  let totalContractValue = 0;
-  const now = new Date();
 
-  const companyBreakdowns = companies.rows.map((c: any) => {
-    const periodEnd = new Date(c.billing_period_end);
-    const totalDays = 30;
-    const periodStart = new Date(periodEnd.getTime() - totalDays * 24 * 60 * 60 * 1000);
-    const seats = c.seat_count || 0;
-    const alloc = calculateRevenueAllocation(seats, periodStart, periodEnd, now);
-
-    totalRecognized += alloc.revenue_recognized;
-    totalDeferred += alloc.revenue_deferred;
-    totalContractValue += alloc.total_contract_value;
+  const companies = schedules.rows.map((s: any) => {
+    totalContract += s.total_amount;
+    totalRecognized += s.recognized_to_date;
+    totalDeferred += s.deferred_balance;
 
     return {
-      company_id: c.id,
-      company_name: c.name,
-      subscription_id: c.subscription_id,
-      seat_count: seats,
-      period_start: periodStart.toISOString(),
-      period_end: periodEnd.toISOString(),
-      contract_value: alloc.total_contract_value,
-      recognized: alloc.revenue_recognized,
-      deferred: alloc.revenue_deferred,
-      percent_recognized: alloc.percent_recognized,
-      daily_rate: alloc.daily_rate,
+      company_id: s.company_id,
+      company_name: s.company_name || "Unknown",
+      subscription_id: s.subscription_id,
+      seat_count: s.seat_count,
+      period_start: new Date(s.period_start).toISOString(),
+      period_end: new Date(s.period_end).toISOString(),
+      total_amount: s.total_amount,
+      recognized: s.recognized_to_date,
+      deferred: s.deferred_balance,
+      daily_rate: s.daily_rate,
+      percent_recognized: s.total_amount > 0
+        ? Math.round((s.recognized_to_date / s.total_amount) * 10000) / 100
+        : 0,
+      status: s.status,
     };
   });
 
   return {
-    total_recognized: totalRecognized,
-    total_deferred: totalDeferred,
-    total_contract_value: totalContractValue,
-    companies: companyBreakdowns,
+    as_of: now.toISOString(),
+    current_period: {
+      total_contract_value: totalContract,
+      recognized: totalRecognized,
+      deferred: totalDeferred,
+      percent_recognized: totalContract > 0
+        ? Math.round((totalRecognized / totalContract) * 10000) / 100
+        : 0,
+    },
+    mtd: {
+      recognized: parseInt(mtdRec.rows[0].total) || 0,
+      count: parseInt(mtdRec.rows[0].cnt) || 0,
+    },
+    ytd: {
+      recognized: parseInt(ytdRec.rows[0].total) || 0,
+      count: parseInt(ytdRec.rows[0].cnt) || 0,
+    },
+    lifetime: {
+      recognized: parseInt(lifetimeRec.rows[0].total) || 0,
+      billed: parseInt(lifetimeBilled.rows[0].total) || 0,
+      refunded: parseInt(lifetimeRefunded.rows[0].total) || 0,
+    },
+    active_schedules: schedules.rows.filter((s: any) => s.status === "active").length,
+    companies,
   };
 }
 
-export async function getMonthlyRevenueBreakdown(monthsBack: number = 12): Promise<MonthlyBreakdown[]> {
+export async function getRevenueWaterfall(monthsBack: number = 12): Promise<Array<{
+  month: string;
+  recognized: number;
+  billed: number;
+  refunded: number;
+  deferred_released: number;
+  seat_changes: number;
+  net: number;
+}>> {
   const safeMonths = Math.max(1, Math.min(Math.floor(monthsBack), 24));
   const result = await query(
     `SELECT
        TO_CHAR(entry_date, 'YYYY-MM') as month,
-       SUM(CASE WHEN entry_type IN ('invoice_paid', 'recognition_daily') THEN amount ELSE 0 END) as recognized,
-       SUM(CASE WHEN entry_type = 'new_subscription' THEN amount ELSE 0 END) as new_bookings,
-       SUM(CASE WHEN entry_type = 'cancellation' THEN amount ELSE 0 END) as cancellations,
-       SUM(CASE WHEN entry_type = 'seat_change' THEN amount ELSE 0 END) as seat_changes,
-       SUM(CASE WHEN entry_type = 'refund' THEN amount ELSE 0 END) as refunds
+       COALESCE(SUM(CASE WHEN entry_type = 'recognition' THEN amount ELSE 0 END), 0) as recognized,
+       COALESCE(SUM(CASE WHEN entry_type = 'billing' THEN amount ELSE 0 END), 0) as billed,
+       COALESCE(SUM(CASE WHEN entry_type = 'refund' THEN ABS(amount) ELSE 0 END), 0) as refunded,
+       COALESCE(SUM(CASE WHEN entry_type = 'deferred_release' THEN amount ELSE 0 END), 0) as deferred_released,
+       COALESCE(SUM(CASE WHEN entry_type = 'seat_change' THEN amount ELSE 0 END), 0) as seat_changes
      FROM revenue_journal
      WHERE entry_date >= CURRENT_DATE - ($1 || ' months')::INTERVAL
      GROUP BY TO_CHAR(entry_date, 'YYYY-MM')
@@ -212,31 +604,39 @@ export async function getMonthlyRevenueBreakdown(monthsBack: number = 12): Promi
     [safeMonths]
   );
 
-  return result.rows.map((r: any) => ({
-    month: r.month,
-    recognized: parseInt(r.recognized) || 0,
-    deferred: 0,
-    new_bookings: parseInt(r.new_bookings) || 0,
-    cancellations: Math.abs(parseInt(r.cancellations) || 0),
-    seat_changes: parseInt(r.seat_changes) || 0,
-    refunds: Math.abs(parseInt(r.refunds) || 0),
-  }));
+  return result.rows.map((r: any) => {
+    const recognized = parseInt(r.recognized) || 0;
+    const refunded = parseInt(r.refunded) || 0;
+    return {
+      month: r.month,
+      recognized,
+      billed: parseInt(r.billed) || 0,
+      refunded,
+      deferred_released: parseInt(r.deferred_released) || 0,
+      seat_changes: parseInt(r.seat_changes) || 0,
+      net: recognized - refunded,
+    };
+  });
 }
 
 export async function getRevenueJournal(
-  companyId?: string,
-  limit: number = 50,
-  offset: number = 0
+  opts: { companyId?: string; entryType?: string; limit?: number; offset?: number; format?: string } = {}
 ): Promise<{ entries: any[]; total: number }> {
   const conditions: string[] = [];
   const params: any[] = [];
 
-  if (companyId) {
-    params.push(companyId);
+  if (opts.companyId) {
+    params.push(opts.companyId);
     conditions.push(`rj.company_id = $${params.length}`);
+  }
+  if (opts.entryType) {
+    params.push(opts.entryType);
+    conditions.push(`rj.entry_type = $${params.length}`);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const limit = Math.min(opts.limit || 50, 200);
+  const offset = Math.max(opts.offset || 0, 0);
 
   params.push(limit);
   const limitIdx = params.length;
@@ -265,79 +665,28 @@ export async function getRevenueJournal(
   };
 }
 
-export async function recordSubscriptionRevenue(
-  companyId: string,
-  subscriptionId: string,
-  seats: number,
-  amountPaid: number,
-  invoiceId?: string
-): Promise<void> {
-  await recordRevenueEvent(
-    companyId,
-    "invoice_paid",
-    amountPaid,
-    `Invoice paid: ${seats} seats at $${(PRICE_PER_SEAT_CENTS / 100).toFixed(2)}/seat`,
-    { subscription_id: subscriptionId, seat_count: seats, invoice_id: invoiceId }
-  );
-}
+export function startDailyRecognitionScheduler(): void {
+  const INTERVAL = 60 * 60 * 1000;
+  let lastRunDate = "";
 
-export async function recordNewSubscription(
-  companyId: string,
-  subscriptionId: string,
-  seats: number
-): Promise<void> {
-  const totalValue = seats * PRICE_PER_SEAT_CENTS;
-  await recordRevenueEvent(
-    companyId,
-    "new_subscription",
-    totalValue,
-    `New subscription: ${seats} seats at $${(PRICE_PER_SEAT_CENTS / 100).toFixed(2)}/seat = $${(totalValue / 100).toFixed(2)}/mo`,
-    { subscription_id: subscriptionId, seat_count: seats }
-  );
-}
+  const run = async () => {
+    const todayStr = toDateStr(new Date());
+    if (todayStr === lastRunDate) return;
 
-export async function recordSeatChange(
-  companyId: string,
-  subscriptionId: string,
-  previousSeats: number,
-  newSeats: number
-): Promise<void> {
-  const delta = newSeats - previousSeats;
-  const deltaValue = delta * PRICE_PER_SEAT_CENTS;
-  await recordRevenueEvent(
-    companyId,
-    "seat_change",
-    deltaValue,
-    `Seat change: ${previousSeats} → ${newSeats} (${delta > 0 ? "+" : ""}${delta} seats, ${delta > 0 ? "+" : ""}$${(deltaValue / 100).toFixed(2)}/mo)`,
-    { subscription_id: subscriptionId, seat_count: newSeats, previous_seats: previousSeats }
-  );
-}
+    try {
+      console.log(`[Revenue] Running daily recognition for ${todayStr}...`);
+      const result = await runDailyRecognition();
+      lastRunDate = todayStr;
+      console.log(
+        `[Revenue] Complete: ${result.schedules_processed} schedules, ` +
+        `$${(result.total_recognized_today / 100).toFixed(2)} recognized, ` +
+        `${result.errors.length} errors`
+      );
+    } catch (err: any) {
+      console.error("[Revenue] Daily recognition error:", err.message);
+    }
+  };
 
-export async function recordCancellation(
-  companyId: string,
-  subscriptionId: string,
-  seats: number
-): Promise<void> {
-  const lostRevenue = seats * PRICE_PER_SEAT_CENTS;
-  await recordRevenueEvent(
-    companyId,
-    "cancellation",
-    -lostRevenue,
-    `Subscription canceled: ${seats} seats, -$${(lostRevenue / 100).toFixed(2)}/mo lost`,
-    { subscription_id: subscriptionId, seat_count: seats }
-  );
-}
-
-export async function recordRefund(
-  companyId: string,
-  amountRefunded: number,
-  invoiceId?: string
-): Promise<void> {
-  await recordRevenueEvent(
-    companyId,
-    "refund",
-    -amountRefunded,
-    `Refund issued: -$${(amountRefunded / 100).toFixed(2)}`,
-    { invoice_id: invoiceId }
-  );
+  setTimeout(run, 45000);
+  setInterval(run, INTERVAL);
 }

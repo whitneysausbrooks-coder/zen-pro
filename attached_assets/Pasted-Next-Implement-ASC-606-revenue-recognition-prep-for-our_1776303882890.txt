@@ -1,0 +1,44 @@
+Next: Implement ASC 606 revenue recognition prep for our per-seat B2B subscriptions ($12/seat/month).
+
+Apply the five-step ASC 606 model with focus on practical SaaS realities: performance obligation is stand-ready access satisfied over time (ratable/straight-line recognition). Contract modifications like mid-cycle seat changes are treated prospectively in most cases (additional seats are distinct and priced at standalone selling price).
+
+Key requirements, building on our existing hardened Stripe integration (webhooks sync subscription_status, seat_count, billing_period_end, etc.):
+
+1. **Data Model**:
+   - Extend the companies table or add a lightweight revenue_schedules table (linked by company_id + subscription_id) to track per subscription:
+     - Transaction price (from Stripe)
+     - Recognized revenue to date (MTD, YTD, lifetime)
+     - Remaining deferred/unearned revenue balance
+     - Current daily/monthly recognition rate (adjusted for seat_count)
+     - Recognition period start/end dates (tied to billing periods)
+
+2. **Recognition Logic** (ratable over time):
+   - Recognize revenue straight-line/daily over the billing period using data from Stripe.
+   - Example: Monthly period amount divided by days in period, recognized proportionally each day.
+   - For simplicity and auditability, prefer daily precision where practical.
+
+3. **Handle Edge Cases for Zero Defects**:
+   - Mid-cycle seat changes (/update-seats): Treat as prospective contract modification — recalculate the remaining recognition rate based on new seat_count for the rest of the period (no retroactive adjustment or catch-up, as additional seats are distinct).
+   - Proration: Automatically handle partial periods on new subs, upgrades, or cancellations.
+   - Cancellations: Stop recognition after the effective end date; handle remaining deferred revenue per policy (typically release if non-refundable).
+   - Refunds/credits or past_due: Adjust deferred/recognized amounts appropriately.
+   - True-ups, upgrades/downgrades: Update schedules prospectively based on new seat_count and remaining term.
+
+4. **Daily Recognition Job** (cron):
+   - Run daily to process active subscriptions, calculate recognized revenue for the day, update balances, and record journal-entry-style details for audit.
+
+5. **Dashboard & Reporting**:
+   - Add/enhance views or endpoints for:
+     - Recognized revenue (MTD, YTD, by company)
+     - Current deferred revenue balance
+     - Simple revenue waterfall (by period/month)
+     - Exportable CSV report for finance/audits
+
+6. **Audit & Logging**:
+   - Log every recognition run, schedule change, or adjustment in audit_logs (include amount, reason, before/after balances, linked to Stripe event where possible).
+
+7. **Testing**:
+   - Comprehensive tests covering: new monthly subscription, mid-month seat increase (e.g., add seats on day 15 of a 30-day month), cancellation mid-period, proration, refund, and basic annual case if supported.
+   - Verify math aligns with ratable recognition (e.g., 5 seats @ $12/month = $60/month spread daily over the period).
+
+Keep implementation efficient, integrated with existing webhook + companies flow, and focused on prospective treatment for modifications. Aim for clean, accurate GAAP/ASC 606-compliant financial visibility without external revenue recognition tools yet. Prioritize audit-readiness and zero defects on seat changes/proration.
