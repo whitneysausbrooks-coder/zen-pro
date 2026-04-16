@@ -16,6 +16,28 @@ interface AuthState {
   logout: () => void;
 }
 
+function getApiBase(): string {
+  if (typeof import.meta !== "undefined" && (import.meta as any).env?.BASE_URL) {
+    return (import.meta as any).env.BASE_URL;
+  }
+  return "/";
+}
+
+let cachedAuthPromise: Promise<AuthUser | null> | null = null;
+
+function fetchAuthUser(): Promise<AuthUser | null> {
+  if (cachedAuthPromise) return cachedAuthPromise;
+  const base = getApiBase().replace(/\/$/, "");
+  cachedAuthPromise = fetch(`${base}/api/auth/user`, { credentials: "include" })
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json() as Promise<{ user: AuthUser | null }>;
+    })
+    .then((data) => data.user ?? null)
+    .catch(() => null);
+  return cachedAuthPromise;
+}
+
 export function useAuth(): AuthState {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,23 +45,12 @@ export function useAuth(): AuthState {
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/auth/user", { credentials: "include" })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json() as Promise<{ user: AuthUser | null }>;
-      })
-      .then((data) => {
-        if (!cancelled) {
-          setUser(data.user ?? null);
-          setIsLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setUser(null);
-          setIsLoading(false);
-        }
-      });
+    fetchAuthUser().then((resolvedUser) => {
+      if (!cancelled) {
+        setUser(resolvedUser);
+        setIsLoading(false);
+      }
+    });
 
     return () => {
       cancelled = true;
@@ -47,12 +58,15 @@ export function useAuth(): AuthState {
   }, []);
 
   const login = useCallback(() => {
+    const base = getApiBase().replace(/\/$/, "");
     const returnTo = window.location.pathname || "/";
-    window.location.href = `/api/login?returnTo=${encodeURIComponent(returnTo)}`;
+    window.location.href = `${base}/api/login?returnTo=${encodeURIComponent(returnTo)}`;
   }, []);
 
   const logout = useCallback(() => {
-    window.location.href = "/api/logout";
+    const base = getApiBase().replace(/\/$/, "");
+    cachedAuthPromise = null;
+    window.location.href = `${base}/api/logout`;
   }, []);
 
   return {
