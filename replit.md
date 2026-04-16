@@ -60,7 +60,7 @@ The monorepo leverages TypeScript composite projects with project references for
 - **Monetization Engine (Mobile Play Screen):** Neural Energy (NE) is the universal currency for games. Balance deducted atomically before animations. 30% of gameplay value tracked as charity impact. Extra Spin Purchase Packs: 3-tier system ($0.99/5 spins Starter, $1.99/15 spins Popular, $4.99/50 spins Best Value) shown on both Play and Shop screens with gold gradient price buttons.
 - **Restore Purchases:** Shop screen includes an Apple-compliant "Restore Purchases" button below subscription/spin sections.
 - **Game Mechanics:** Compassion Wheel (web-based, staggered stops), Lucky Wheel (mobile, weighted probability, free spins), Hold & Win / "Neural Hold" (mobile, 3-reel, weighted RNG, costs NE), Diamond Reward (mobile, 5-reel, weighted outcomes, costs NE). All user-facing text avoids gambling terminology (no "jackpot", "vegas", "bet", "casino") for Apple App Store compliance.
-- **Navigation:** 5-tab navigation (Home, Train, Play, Zen Pro, Profile) with native and classic tab implementations.
+- **Navigation:** 6-tab navigation (Home, Train, Play, Resilience, Zen Pro, Profile) with native and classic tab implementations.
 - **Onboarding:** 4-step premium onboarding flow (mobile) and a splash screen with focus test (web), persisting completion status.
 - **Streak System:** Tracks `streak_count`, `last_game_date`, with a multiplier and visual cues.
 - **Push Notifications:** Web Push API for smart, admin-triggered pushes.
@@ -71,6 +71,14 @@ The monorepo leverages TypeScript composite projects with project references for
 - **Anti-Exploit:** Premium spin lock with 15-second fail-safe timeout prevents stuck states on interrupted flows. Result toast is positioned as a fixed overlay above scroll content for reliable visibility across devices. Home screen spins rehydration uses `Number.isNaN` guard to preserve valid zero-spin state.
 - **Apple Compliance (Icons):** All gambling-associated icons removed — Play tab uses `gamecontroller`/`game-controller` (SF Symbol + Ionicons), replacing `cards-club`/`suit.club`. No playing card imagery anywhere in the app.
 - **Not Found Screen:** Custom celestial-themed 404 page with gradient background, Playfair Display typography, and gold CTA button matching the app's design language.
+
+**Enterprise Stack (Zen Pro Enterprise):**
+- **Database:** 6 PostgreSQL tables (companies, enterprise_users, biometrics, behaviors, resilience_scores, audit_logs) with indexes.
+- **Scoring Engine:** Deterministic WRI/ERI/CPS/NSB/burnout risk scoring in `artifacts/api-server/src/lib/scoringEngine.ts`. All scores bounded 0-100, NaN-safe.
+- **Enterprise API:** 9 endpoints at `/api/enterprise/*` with Zod validation, audit logging. POST biometrics/behaviors/score/users/companies, GET scores/burnout-trend/company-metrics/audit-log.
+- **Mobile Resilience Tab:** `artifacts/neuro-quest-mobile/app/(tabs)/resilience.tsx` — WRI score ring, burnout risk indicator, component score bars, Reset Protocol (4-3-5 box breathing, 2-min, +10 NE), personalized insights, privacy explainer.
+- **Admin Dashboard (Web):** `artifacts/neuro-quest/src/pages/admin-dashboard.tsx` at `/admin-dashboard` — company-level aggregated metrics, burnout risk distribution bar, audit log table. No individual biometric data exposed.
+- **Privacy:** Employee-level data never exposed to employers. Only anonymized team averages shown. Full audit trail for SOC 2 compliance.
 
 ## External Dependencies
 

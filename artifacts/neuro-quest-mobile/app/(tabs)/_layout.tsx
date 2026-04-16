@@ -22,6 +22,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "gamecontroller", selected: "gamecontroller.fill" }} />
         <Label>Play</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="resilience">
+        <Icon sf={{ default: "heart.text.square", selected: "heart.text.square.fill" }} />
+        <Label>Resilience</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="shop">
         <Icon sf={{ default: "crown", selected: "crown.fill" }} />
         <Label>Zen Pro</Label>
@@ -92,6 +96,15 @@ function ClassicTabLayout() {
           title: "Play",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="game-controller" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="resilience"
+        options={{
+          title: "Resilience",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="heart-pulse" size={size} color={color} />
           ),
         }}
       />

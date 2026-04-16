@@ -12,6 +12,7 @@ import Subscribe from "@/pages/subscribe";
 import Enterprise from "@/pages/enterprise";
 import Sponsor from "@/pages/sponsor";
 import AdminPanel from "@/pages/admin";
+import AdminDashboard from "@/pages/admin-dashboard";
 import Onboarding from "@/pages/onboarding";
 import Blackjack from "@/pages/blackjack";
 import EQGame from "@/pages/eq-game";
@@ -86,6 +87,7 @@ function Router() {
           <Route path="/enterprise"  component={Enterprise}  />
           <Route path="/sponsor"     component={Sponsor}     />
           <Route path="/admin"       component={AdminPanel}  />
+          <Route path="/admin-dashboard" component={AdminDashboard} />
           <Route path="/elon"        component={ElonPage}    />
           <Route path="/payment"     component={PaymentPage} />
           <Route path="/share"       component={SharePage}   />

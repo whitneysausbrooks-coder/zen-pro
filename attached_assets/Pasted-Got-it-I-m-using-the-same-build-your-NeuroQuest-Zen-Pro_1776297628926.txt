@@ -1,0 +1,283 @@
+Got it — I’m using the same build: your NeuroQuest Zen Pro / Grace Forged ecosystem app (luxury AI coaching, burnout detection via wearables, skill paths, compassion spin wheel, AI weekly engine, enterprise-grade feel).
+
+I’ll give you a Figma-level UI spec your coder can implement 1:1.
+
+⸻
+
+🧠 NEUROQUEST ZEN PRO
+
+Luxury UI System + Screen Architecture (v1)
+
+🌌 CORE DESIGN LANGUAGE
+
+This is not a “wellness app.” It’s a premium cognitive operating system.
+
+Visual Theme
+	•	“Calm intelligence meets high-performance biotech”
+	•	Think: Apple Health × Tesla UI × luxury fintech dashboard
+
+⸻
+
+🎨 DESIGN SYSTEM (GLOBAL)
+
+🎯 Color System
+
+Primary Background
+	•	Deep Space Black: #070A12
+	•	Secondary Depth: #0D1224
+
+Accent (Core Intelligence Color)
+	•	Neural Cyan: #38F2FF
+	•	Soft Glow Variant: rgba(56, 242, 255, 0.2)
+
+Emotional States
+	•	Calm: #7CF5C6
+	•	Focus: #6EA8FF
+	•	Warning (burnout risk): #FF5C7A
+	•	Recovery: #B7FF6A
+
+⸻
+
+✍️ Typography
+	•	Primary: SF Pro Display (iOS native premium feel)
+	•	Secondary: Inter (data + analytics blocks)
+
+Hierarchy
+	•	H1: 34–40px (Ultra bold, sparse use)
+	•	H2: 22–28px
+	•	Body: 15–17px
+	•	Data Labels: 11–13px uppercase tracking +8%
+
+⸻
+
+✨ UI STYLE RULES
+	•	Glassmorphism panels (10–18% blur)
+	•	Soft neon edge glow (only for active states)
+	•	No hard borders unless structural
+	•	Rounded radius system:
+	•	Cards: 20–28px
+	•	Buttons: 14–18px
+	•	Chips: 999px pill
+
+⸻
+
+🧠 MOTION SYSTEM
+	•	Micro-interactions = 120–180ms
+	•	Page transitions = 250–400ms
+	•	“Neural pulse” animation for AI states
+	•	Wearable sync = heartbeat wave ripple animation
+
+⸻
+
+📱 APP STRUCTURE (MAIN NAV)
+
+Bottom Nav (minimal + premium):
+	1.	🧠 Pulse (Home dashboard)
+	2.	📊 Signals (wearable + burnout intelligence)
+	3.	🧭 Forge (skill paths / growth system)
+	4.	🎡 Impact (compassion spin wheel / donations)
+	5.	👤 Profile / Vault
+
+⸻
+
+🏠 SCREEN 1: PULSE (HOME DASHBOARD)
+
+Purpose:
+
+Real-time mental + performance intelligence
+
+Layout:
+
+Top Section
+	•	Greeting: “Good Evening, Operator”
+	•	Subtext: “Your system stability is optimal”
+
+Core Card (Hero)
+
+NEURAL STATUS RING
+	•	Circular biometric ring (animated)
+	•	Inputs:
+	•	HRV
+	•	Sleep score
+	•	Cognitive load
+	•	Stress delta
+
+Center text:
+
+“Stable / Elevated / At Risk”
+
+⸻
+
+AI Insight Card
+	•	“NeuroAI Insight of the Day”
+	•	Example:
+“Your cognitive load spikes at 2:30–4:00 PM. Adjust deep work schedule.”
+
+CTA: “Optimize Schedule”
+
+⸻
+
+Burnout Forecast Module
+	•	7-day prediction graph
+	•	Color gradient shifting green → red
+	•	Label: “Burnout Probability Index”
+
+⸻
+
+Quick Actions Row
+	•	Start Focus Session
+	•	Recovery Protocol
+	•	Log Emotion
+	•	Sync Wearable
+
+⸻
+
+📊 SCREEN 2: SIGNALS (WEARABLE INTELLIGENCE)
+
+Purpose:
+
+Deep biometric + behavioral analytics
+
+Sections:
+
+Live Data Strip
+	•	Heart rate
+	•	HRV
+	•	Sleep debt
+	•	Stress index
+
+⸻
+
+Burnout Detection Engine
+	•	AI model output:
+	•	“Early Risk Detected”
+	•	“Recovery Window Open”
+	•	“Overload Warning”
+
+⸻
+
+Trend Graphs
+	•	Weekly cognitive load curve
+	•	Sleep recovery vs productivity overlay
+
+⸻
+
+Insight Cards
+	•	“Your nervous system stabilizes after walking >12 min”
+	•	“Caffeine after 3PM increases stress 18%”
+
+⸻
+
+🧭 SCREEN 3: FORGE (SKILL PATHS)
+
+Purpose:
+
+Gamified high-performance learning
+
+Layout:
+
+Hero Selection
+	•	“Choose Your Evolution Path”
+
+Cards:
+	•	Discipline Mastery
+	•	Emotional Control
+	•	Wealth Strategy
+	•	Leadership Presence
+
+⸻
+
+Progress System
+	•	XP bar per skill tree
+	•	Level system (1–100)
+
+⸻
+
+AI Coach Module
+	•	Chat-style overlay
+	•	“Ask your strategist”
+
+Example prompt:
+
+“How do I improve focus under pressure?”
+
+⸻
+
+Daily Mission Panel
+	•	3 tasks max (no overload)
+	•	Rewards: XP + Impact tokens
+
+⸻
+
+🎡 SCREEN 4: IMPACT (COMPASSION ENGINE)
+
+Purpose:
+
+Behavior-linked micro-donations
+
+Hero Wheel
+	•	“Spin to Convert Energy into Impact”
+	•	Animated wheel with:
+	•	Food banks
+	•	Mental health orgs
+	•	Global aid funds
+
+⸻
+
+Trigger Logic
+	•	Completing tasks = spins
+	•	High focus streak = bonus multiplier
+
+⸻
+
+Impact Ledger
+	•	“You’ve contributed: $48.20 this week”
+	•	Transparent donation tracking
+
+⸻
+
+👤 SCREEN 5: PROFILE / VAULT
+
+Purpose:
+
+Identity + progress + system control
+
+Sections:
+	•	Identity Card (minimal luxury)
+	•	Streak system (focus, recovery, discipline)
+	•	Subscription tier
+	•	Wearable sync status
+
+⸻
+
+Data Vault
+	•	Exportable personal insights
+	•	AI-generated “Life Performance Report”
+
+⸻
+
+⚙️ SYSTEM FEATURES (IMPORTANT FOR DEV)
+
+AI ENGINE HOOKS
+	•	/insight/daily
+	•	/burnout/predict
+	•	/coach/query
+	•	/forge/recommend
+	•	/impact/spin
+
+⸻
+
+REAL-TIME DATA FLOW
+
+Wearable → Signal Processor → AI Layer → UI Cards
+
+Latency target: <300ms UI update feel
+
+⸻
+
+PREMIUM FEEL RULE
+
+If it doesn’t feel like:
+	•	Apple Health + Bloomberg Terminal + Tesla UI
+
+It’s not done.
