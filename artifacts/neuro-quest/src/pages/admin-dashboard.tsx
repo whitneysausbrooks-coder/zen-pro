@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -26,6 +36,16 @@ interface DashboardData {
   cohesion_label?: string;
 }
 
+interface BillingData {
+  has_subscription: boolean;
+  company_name?: string;
+  seats?: number;
+  per_seat_price?: number;
+  monthly_total?: number;
+  current_period_end?: string;
+  status?: string;
+}
+
 interface AuditEntry {
   id: string;
   user_id: string | null;
@@ -35,238 +55,239 @@ interface AuditEntry {
   created_at: string;
 }
 
+const severityColors: Record<string, string> = {
+  low: "#4ADE80",
+  moderate: "#FBBF24",
+  high: "#F97316",
+  critical: "#EF4444",
+};
+
 function MetricCard({
   label,
   value,
   subtitle,
   color,
   badge,
+  large,
 }: {
   label: string;
   value: string | number;
   subtitle?: string;
   color: string;
   badge?: { text: string; color: string };
+  large?: boolean;
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6 backdrop-blur"
+      transition={{ duration: 0.4 }}
+      className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 backdrop-blur-sm"
     >
-      <div className="flex items-start justify-between">
-        <p className="text-xs font-semibold tracking-[0.15em] text-white/40 uppercase mb-2">
+      <div className="flex items-start justify-between mb-3">
+        <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase">
           {label}
         </p>
         {badge && (
           <span
-            className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
-            style={{ backgroundColor: badge.color + "22", color: badge.color }}
+            className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider"
+            style={{ backgroundColor: badge.color + "18", color: badge.color }}
           >
             {badge.text}
           </span>
         )}
       </div>
-      <p className="text-3xl font-bold" style={{ color }}>
+      <p className={`font-bold ${large ? "text-4xl" : "text-3xl"}`} style={{ color }}>
         {value}
       </p>
       {subtitle && (
-        <p className="text-xs text-white/30 mt-1">{subtitle}</p>
+        <p className="text-[11px] text-white/25 mt-2">{subtitle}</p>
       )}
     </motion.div>
   );
 }
 
-function TrendChart({ data }: { data: TrendDay[] }) {
+function TrendLineChart({ data }: { data: TrendDay[] }) {
   if (data.length === 0) {
     return (
-      <div className="text-center py-8 text-white/30 text-sm">
+      <div className="flex items-center justify-center h-[200px] text-white/25 text-sm">
         No trend data available for the last 7 days
       </div>
     );
   }
 
-  const maxWri = 100;
-  const chartHeight = 140;
+  const chartData = data.map((d) => ({
+    day: new Date(d.day).toLocaleDateString("en", { month: "short", day: "numeric" }),
+    WRI: parseFloat(d.avg_wri),
+    "Burnout Risk": parseFloat(d.avg_burnout_risk),
+  }));
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-end gap-1 h-[140px]">
-        {data.map((d, i) => {
-          const wri = parseFloat(d.avg_wri);
-          const burnout = parseFloat(d.avg_burnout_risk);
-          const wriH = (wri / maxWri) * chartHeight;
-          const burnoutH = (burnout / maxWri) * chartHeight;
-          return (
-            <div key={i} className="flex-1 flex gap-0.5 items-end h-full group relative">
-              <div
-                className="flex-1 rounded-t bg-emerald-400/60 transition-all hover:bg-emerald-400/80"
-                style={{ height: `${wriH}px` }}
-              />
-              <div
-                className="flex-1 rounded-t bg-red-400/40 transition-all hover:bg-red-400/60"
-                style={{ height: `${burnoutH}px` }}
-              />
-              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                WRI: {wri.toFixed(1)} · Burn: {burnout.toFixed(1)}%
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex gap-1">
-        {data.map((d, i) => (
-          <div key={i} className="flex-1 text-center text-[10px] text-white/30">
-            {new Date(d.day).toLocaleDateString("en", { weekday: "short" })}
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-4 justify-center text-xs text-white/40">
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-emerald-400/60" /> WRI
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-red-400/40" /> Burnout Risk
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function SeverityBadge({ severity }: { severity: string }) {
-  const colors: Record<string, string> = {
-    low: "#4ADE80",
-    moderate: "#FBBF24",
-    high: "#F97316",
-    critical: "#EF4444",
-  };
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
-      style={{
-        backgroundColor: (colors[severity] || "#999") + "18",
-        color: colors[severity] || "#999",
-        border: `1px solid ${colors[severity] || "#999"}33`,
-      }}
-    >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors[severity] }} />
-      {severity}
-    </span>
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={chartData} margin={{ top: 8, right: 12, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+        <XAxis
+          dataKey="day"
+          tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }}
+          axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
+          tickLine={false}
+        />
+        <YAxis
+          domain={[0, 100]}
+          tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }}
+          axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
+          tickLine={false}
+        />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: "rgba(10,10,20,0.95)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: "10px",
+            fontSize: "12px",
+            color: "#fff",
+          }}
+          itemStyle={{ color: "#fff" }}
+          labelStyle={{ color: "rgba(255,255,255,0.5)", marginBottom: "4px" }}
+        />
+        <Legend
+          wrapperStyle={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}
+          iconType="circle"
+          iconSize={6}
+        />
+        <Line
+          type="monotone"
+          dataKey="WRI"
+          stroke="#4ADE80"
+          strokeWidth={2}
+          dot={{ r: 3, fill: "#4ADE80", strokeWidth: 0 }}
+          activeDot={{ r: 5, fill: "#4ADE80" }}
+        />
+        <Line
+          type="monotone"
+          dataKey="Burnout Risk"
+          stroke="#F87171"
+          strokeWidth={2}
+          strokeDasharray="6 3"
+          dot={{ r: 3, fill: "#F87171", strokeWidth: 0 }}
+          activeDot={{ r: 5, fill: "#F87171" }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
   );
 }
 
 export default function AdminDashboard() {
   const [, navigate] = useLocation();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [billing, setBilling] = useState<BillingData | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
   const [companyId, setCompanyId] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeView, setActiveView] = useState<"executive" | "manager">("executive");
 
+  const headers = { "x-enterprise-key": apiKey };
+
   const fetchDashboard = async (id: string, view: "executive" | "manager") => {
     if (!id || !apiKey) return;
     setLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/enterprise/company/${id}/dashboard?view=${view}`, {
-        headers: { "x-enterprise-key": apiKey },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setDashboard(data);
-      } else if (res.status === 401) {
+      const [dashRes, billingRes, auditRes] = await Promise.all([
+        fetch(`${BASE}/api/enterprise/company/${id}/dashboard?view=${view}`, { headers }),
+        fetch(`${BASE}/api/stripe-enterprise/billing/${id}`, { headers }),
+        fetch(`${BASE}/api/enterprise/audit-log?limit=20`, { headers }),
+      ]);
+
+      if (dashRes.ok) {
+        setDashboard(await dashRes.json());
+      } else if (dashRes.status === 401) {
         setDashboard(null);
         alert("Invalid API key");
+      }
+
+      if (billingRes.ok) setBilling(await billingRes.json());
+      if (auditRes.ok) {
+        const data = await auditRes.json();
+        setAuditLogs(data.logs || []);
       }
     } catch {}
     setLoading(false);
   };
 
-  const fetchAuditLogs = async () => {
-    if (!apiKey) return;
-    try {
-      const res = await fetch(`${BASE}/api/enterprise/audit-log?limit=20`, {
-        headers: { "x-enterprise-key": apiKey },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setAuditLogs(data.logs || []);
-      }
-    } catch {}
-  };
-
   const loadAll = (view: "executive" | "manager") => {
     setActiveView(view);
     fetchDashboard(companyId, view);
-    fetchAuditLogs();
   };
 
+  const sevColor = dashboard ? severityColors[dashboard.burnout_severity] || "#999" : "#999";
+
   return (
-    <div className="min-h-screen bg-[#060B07] text-white">
-      <div className="max-w-6xl mx-auto px-6 py-12">
-        <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-[#0a0a14] text-white antialiased">
+      <div className="max-w-[1100px] mx-auto px-8 py-14">
+
+        <div className="flex items-start justify-between mb-10">
           <div>
-            <p className="text-xs font-semibold tracking-[0.2em] text-violet-400 uppercase mb-1">
-              ENTERPRISE ADMIN
+            <p className="text-[11px] font-medium tracking-[0.25em] text-indigo-400/70 uppercase mb-2">
+              Enterprise Admin
             </p>
-            <h1 className="text-3xl font-bold text-white">
+            <h1 className="text-[28px] font-semibold text-white/90 tracking-tight">
               Workforce Resilience Dashboard
             </h1>
           </div>
           <button
             onClick={() => navigate("/")}
-            className="text-sm text-white/40 hover:text-white/70 transition"
+            className="text-xs text-white/30 hover:text-white/60 transition mt-2"
           >
-            ← Back
+            ← Back to app
           </button>
         </div>
 
-        <div className="mb-8 space-y-3">
-          <div>
-            <label className="text-xs text-white/40 mb-1 block">Enterprise API Key</label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter enterprise API key..."
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-violet-400/40"
-            />
-          </div>
-          <div className="flex gap-3 items-end">
-            <div className="flex-1">
-              <label className="text-xs text-white/40 mb-1 block">Company ID</label>
+        <div className="mb-10 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-[11px] text-white/30 mb-1.5 block tracking-wide uppercase">API Key</label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter enterprise API key"
+                className="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-white placeholder-white/15 focus:outline-none focus:border-indigo-400/30 transition"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-white/30 mb-1.5 block tracking-wide uppercase">Company ID</label>
               <input
                 type="text"
                 value={companyId}
                 onChange={(e) => setCompanyId(e.target.value)}
-                placeholder="Enter company UUID..."
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-violet-400/40"
+                placeholder="Enter company UUID"
+                className="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-white placeholder-white/15 focus:outline-none focus:border-indigo-400/30 transition"
               />
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => loadAll("executive")}
-                disabled={loading || !companyId || !apiKey}
-                className={`px-5 py-3 rounded-xl text-sm font-semibold transition disabled:opacity-40 ${
-                  activeView === "executive"
-                    ? "bg-violet-500/30 border border-violet-400/40 text-violet-200"
-                    : "bg-white/[0.04] border border-white/[0.08] text-white/50 hover:text-white/70"
-                }`}
-              >
-                Executive View
-              </button>
-              <button
-                onClick={() => loadAll("manager")}
-                disabled={loading || !companyId || !apiKey}
-                className={`px-5 py-3 rounded-xl text-sm font-semibold transition disabled:opacity-40 ${
-                  activeView === "manager"
-                    ? "bg-violet-500/30 border border-violet-400/40 text-violet-200"
-                    : "bg-white/[0.04] border border-white/[0.08] text-white/50 hover:text-white/70"
-                }`}
-              >
-                Manager View
-              </button>
-            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => loadAll("executive")}
+              disabled={loading || !companyId || !apiKey}
+              className={`px-5 py-2.5 rounded-lg text-xs font-medium transition disabled:opacity-30 ${
+                activeView === "executive"
+                  ? "bg-indigo-500/20 border border-indigo-400/30 text-indigo-300"
+                  : "bg-white/[0.03] border border-white/[0.06] text-white/40 hover:text-white/60"
+              }`}
+            >
+              {loading && activeView === "executive" ? "Loading..." : "Executive View"}
+            </button>
+            <button
+              onClick={() => loadAll("manager")}
+              disabled={loading || !companyId || !apiKey}
+              className={`px-5 py-2.5 rounded-lg text-xs font-medium transition disabled:opacity-30 ${
+                activeView === "manager"
+                  ? "bg-indigo-500/20 border border-indigo-400/30 text-indigo-300"
+                  : "bg-white/[0.03] border border-white/[0.06] text-white/40 hover:text-white/60"
+              }`}
+            >
+              {loading && activeView === "manager" ? "Loading..." : "Manager View"}
+            </button>
           </div>
         </div>
 
@@ -274,63 +295,72 @@ export default function AdminDashboard() {
           {dashboard && (
             <motion.div
               key={dashboard.view}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="space-y-6"
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.35 }}
+              className="space-y-5"
             >
               {dashboard.burnout_alert && (
-                <div
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   className="rounded-xl p-4 border flex items-start gap-3"
                   style={{
-                    borderColor: dashboard.burnout_severity === "critical" ? "#EF444444" : "#F9731644",
-                    backgroundColor: dashboard.burnout_severity === "critical" ? "#EF44440A" : "#F973160A",
+                    borderColor: sevColor + "30",
+                    backgroundColor: sevColor + "08",
                   }}
                 >
-                  <span className="text-lg">⚠️</span>
+                  <span className="text-base mt-0.5">⚠</span>
                   <div>
-                    <p className="text-sm font-semibold text-white/80">{dashboard.burnout_alert}</p>
-                    <div className="mt-1">
-                      <SeverityBadge severity={dashboard.burnout_severity} />
-                    </div>
+                    <p className="text-sm font-medium text-white/75">{dashboard.burnout_alert}</p>
+                    <span
+                      className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider"
+                      style={{
+                        backgroundColor: sevColor + "15",
+                        color: sevColor,
+                        border: `1px solid ${sevColor}25`,
+                      }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: sevColor }} />
+                      {dashboard.burnout_severity} risk
+                    </span>
                   </div>
-                </div>
+                </motion.div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <MetricCard
-                  label="Total Employees"
+                  label="Workforce Resilience"
+                  value={dashboard.avg_wri.toFixed(1)}
+                  subtitle="Average WRI across all employees"
+                  color="#4ADE80"
+                  large
+                />
+                <MetricCard
+                  label="Burnout Risk"
+                  value={`${dashboard.avg_burnout_risk.toFixed(1)}%`}
+                  subtitle="Company-wide average"
+                  color={dashboard.avg_burnout_risk > 50 ? "#EF4444" : dashboard.avg_burnout_risk > 35 ? "#FBBF24" : "#4ADE80"}
+                  badge={{ text: dashboard.burnout_severity, color: sevColor }}
+                />
+                <MetricCard
+                  label="Employees Enrolled"
                   value={dashboard.total_employees}
                   color="#A78BFA"
                 />
-                <MetricCard
-                  label="Avg. WRI Score"
-                  value={dashboard.avg_wri.toFixed(1)}
-                  subtitle="Workforce Resilience Index"
-                  color="#4ADE80"
-                />
-                <MetricCard
-                  label="Avg. Burnout Risk"
-                  value={`${dashboard.avg_burnout_risk.toFixed(1)}%`}
-                  color={dashboard.avg_burnout_risk > 50 ? "#EF4444" : "#FBBF24"}
-                  badge={{
-                    text: dashboard.burnout_severity,
-                    color: dashboard.burnout_severity === "critical" ? "#EF4444" : dashboard.burnout_severity === "high" ? "#F97316" : dashboard.burnout_severity === "moderate" ? "#FBBF24" : "#4ADE80",
-                  }}
-                />
-                {dashboard.view === "manager" && dashboard.high_risk_employees !== undefined && (
+                {dashboard.view === "manager" && dashboard.high_risk_employees !== undefined ? (
                   <MetricCard
-                    label="High Risk Employees"
+                    label="High Risk"
                     value={dashboard.high_risk_label || "0"}
                     subtitle="Above 70% burnout threshold"
                     color="#EF4444"
                   />
-                )}
-                {dashboard.view === "executive" && (
+                ) : (
                   <MetricCard
-                    label="Burnout Severity"
-                    value={dashboard.burnout_severity.toUpperCase()}
-                    color={dashboard.burnout_severity === "critical" ? "#EF4444" : dashboard.burnout_severity === "high" ? "#F97316" : dashboard.burnout_severity === "moderate" ? "#FBBF24" : "#4ADE80"}
+                    label="Risk Level"
+                    value={dashboard.burnout_severity.charAt(0).toUpperCase() + dashboard.burnout_severity.slice(1)}
+                    color={sevColor}
                   />
                 )}
               </div>
@@ -340,10 +370,11 @@ export default function AdminDashboard() {
                   <MetricCard
                     label="Team Cohesion"
                     value={dashboard.team_cohesion?.toFixed(1) || "—"}
+                    subtitle="Average across team members"
                     color="#60A5FA"
                   />
                   <MetricCard
-                    label="Cohesion Change"
+                    label="Cohesion Trend"
                     value={dashboard.cohesion_label || "—"}
                     color={(dashboard.cohesion_delta ?? 0) >= 0 ? "#4ADE80" : "#EF4444"}
                     badge={
@@ -358,63 +389,89 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6">
-                <p className="text-xs font-semibold tracking-[0.15em] text-white/40 uppercase mb-4">
-                  7-DAY TREND
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+                <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase mb-5">
+                  7-Day Trend
                 </p>
-                <TrendChart data={dashboard.trend_7d} />
+                <TrendLineChart data={dashboard.trend_7d} />
               </div>
 
-              <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6">
-                <p className="text-xs font-semibold tracking-[0.15em] text-white/40 uppercase mb-1">
-                  DATA PRIVACY
-                </p>
-                <p className="text-sm text-white/50">
-                  All metrics are aggregated and anonymized. No individual biometric
-                  data is accessible through this dashboard. Employee-level data is never
-                  exposed to employers. Full audit trail maintained for SOC 2 compliance.
+              {billing && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+                  <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase mb-3">
+                    Subscription
+                  </p>
+                  {billing.has_subscription ? (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-white/70">
+                          {billing.seats} seats · ${billing.monthly_total}/mo
+                        </p>
+                        <p className="text-xs text-white/30 mt-1">
+                          Renews {billing.current_period_end ? new Date(billing.current_period_end).toLocaleDateString() : "—"}
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-emerald-400/15 text-emerald-400 border border-emerald-400/20">
+                        Active
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-white/40">No active subscription · $12/seat/month</p>
+                  )}
+                </div>
+              )}
+
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-white/20 text-xs">🔒</span>
+                  <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase">
+                    Data Privacy
+                  </p>
+                </div>
+                <p className="text-xs text-white/30 leading-relaxed">
+                  All metrics are aggregated and anonymized. No individual biometric data
+                  is accessible through this dashboard. Employee-level data is never exposed
+                  to employers. Full audit trail maintained for SOC 2 compliance.
                 </p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        <div className="mt-12">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-violet-400" />
-            Audit Log
-          </h2>
-          <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl overflow-hidden">
-            {auditLogs.length === 0 ? (
-              <p className="text-sm text-white/30 p-6 text-center">No audit entries yet</p>
-            ) : (
+        {auditLogs.length > 0 && (
+          <div className="mt-14">
+            <h2 className="text-sm font-medium text-white/50 mb-4 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400/60" />
+              Audit Log
+            </h2>
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/[0.06]">
-                    <th className="text-left px-4 py-3 text-xs text-white/40 font-semibold">Time</th>
-                    <th className="text-left px-4 py-3 text-xs text-white/40 font-semibold">Action</th>
-                    <th className="text-left px-4 py-3 text-xs text-white/40 font-semibold">Resource</th>
-                    <th className="text-left px-4 py-3 text-xs text-white/40 font-semibold">Details</th>
+                  <tr className="border-b border-white/[0.05]">
+                    <th className="text-left px-5 py-3 text-[10px] text-white/30 font-medium uppercase tracking-wider">Time</th>
+                    <th className="text-left px-5 py-3 text-[10px] text-white/30 font-medium uppercase tracking-wider">Action</th>
+                    <th className="text-left px-5 py-3 text-[10px] text-white/30 font-medium uppercase tracking-wider">Resource</th>
+                    <th className="text-left px-5 py-3 text-[10px] text-white/30 font-medium uppercase tracking-wider">Details</th>
                   </tr>
                 </thead>
                 <tbody>
                   {auditLogs.map((log) => (
-                    <tr key={log.id} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
-                      <td className="px-4 py-3 text-white/50">
+                    <tr key={log.id} className="border-b border-white/[0.03] hover:bg-white/[0.015] transition">
+                      <td className="px-5 py-3 text-white/40 text-xs">
                         {new Date(log.created_at).toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-white/70">{log.action}</td>
-                      <td className="px-4 py-3 text-white/50">{log.resource}</td>
-                      <td className="px-4 py-3 text-white/40 text-xs max-w-xs truncate">
+                      <td className="px-5 py-3 text-white/60 text-xs">{log.action}</td>
+                      <td className="px-5 py-3 text-white/40 text-xs">{log.resource}</td>
+                      <td className="px-5 py-3 text-white/25 text-[11px] max-w-[200px] truncate">
                         {log.details ? JSON.stringify(log.details) : "—"}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

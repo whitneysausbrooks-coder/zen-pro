@@ -1,0 +1,39 @@
+We now have the minimal high-trust executive dashboard (PART 3) and are applying the enterprise-calm UI overhaul (PART 4) across the entire app.
+
+Next priority: Make the burnout detection engine the single best, most accurate, and most trusted in the industry — while staying 100% deterministic, explainable, auditable, and zero-defect (no AI buzzwords, just rock-solid science and engineering).
+
+**PART 5 — UPGRADED BURNOUT ENGINE (BEST-EVER EDITION)**  
+Tell your agent exactly:
+
+“Upgrade burnoutEngine to world-class status using these validated 2026 best practices:
+- Personal baseline: Calculate each user’s own normal WRI/HRV/sleep range from their first 14 days of data (or historical average). Flag deviations from *their* baseline, not just population averages.
+- Trend + anomaly: Keep the existing 3-day downward trend (+15 risk) and add sudden drops (e.g. NSB/HRV drop >20% in 24h).
+- HRV integration (if wearable data available): Weight HRV as a core signal — low HRV or poor recovery adds +10–20 risk (explain exactly why in the score).
+- Explainability: Return a simple breakdown object, e.g. { risk: 78, reasons: ['3-day downward WRI trend', 'HRV recovery -18%', 'Sleep quality drop'] } so the dashboard can show it.
+- Predictive 7/30-day trend: Simple linear regression on last 14 scores (no ML libraries) to show “projected burnout risk in 30 days”.
+- Version the engine: Store engine_version in resilience_scores table and log every calculation in audit_logs.
+
+Keep it fully testable, deterministic, and fast — no external AI calls.
+
+After engine upgrade:
+- Update the company/:id/dashboard to also show company-wide outcomes over time:
+  • Burnout Risk ↓ X% (last 30 days)
+  • Average WRI ↑ X%
+  • Projected retention impact (simple formula: every 10% burnout drop ≈ +4% retention based on industry benchmarks)
+
+**Zero-Defect Rules (PART 7–9) — Apply to EVERYTHING from now on:**
+- Wrap every new function/endpoint in try/catch + Sentry.captureException + audit_log entry.
+- Add Datadog metrics for burnoutEngine calls, error rates, and calculation latency.
+- Expand the GitHub Actions test job to include:
+  - Unit tests for every burnoutEngine scenario (baseline, trend, anomaly, HRV cases)
+  - Integration tests for dashboard data
+  - Snapshot tests so engine behavior never silently changes
+- Enforce: NO merge to staging if tests <100% pass. NO direct pushes to production. Use feature flags for any rollout.
+
+Output:
+1. The new burnoutEngine code + tests
+2. Updated Prisma schema changes (if any)
+3. Updated dashboard component showing explainability + outcomes
+4. How it ties back to the existing scoring tables and wearables
+
+Success metric: An executive looking at the dashboard instantly trusts the numbers, sees why risk is high for specific teams, and can prove measurable business impact (burnout down, retention up). The engine must feel like the most accurate, explainable system ever built — not a black box.”
