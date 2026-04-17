@@ -123,11 +123,14 @@ export function SlotMachine({ onSpin, spinsLeft, disabled }: SlotMachineProps) {
     const isWin = segment.value > 0 || isBoost;
 
     const segmentCenterAngle = winIndex * SEGMENT_ANGLE + SEGMENT_ANGLE / 2;
-    const targetAngle = 360 - segmentCenterAngle;
+    const targetAngle = (360 - segmentCenterAngle) % 360;
     const fullSpins = 5 + Math.floor(Math.random() * 3);
-    const totalRotation = fullSpins * 360 + targetAngle;
 
     const startValue = cumulativeRotation.current;
+    const currentVisualAngle = ((startValue % 360) + 360) % 360;
+    const angleToAdd = ((targetAngle - currentVisualAngle) + 360) % 360;
+    const totalRotation = fullSpins * 360 + angleToAdd;
+
     const endValue = startValue + totalRotation;
     cumulativeRotation.current = endValue;
 
