@@ -60,6 +60,14 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
+    if (Platform.OS === "web") {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("skipOnboarding") === "1") {
+          window.localStorage.setItem(ONBOARDING_KEY, "1");
+        }
+      } catch {}
+    }
     AsyncStorage.getItem(ONBOARDING_KEY)
       .then((val) => setOnboardingDone(val === "1"))
       .catch(() => setOnboardingDone(true));

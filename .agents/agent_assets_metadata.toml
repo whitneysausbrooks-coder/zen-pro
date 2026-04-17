@@ -54,3 +54,63 @@ id = "yJKbJ6exi8v3EWPieR4Vj"
 uri = "file://screenshots/appstore/10_copyright.jpg"
 type = "image"
 title = "8. Legal & IP — Copyright, Privacy"
+
+[[outputs]]
+id = "g-Lr4D3dVV0SUV2k8wrYm"
+uri = "file://attached_assets/screenshots/01-home.jpg"
+type = "image"
+title = "01 — Home / Wellness Hub"
+
+[[outputs]]
+id = "A3gK0N832QJqqU5Jk8T6S"
+uri = "file://attached_assets/screenshots/02-train.jpg"
+type = "image"
+title = "02 — Train Your Mind"
+
+[[outputs]]
+id = "reMT0HM8vgk3IZSnvofPI"
+uri = "file://attached_assets/screenshots/03-play.jpg"
+type = "image"
+title = "03 — Compassion Wheel"
+
+[[outputs]]
+id = "wnSPWW1ffF5fKhlTWWWjS"
+uri = "file://attached_assets/screenshots/04-resilience.jpg"
+type = "image"
+title = "04 — Resilience Score Dashboard"
+
+[[outputs]]
+id = "kNhfGmVKV_HapAdWLhfvk"
+uri = "file://attached_assets/screenshots/05-zen-pro.jpg"
+type = "image"
+title = "05 — Zen Pro Subscription"
+
+[[outputs]]
+id = "DrZGNAhioITKMxXB5tYpT"
+uri = "file://attached_assets/screenshots/06-profile.jpg"
+type = "image"
+title = "06 — Profile & Empathy Index"
+
+[[outputs]]
+id = "Al7XEkc4-azMhHqb3kqfV"
+uri = "file://attached_assets/screenshots/07-resilience-detail.jpg"
+type = "image"
+title = "07 — Component Scores & Insights"
+
+[[outputs]]
+id = "HWaKF96cCCWLjTKFCthho"
+uri = "file://attached_assets/screenshots/08-enterprise.jpg"
+type = "image"
+title = "08 — Pricing Tiers (Daily Pass + Spins)"
+
+[[outputs]]
+id = "WJKvDZkvrUUk6HNWJ1Eqw"
+uri = "file://attached_assets/screenshots/09-train-detail.jpg"
+type = "image"
+title = "09 — Brain Games Library"
+
+[[outputs]]
+id = "QYBI56zxVdo0qHEDkCub9"
+uri = "file://attached_assets/screenshots/10-play-games.jpg"
+type = "image"
+title = "10 — Premium Games (Neural Hold)"
