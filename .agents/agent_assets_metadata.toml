@@ -114,3 +114,27 @@ id = "QYBI56zxVdo0qHEDkCub9"
 uri = "file://attached_assets/screenshots/10-play-games.jpg"
 type = "image"
 title = "10 — Premium Games (Neural Hold)"
+
+[[outputs]]
+id = "1aCo_isLyjlJFCSmsPqMK"
+uri = "file://attached_assets/screenshots/captioned/04-resilience.jpg"
+type = "image"
+title = "1 — Track Your NeuroResilience Score"
+
+[[outputs]]
+id = "qGv-1-f2S1hby1zlph5Z5"
+uri = "file://attached_assets/screenshots/captioned/01-home.jpg"
+type = "image"
+title = "2 — Wellness That Gives Back"
+
+[[outputs]]
+id = "XZTOpdemAUdaIbuSl19De"
+uri = "file://attached_assets/screenshots/captioned/02-train.jpg"
+type = "image"
+title = "3 — Science-Backed Brain Training"
+
+[[outputs]]
+id = "k6LyRBwmtnpPK2mLbqt8p"
+uri = "file://attached_assets/screenshots/captioned/09-train-detail.jpg"
+type = "image"
+title = "4 — Games Built on Neuroscience"
