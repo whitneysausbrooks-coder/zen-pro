@@ -41,12 +41,7 @@
       ],
       "expo-font",
       "expo-web-browser",
-      [
-        "react-native-iap",
-        {
-          "paymentProvider": "App Store"
-        }
-      ]
+      "react-native-iap"
     ],
     "experiments": {
       "typedRoutes": true,

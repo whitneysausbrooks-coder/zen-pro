@@ -10,8 +10,7 @@
         "buildConfiguration": "Release",
         "image": "latest",
         "resourceClass": "m-medium"
-      },
-      "channel": "production"
+      }
     },
     "preview": {
       "distribution": "internal",
