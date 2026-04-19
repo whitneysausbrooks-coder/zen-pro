@@ -1,5 +1,12 @@
 import { Platform } from "react-native";
-import * as RNIap from "react-native-iap";
+import {
+  initConnection,
+  endConnection,
+  fetchProducts,
+  requestPurchase,
+  finishTransaction,
+  getAvailablePurchases,
+} from "expo-iap";
 
 export const PRODUCT_IDS = {
   subscriptions: ["com.neuroquest.pro.monthly"],
@@ -23,7 +30,7 @@ export async function initIAP(): Promise<boolean> {
   if (Platform.OS !== "ios") return false;
   if (connected) return true;
   try {
-    await RNIap.initConnection();
+    await initConnection();
     connected = true;
     return true;
   } catch (e) {
@@ -35,7 +42,7 @@ export async function initIAP(): Promise<boolean> {
 export async function endIAP() {
   if (!connected) return;
   try {
-    await RNIap.endConnection();
+    await endConnection();
   } catch {}
   connected = false;
 }
@@ -44,12 +51,16 @@ export async function getProducts() {
   await initIAP();
   try {
     const [subs, items] = await Promise.all([
-      RNIap.getSubscriptions({ skus: PRODUCT_IDS.subscriptions }),
-      RNIap.getProducts({
+      fetchProducts({ skus: PRODUCT_IDS.subscriptions, type: "subs" }),
+      fetchProducts({
         skus: [...PRODUCT_IDS.nonConsumables, ...PRODUCT_IDS.consumables],
+        type: "in-app",
       }),
     ]);
-    return { subscriptions: subs, products: items };
+    return {
+      subscriptions: Array.isArray(subs) ? subs : [],
+      products: Array.isArray(items) ? items : [],
+    };
   } catch (e) {
     console.warn("getProducts failed:", e);
     return { subscriptions: [], products: [] };
@@ -87,6 +98,24 @@ async function validateOnServer(params: {
   return res.json();
 }
 
+function extractReceipt(p: any): string {
+  return (
+    p?.transactionReceipt ??
+    p?.jwsRepresentationIos ??
+    p?.jwsRepresentation ??
+    p?.purchaseToken ??
+    ""
+  );
+}
+
+function extractTxnId(p: any): string {
+  return p?.transactionId ?? p?.id ?? p?.originalTransactionIdentifierIos ?? "";
+}
+
+function extractTxnDate(p: any): number | undefined {
+  return p?.transactionDate ?? p?.purchaseTime ?? undefined;
+}
+
 export async function purchaseProduct(
   productId: string,
   authToken?: string,
@@ -95,43 +124,43 @@ export async function purchaseProduct(
 
   const isSubscription = PRODUCT_IDS.subscriptions.includes(productId);
 
-  let purchase: any;
-  if (isSubscription) {
-    purchase = await RNIap.requestSubscription({ sku: productId });
-  } else {
-    purchase = await RNIap.requestPurchase({ sku: productId });
-  }
+  const result = isSubscription
+    ? await requestPurchase({
+        request: { ios: { sku: productId } },
+        type: "subs",
+      })
+    : await requestPurchase({
+        request: { ios: { sku: productId } },
+        type: "in-app",
+      });
 
-  const p = Array.isArray(purchase) ? purchase[0] : purchase;
-  if (!p) throw new Error("No purchase returned");
+  const purchase: any = Array.isArray(result) ? result[0] : result;
+  if (!purchase) throw new Error("No purchase returned");
 
-  const receipt = p.transactionReceipt;
-  const transactionId = p.transactionId;
-
-  const result = await validateOnServer({
+  const validation = await validateOnServer({
     productId,
-    transactionId,
-    receipt,
-    purchaseTimeMs: p.transactionDate,
+    transactionId: extractTxnId(purchase),
+    receipt: extractReceipt(purchase),
+    purchaseTimeMs: extractTxnDate(purchase),
     authToken,
   });
 
   const isConsumable = PRODUCT_IDS.consumables.includes(productId);
   try {
-    await RNIap.finishTransaction({ purchase: p, isConsumable });
+    await finishTransaction({ purchase, isConsumable });
   } catch (e) {
     console.warn("finishTransaction failed:", e);
   }
 
-  return result;
+  return validation;
 }
 
 export async function restorePurchases(
   authToken?: string,
 ): Promise<{ ok: boolean; restored: string[] }> {
   await initIAP();
-  const purchases = await RNIap.getAvailablePurchases();
-  const latestReceipt = purchases[0]?.transactionReceipt;
+  const purchases = await getAvailablePurchases();
+  const latestReceipt = extractReceipt(purchases?.[0]);
   if (!latestReceipt) return { ok: true, restored: [] };
 
   const res = await fetch(`${getApiBase()}/api/iap/restore`, {
