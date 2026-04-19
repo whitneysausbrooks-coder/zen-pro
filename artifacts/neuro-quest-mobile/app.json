@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.replit.neuroquest",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "NSHumanReadableCopyright": "© 2026 NeuroQuest LLC",
         "ITSAppUsesNonExemptEncryption": false
