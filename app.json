@@ -6,7 +6,10 @@
       }
     },
     "ios": {
-      "bundleIdentifier": "app.replit.neuroquest"
+      "bundleIdentifier": "app.replit.neuroquest",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     }
   }
 }
