@@ -15,8 +15,8 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.replit.neuroquest",
-      "buildNumber": "2",
+      "bundleIdentifier": "Info.neuroquest.zenpro",
+      "buildNumber": "1",
       "infoPlist": {
         "NSHumanReadableCopyright": "© 2026 NeuroQuest LLC",
         "ITSAppUsesNonExemptEncryption": false
