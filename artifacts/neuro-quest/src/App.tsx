@@ -29,6 +29,7 @@ import SharePage from "@/pages/share";
 import CopyrightPage from "@/pages/copyright";
 import PrivacyPage from "@/pages/privacy";
 import TermsPage from "@/pages/terms";
+import SupportPage from "@/pages/support";
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
@@ -155,6 +156,7 @@ function AppRoutes() {
           <Route path="/copyright"   component={CopyrightPage} />
           <Route path="/privacy"     component={PrivacyPage} />
           <Route path="/terms"       component={TermsPage} />
+          <Route path="/support"     component={SupportPage} />
           <Route                     component={NotFound} />
         </Switch>
       </motion.div>

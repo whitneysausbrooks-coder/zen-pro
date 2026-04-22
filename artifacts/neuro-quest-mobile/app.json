@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "NeuroQuest",
+    "name": "NQ Zen Pro",
     "slug": "neuro-quest-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "Info.neuroquest.zenpro",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "NSHumanReadableCopyright": "© 2026 NeuroQuest LLC",
         "ITSAppUsesNonExemptEncryption": false
