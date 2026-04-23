@@ -12,7 +12,8 @@ import {
   GetProfileResponse,
   GetActivitiesResponse,
 } from "@workspace/api-zod";
-import { eq, desc, and, gte, count } from "drizzle-orm";
+import { eq, desc, and, gte, count, sql } from "drizzle-orm";
+import { getAuth } from "@clerk/express";
 import { randomUUID } from "crypto";
 
 async function getRaidMultiplier(): Promise<number> {
@@ -333,6 +334,39 @@ router.get("/leaderboard", async (_req, res) => {
 });
 
 router.get("/access-status", async (req, res) => {
+  // Enterprise pilot grant: any signed-in member of an active pilot/paid company
+  // gets full premium access for the duration of the pilot/subscription.
+  try {
+    const auth = getAuth(req);
+    const clerkId = (auth?.sessionClaims?.userId as string | undefined) || auth?.userId;
+    const email = ((auth?.sessionClaims as any)?.email as string | undefined)?.toLowerCase() || null;
+    if (clerkId || email) {
+      const r: any = await db.execute(sql`
+        SELECT 1
+        FROM enterprise_users eu
+        JOIN companies c ON c.id = eu.company_id
+        WHERE (
+          ${clerkId ? sql`eu.idp_subject = ${clerkId}` : sql`FALSE`}
+          OR ${email ? sql`LOWER(eu.email) = ${email}` : sql`FALSE`}
+        )
+          AND c.suspended_at IS NULL
+          AND (
+            (c.pilot_status = 'active'
+              AND c.pilot_ends_at IS NOT NULL
+              AND c.pilot_ends_at > NOW())
+            OR c.subscription_status IN ('trialing', 'active')
+          )
+        LIMIT 1
+      `);
+      const rows = r.rows ?? r;
+      if (rows && rows.length > 0) {
+        return res.json({ has_access: true, access_type: "pro", daily_pass_expires: null });
+      }
+    }
+  } catch {
+    // fall through to consumer logic
+  }
+
   const sessionId = req.cookies?.["nq_session"];
   if (!sessionId) {
     return res.json({ has_access: false, access_type: null, daily_pass_expires: null });
