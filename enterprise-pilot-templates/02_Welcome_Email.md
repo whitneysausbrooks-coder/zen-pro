@@ -16,29 +16,41 @@ Here's everything you need to roll this out cleanly to **[Company Name]**:
 
 ---
 
-### 🔑 Your Admin Access
+### 🔑 Your HR Admin Portal (private to you)
 
 | | |
 |---|---|
-| **Admin Dashboard** | https://neuroquestllc.info/admin-dashboard |
-| **Admin email** | [their email] |
-| **Temporary password** | [generate one — they'll change on first login] |
-| **Your company invite code** | **`[8-character code]`** |
+| **HR Dashboard URL** | https://neuroquestzen.pro/company-admin |
+| **Sign in with email** | [their admin email — same one used during onboarding] |
+| **Company code** | **`[8-character code from the provisioning script]`** |
 
-The invite code is what your employees will use when they create their accounts — 
-it's how the platform knows which company they belong to and unlocks all 
-enterprise features for them automatically.
+This dashboard is **private to you and your HR team**. Employees cannot see it. 
+Inside you'll find:
+
+- **Team roster** — every employee who has joined, their department, and join date 
+- **Seats used vs purchased** — at a glance 
+- **Days remaining in your pilot** 
+- **Aggregate wellness metrics** — participation rate, average mood, engagement 
+  trends. To protect employee privacy, individual scores are **never shown to 
+  HR** — and aggregate data only appears once 5+ employees are active 
+- **Remove employee** button — for offboarding 
+- **Share-with-team** copy button — pre-formatted invite message for your team
+
+Bookmark the URL. It will remember your login on that device.
 
 ---
 
 ### 📱 How Your Team Will Access NeuroQuest
 
-- **iOS app**: [App Store link — once approved] 
-- **Web app**: https://neuroquestllc.info — works on any device, no install needed 
-- **Android**: Coming Q3 2026
+Send your employees this message (or use the Team Announcement template attached):
 
-Each employee signs up, enters the company invite code, and they're in. No IT 
-involvement required for the pilot.
+> Visit **https://neuroquestzen.pro/join** 
+> Enter your work email, your name, and the company code: **`[8-character code]`** 
+> You're in. Pick a game, take 5 minutes a day.
+
+- **iOS app**: [App Store link — once approved] 
+- **Web app**: https://neuroquestzen.pro — works on any device, no install needed 
+- **Android**: Coming Q3 2026
 
 ---
 
@@ -57,13 +69,19 @@ involvement required for the pilot.
 
 ---
 
-### 📊 What You'll See in Your Dashboard
+### 🔒 Privacy Promise
 
-- **Activated seats** — how many of your purchased seats are in active use
-- **Average NeuroResilience Score** by department
-- **Burnout-risk early warnings** — anonymized; only the individual employee sees their own personal score
-- **Engagement trends** — daily, weekly, monthly
-- **Charity impact** — your company's combined contribution to verified causes
+NeuroQuest is built so HR can see organizational health without surveilling individuals:
+
+- HR sees **aggregate scores only** — never any single employee's mood, burnout, or 
+  engagement number 
+- Aggregate metrics are **suppressed entirely until 5+ employees are active** 
+  (so small teams or single-department views can't reverse-engineer who's struggling) 
+- Each employee sees **only their own** personal scores in the app 
+- All HR actions (viewing roster, removing employees) are written to a tamper-evident 
+  audit log
+
+You can share this section with your legal/HR teams verbatim — it's by design.
 
 ---
 

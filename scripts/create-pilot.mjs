@@ -72,12 +72,23 @@ if (!apiKey) {
   console.log(`Pilot ends:     ${fmt(data.pilot_ends_at)}  (${days} days)`);
   console.log(`Invite code:    ${data.invite_code}     <-- send to buyer`);
   console.log("\n----------------------------------------");
-  console.log("  PASTE INTO WELCOME EMAIL:");
+  console.log("  PASTE INTO WELCOME EMAIL (HR Portal):");
   console.log("----------------------------------------");
-  console.log(`Admin Dashboard:   ${PUBLIC_DOMAIN}/admin-dashboard`);
-  console.log(`Employee Web App:  ${PUBLIC_DOMAIN}`);
-  console.log(`Company Code:      ${data.invite_code}`);
-  console.log(`Pilot End Date:    ${fmt(data.pilot_ends_at)}`);
+  console.log(`HR Dashboard:      ${PUBLIC_DOMAIN}/company-admin`);
+  console.log(`  Sign in email:   ${data.admin_email}`);
+  console.log(`  Company code:    ${data.invite_code}`);
+  console.log("");
+  console.log("----------------------------------------");
+  console.log("  PASTE INTO TEAM ANNOUNCEMENT:");
+  console.log("----------------------------------------");
+  console.log(`Employee join URL: ${PUBLIC_DOMAIN}/join`);
+  console.log(`Company code:      ${data.invite_code}`);
+  console.log(`Pilot end date:    ${fmt(data.pilot_ends_at)}`);
+  console.log("");
+  console.log("----------------------------------------");
+  console.log("  YOUR GOD-MODE (Whitney only):");
+  console.log("----------------------------------------");
+  console.log(`Master dashboard:  ${PUBLIC_DOMAIN}/admin-dashboard?key=adminNQHUB`);
   console.log("========================================\n");
 })().catch((err) => {
   console.error("FAILED:", err.message);
