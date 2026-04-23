@@ -138,3 +138,33 @@ id = "k6LyRBwmtnpPK2mLbqt8p"
 uri = "file://attached_assets/screenshots/captioned/09-train-detail.jpg"
 type = "image"
 title = "4 — Games Built on Neuroscience"
+
+[[outputs]]
+id = "CROLFSCMe9BYZOvvx11x0"
+uri = "file://enterprise-pilot-templates/00_README.md"
+type = "text"
+title = "Sales Kit — Start Here"
+
+[[outputs]]
+id = "CibLi0318JuNG9fOVouKu"
+uri = "file://enterprise-pilot-templates/04_Discovery_Call_Script.md"
+type = "text"
+title = "Discovery Call Script (use during the Zoom)"
+
+[[outputs]]
+id = "y_8kwabJPkGqHVxZD7NHK"
+uri = "file://enterprise-pilot-templates/01_Pilot_Agreement.md"
+type = "text"
+title = "Pilot Agreement (one-page contract)"
+
+[[outputs]]
+id = "qAdwF-XqUSAp0G3FYPaPq"
+uri = "file://enterprise-pilot-templates/02_Welcome_Email.md"
+type = "text"
+title = "Welcome Email (after payment)"
+
+[[outputs]]
+id = "dYQ0zIGlmY4stPV53Ja58"
+uri = "file://enterprise-pilot-templates/03_Team_Announcement.md"
+type = "text"
+title = "Team Announcement (buyer sends to employees)"
