@@ -32,3 +32,4 @@ channel = "stable-25_05"
 
 [userenv.shared]
 ENTERPRISE_API_KEY = "e3e2b41dde7f52b106fdb0b27e6dae514a57aa760eb8f89b4603095bfca281af"
+ADMIN_MASTER_KEY = "adminNQHUB"
