@@ -16,6 +16,7 @@ import Sponsor from "@/pages/sponsor";
 import AdminPanel from "@/pages/admin";
 import AdminDashboard from "@/pages/admin-dashboard";
 import Onboarding from "@/pages/onboarding";
+import JoinPage from "@/pages/join";
 import Blackjack from "@/pages/blackjack";
 import EQGame from "@/pages/eq-game";
 import PatternPulse from "@/pages/pattern-pulse";
@@ -138,6 +139,7 @@ function AppRoutes() {
         <Switch location={location}>
           <Route path="/"            component={HomeRedirect} />
           <Route path="/onboarding"  component={Onboarding} />
+          <Route path="/join"        component={JoinPage} />
           <Route path="/sign-in/*?"  component={SignInPage} />
           <Route path="/sign-up/*?"  component={SignUpPage} />
           <Route path="/brain-game"  component={() => <ProtectedGame component={MemoryMatch}  name="Neural Challenge" />} />

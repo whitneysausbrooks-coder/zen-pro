@@ -44,6 +44,7 @@ const SSO_PUBLIC_PATHS = [
   "/enterprise/sso/jwks",
   "/enterprise/inquiry",
   "/enterprise/lookup-invite",
+  "/enterprise/join",
 ];
 
 router.use("/enterprise/{*path}", (req: Request, res: Response, next: NextFunction) => {
@@ -114,6 +115,74 @@ router.get("/enterprise/lookup-invite", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/enterprise/join", async (req: Request, res: Response) => {
+  const schema = z.object({
+    invite_code: z.string().min(4).max(12),
+    email: z.string().email(),
+    name: z.string().min(1).max(200).optional(),
+    department: z.string().max(100).optional(),
+    idp_subject: z.string().max(255).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Please enter a valid code and email." });
+  }
+  const code = parsed.data.invite_code.trim().toUpperCase();
+  const email = parsed.data.email.trim().toLowerCase();
+  try {
+    const companyResult = await query(
+      `SELECT id, name, pilot_status, pilot_ends_at, seat_count
+       FROM companies WHERE invite_code = $1`,
+      [code]
+    );
+    if (companyResult.rows.length === 0) {
+      return res.status(404).json({ error: "That company code wasn't found. Please check with your admin." });
+    }
+    const company = companyResult.rows[0];
+    if (company.pilot_ends_at && new Date(company.pilot_ends_at) < new Date()) {
+      return res.status(403).json({ error: "This pilot has ended. Please contact your admin to renew." });
+    }
+    const seatCheck = await checkSeatAvailability(company.id);
+    if (!seatCheck.allowed) {
+      const existing = await query(
+        `SELECT id FROM enterprise_users WHERE email = $1 AND company_id = $2`,
+        [email, company.id]
+      );
+      if (existing.rows.length === 0) {
+        return res.status(403).json({
+          error: `Your company has used all ${seatCheck.seat_count} seats. Please ask your admin to add more.`,
+          seats_used: seatCheck.current_employees,
+          seats_total: seatCheck.seat_count,
+        });
+      }
+    }
+    const result = await query(
+      `INSERT INTO enterprise_users (email, company_id, role, department, idp_subject)
+       VALUES ($1, $2, 'employee', $3, $4)
+       ON CONFLICT (email) DO UPDATE
+         SET company_id = EXCLUDED.company_id,
+             department = COALESCE(EXCLUDED.department, enterprise_users.department),
+             idp_subject = COALESCE(EXCLUDED.idp_subject, enterprise_users.idp_subject),
+             last_login = now()
+       RETURNING id, company_id, role`,
+      [email, company.id, parsed.data.department || null, parsed.data.idp_subject || null]
+    );
+    await auditLog(result.rows[0].id, "enterprise_user_joined", "enterprise_users", {
+      company_id: company.id, company_name: company.name, email,
+    });
+    return res.json({
+      success: true,
+      user_id: result.rows[0].id,
+      company_id: company.id,
+      company_name: company.name,
+      role: result.rows[0].role,
+    });
+  } catch (err: any) {
+    console.error("Enterprise join failed:", err.message);
+    return res.status(500).json({ error: "Could not join company. Please try again." });
+  }
+});
+
 router.post("/enterprise/onboard-pilot", async (req: Request, res: Response) => {
   const schema = z.object({
     company_name: z.string().min(1).max(200),
@@ -144,8 +213,8 @@ router.post("/enterprise/onboard-pilot", async (req: Request, res: Response) => 
 
     const result = await query(
       `INSERT INTO companies (name, industry, seat_count, seat_cap, invite_code, admin_email,
-          pilot_status, pilot_started_at, pilot_ends_at, subscription_status)
-       VALUES ($1,$2,$3,$4,$5,$6,'active',$7,$8,'pilot')
+          pilot_status, pilot_started_at, pilot_ends_at, subscription_status, billing_period_end)
+       VALUES ($1,$2,$3,$4,$5,$6,'active',$7,$8,'trialing',$8)
        RETURNING id, invite_code, pilot_started_at, pilot_ends_at`,
       [company_name, industry || null, seats, seats, inviteCode, admin_email, startedAt, endsAt]
     );
