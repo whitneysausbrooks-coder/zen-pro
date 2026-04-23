@@ -88,7 +88,8 @@ if (!apiKey) {
   console.log("----------------------------------------");
   console.log("  YOUR GOD-MODE (Whitney only):");
   console.log("----------------------------------------");
-  console.log(`Master dashboard:  ${PUBLIC_DOMAIN}/admin-dashboard?key=adminNQHUB`);
+  console.log(`Master dashboard:  ${PUBLIC_DOMAIN}/admin-dashboard`);
+  console.log(`(append "?key=<your master key>" the first time on each device)`);
   console.log("========================================\n");
 })().catch((err) => {
   console.error("FAILED:", err.message);
