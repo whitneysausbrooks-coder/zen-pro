@@ -1,4 +1,4 @@
-# Welcome Email — Send Within 1 Hour of Payment
+# Welcome Email — Send Within 1 Hour of Signed Agreement
 
 **To:** [Buyer's primary contact email] 
 **From:** Whitney Ausbrooks <admin@neuroquestllc.info> 
@@ -8,8 +8,9 @@
 
 Hi [First Name],
 
-Congratulations — your **NeuroQuest Zen Pro Enterprise** pilot is officially live, 
-and your team can start using the platform today.
+Congratulations — your **75-day complimentary NeuroQuest Zen Pro Enterprise pilot** 
+is officially live, and your team can start using the platform today. No invoice, 
+no payment, no strings.
 
 Here's everything you need to roll this out cleanly to **[Company Name]**:
 
@@ -41,7 +42,7 @@ involvement required for the pilot.
 
 ---
 
-### 📅 Suggested 14-Day Rollout
+### 📅 Your 75-Day Pilot Rollout
 
 | Day | Action |
 |---|---|
@@ -49,7 +50,10 @@ involvement required for the pilot.
 | **Day 2** | Optional 15-minute kickoff call — I'll co-host with you and answer your team's questions live |
 | **Days 3–7** | Encourage 5 minutes of daily use; keep it light, no mandates |
 | **Day 7** | I'll send your first engagement report |
-| **Day 14** | We meet for a check-in, review data together, and adjust |
+| **Day 14** | First check-in call — review early data together |
+| **Day 45** | Mid-pilot review — full ROI snapshot |
+| **Day 60** | Optional conversion conversation — keep going at $50/seat/year, or wind down |
+| **Day 75** | Pilot ends; you decide whether to continue |
 
 ---
 

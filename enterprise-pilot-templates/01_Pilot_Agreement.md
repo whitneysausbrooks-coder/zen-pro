@@ -22,8 +22,8 @@ dashboard, and analytics — for the Pilot Term defined below.
 | Item | Detail |
 |---|---|
 | **Number of seats** | __________ seats |
-| **Pilot term** | 90 days from Effective Date |
-| **Pilot fee (flat)** | $1,000 USD, due within 7 days of signature |
+| **Pilot term** | 75 days from Effective Date |
+| **Pilot fee** | **$0 — fully complimentary** |
 | **Conversion price** (if continued) | $50 per seat per year, billed annually |
 
 A "seat" is one named employee with active access to the platform during the Pilot Term.
@@ -36,8 +36,8 @@ The Pilot will be considered successful if, by Day 60, the following are met:
 - The admin dashboard surfaces measurable team-level wellness data
 - At least one burnout-risk insight has been delivered to Customer's HR / People lead
 
-NeuroQuest will provide Customer with written progress reports at Day 14, Day 30, 
-and Day 60.
+NeuroQuest will provide Customer with written progress reports at Day 14, Day 45, 
+and Day 75.
 
 ## 3. Data Protection & Privacy
 
@@ -54,13 +54,14 @@ and Day 60.
 
 ## 4. Term & Termination
 
-- The **Pilot Term** is 90 days from the Effective Date.
-- Either party may terminate this Agreement with **30 days' written notice** to the 
-  other party at any time.
+- The **Pilot Term** is 75 days from the Effective Date.
+- The Pilot is provided at **no cost** to Customer.
+- Either party may end the Pilot at any time with written notice; no fees, refunds, 
+  or penalties apply.
 - If Customer wishes to continue beyond the Pilot Term, the parties will sign a 
   separate annual subscription agreement at the conversion price stated in Section 1.
-- The pilot fee is non-refundable except in the event of a material breach by 
-  NeuroQuest.
+- Customer is under **no obligation to convert** to a paid subscription at the end 
+  of the Pilot Term.
 
 ## 5. Service Level
 
@@ -84,8 +85,8 @@ Service.
 
 ## 8. Limitation of Liability
 
-NeuroQuest's total liability under this Agreement is limited to the amount paid 
-by Customer during the Pilot Term. Neither party will be liable for indirect, 
+Because no fee is charged for this Pilot, NeuroQuest's total liability under this 
+Agreement is limited to USD $100. Neither party will be liable for indirect, 
 incidental, or consequential damages.
 
 ## 9. Governing Law

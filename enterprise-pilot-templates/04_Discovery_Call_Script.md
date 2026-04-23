@@ -79,21 +79,21 @@ Share your screen. Walk through:
 
 > "Based on what you've told me, here's what I'd propose:
 >
-> **A 90-day pilot with [X] seats for $1,000 flat.** 
-> If your team uses it and your dashboard shows real engagement, you 
-> continue at $50 per seat per year. If it doesn't move the needle, we 
-> shake hands and walk away — no pressure to renew.
+> **A 75-day pilot with [X] seats — fully complimentary, no invoice, no credit card.** 
+> If your team uses it and your dashboard shows real engagement, you have the 
+> option to continue at $50 per seat per year. If it doesn't move the needle, 
+> we shake hands and walk away — zero cost, zero obligation.
 >
-> The reason I structure it this way is I'd rather earn the renewal than 
-> lock you into something. **What would have to be true for you to say 
+> The reason I'm offering it free is I'd rather earn the renewal with real data 
+> than charge you to find out. **What would have to be true for you to say 
 > yes today?**"
 
 ---
 
 ## Close (2 min)
 
-If yes → **"Great. I'll send you a one-page agreement and a Stripe invoice 
-within the hour. Once you sign and pay, your team is live within 60 minutes. 
+If yes → **"Great. I'll send you a one-page agreement within the hour — 
+no invoice, no card. Once you sign, your team is live within 60 minutes. 
 What email should I send everything to?"**
 
 If "I need to think about it" → **"Totally understand. What's the question 
@@ -115,10 +115,27 @@ this a fit?"** Their answer is gold for your next 10 calls.
 
 ## Pricing Cheat Sheet
 
-| Pilot Size | Pilot Fee (90 days) | Annual Conversion |
+**All pilots are 75 days, fully complimentary.** Pricing only applies 
+**after** the pilot if the customer chooses to continue.
+
+| Seats | Pilot Cost | Annual Cost (post-pilot, $50/seat) |
 |---|---|---|
-| 25 seats | $750 | $1,250/yr |
-| 50 seats | $1,000 | $2,500/yr |
-| 100 seats | $1,500 | $5,000/yr |
-| 250 seats | $3,000 | $12,500/yr |
-| 500+ seats | Custom | Custom |
+| 25 seats | **$0** | $1,250/yr |
+| 50 seats | **$0** | $2,500/yr |
+| 100 seats | **$0** | $5,000/yr |
+| 250 seats | **$0** | $12,500/yr |
+| 500+ seats | **$0** | Custom |
+
+### Why free?
+
+- Removes the procurement / credit-card friction that kills 80% of B2B pilot deals
+- Forces us to earn the renewal with real engagement data, not a sunk-cost contract
+- Generates testimonials, case studies, and reference customers faster
+- Caps risk: max liability per signed agreement is $100
+
+### Guardrails to protect your time
+
+- **Cap pilots at 5 active at one time** — beyond that, white-glove quality drops
+- **Require named decision-maker** on the call who can sign the conversion contract
+- **Require minimum 25 seats** — anything smaller doesn't generate meaningful data
+- **75 days is firm** — extensions only granted with a signed conversion agreement
