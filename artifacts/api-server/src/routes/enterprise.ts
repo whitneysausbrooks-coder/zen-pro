@@ -42,13 +42,131 @@ const SSO_PUBLIC_PATHS = [
   "/enterprise/sso/token",
   "/enterprise/sso/userinfo",
   "/enterprise/sso/jwks",
+  "/enterprise/inquiry",
+  "/enterprise/lookup-invite",
 ];
 
 router.use("/enterprise/{*path}", (req: Request, res: Response, next: NextFunction) => {
-  if (SSO_PUBLIC_PATHS.some((p) => req.path === p)) {
+  const fullPath = (req.originalUrl || req.url).split("?")[0];
+  if (SSO_PUBLIC_PATHS.some((p) => fullPath === p || fullPath.endsWith(p))) {
     return next();
   }
   requireEnterpriseAuth(req, res, next);
+});
+
+router.post("/enterprise/inquiry", async (req: Request, res: Response) => {
+  const schema = z.object({
+    contact_name: z.string().min(1).max(200),
+    company: z.string().min(1).max(200),
+    work_email: z.string().email().max(200),
+    team_size: z.string().min(1).max(100),
+    tier: z.string().max(50).optional(),
+    message: z.string().max(2000).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Please complete all required fields." });
+  }
+  try {
+    const { contact_name, company, work_email, team_size, tier, message } = parsed.data;
+    const result = await query(
+      `INSERT INTO enterprise_inquiries (contact_name, company, work_email, team_size, tier, message)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, created_at`,
+      [contact_name, company, work_email, team_size, tier || null, message || null]
+    );
+    await auditLog(null, "enterprise_inquiry_received", "enterprise_inquiries", {
+      company, work_email, team_size, tier,
+    });
+    console.log(`[ENTERPRISE LEAD] ${company} (${contact_name} <${work_email}>) — ${team_size} — tier: ${tier || "n/a"}`);
+    return res.json({ success: true, id: result.rows[0].id });
+  } catch (err: any) {
+    console.error("Enterprise inquiry save failed:", err.message);
+    return res.status(500).json({ error: "Could not save inquiry. Please email admin@neuroquestllc.info directly." });
+  }
+});
+
+router.get("/enterprise/lookup-invite", async (req: Request, res: Response) => {
+  const code = String(req.query.code || "").trim().toUpperCase();
+  if (!code || code.length < 4 || code.length > 12) {
+    return res.status(400).json({ valid: false, error: "Invalid code format" });
+  }
+  try {
+    const result = await query(
+      `SELECT id, name, pilot_status, pilot_ends_at, primary_color, logo_url
+       FROM companies WHERE invite_code = $1`,
+      [code]
+    );
+    if (result.rows.length === 0) {
+      return res.json({ valid: false, error: "Code not found" });
+    }
+    const c = result.rows[0];
+    return res.json({
+      valid: true,
+      company_id: c.id,
+      company_name: c.name,
+      pilot_status: c.pilot_status,
+      pilot_ends_at: c.pilot_ends_at,
+      branding: { primary_color: c.primary_color, logo_url: c.logo_url },
+    });
+  } catch (err: any) {
+    console.error("Invite lookup failed:", err.message);
+    return res.status(500).json({ valid: false, error: "Lookup failed" });
+  }
+});
+
+router.post("/enterprise/onboard-pilot", async (req: Request, res: Response) => {
+  const schema = z.object({
+    company_name: z.string().min(1).max(200),
+    admin_email: z.string().email(),
+    seats: z.number().int().min(1).max(10000).default(50),
+    pilot_days: z.number().int().min(1).max(365).default(75),
+    industry: z.string().max(100).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const { company_name, admin_email, seats, pilot_days, industry } = parsed.data;
+  try {
+    let inviteCode = "";
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = Array.from({ length: 8 }, () =>
+        "ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 31)]
+      ).join("");
+      const exists = await query(
+        `SELECT 1 FROM companies WHERE invite_code = $1`, [candidate]
+      );
+      if (exists.rows.length === 0) { inviteCode = candidate; break; }
+    }
+    if (!inviteCode) return res.status(500).json({ error: "Could not generate unique invite code" });
+
+    const startedAt = new Date();
+    const endsAt = new Date(startedAt.getTime() + pilot_days * 86400000);
+
+    const result = await query(
+      `INSERT INTO companies (name, industry, seat_count, seat_cap, invite_code, admin_email,
+          pilot_status, pilot_started_at, pilot_ends_at, subscription_status)
+       VALUES ($1,$2,$3,$4,$5,$6,'active',$7,$8,'pilot')
+       RETURNING id, invite_code, pilot_started_at, pilot_ends_at`,
+      [company_name, industry || null, seats, seats, inviteCode, admin_email, startedAt, endsAt]
+    );
+    const company = result.rows[0];
+    await auditLog(null, "pilot_company_onboarded", "companies", {
+      company_id: company.id, company_name, admin_email, seats, pilot_days, invite_code: inviteCode,
+    });
+    return res.json({
+      success: true,
+      company_id: company.id,
+      company_name,
+      admin_email,
+      invite_code: inviteCode,
+      seats,
+      pilot_started_at: company.pilot_started_at,
+      pilot_ends_at: company.pilot_ends_at,
+    });
+  } catch (err: any) {
+    console.error("Pilot onboarding failed:", err.message);
+    return res.status(500).json({ error: "Failed to onboard pilot company" });
+  }
 });
 
 const biometricsSchema = z.object({
