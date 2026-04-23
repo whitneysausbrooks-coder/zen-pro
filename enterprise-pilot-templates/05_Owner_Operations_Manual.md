@@ -11,9 +11,15 @@
 
 **Bookmark this URL on every device you use:**
 
-> ## 🔑 https://neuroquestzen.pro/admin-dashboard?key=adminNQHUB
+> ## 🔑 https://neuroquestzen.pro/admin-dashboard?key=YOUR_MASTER_KEY
 
-That's it. The first time you open it, the master key gets saved in your browser. 
+> 📝 **On your printed copy only**, write your master key in the line below
+> and replace `YOUR_MASTER_KEY` in the URL above. The key is intentionally
+> NOT stored in this digital file so it cannot leak from the repository.
+>
+> **My master key:** _______________________________________________
+
+The first time you open the URL, the master key gets saved in your browser. 
 After that, you can just go to `https://neuroquestzen.pro/admin-dashboard` and 
 you're already in.
 
@@ -163,7 +169,7 @@ All in `enterprise-pilot-templates/` folder:
 │  NEUROQUEST OWNER QUICK REFERENCE                           │
 ├─────────────────────────────────────────────────────────────┤
 │  My dashboard:                                              │
-│    https://neuroquestzen.pro/admin-dashboard?key=adminNQHUB │
+│    https://neuroquestzen.pro/admin-dashboard?key=<YOUR KEY> │
 │                                                             │
 │  Provision a pilot:                                         │
 │    node scripts/create-pilot.mjs \                          │

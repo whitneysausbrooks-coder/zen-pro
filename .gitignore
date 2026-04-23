@@ -54,3 +54,7 @@ artifacts/neuro-quest/ios/App/App.xcworkspace/xcuserdata/
 artifacts/neuro-quest/ios/App/DerivedData/
 artifacts/neuro-quest/ios/App/.build/
 artifacts/neuro-quest/dist/
+
+# Apple Sign-In / IAP private keys — never commit
+*.p8
+attached_assets/AuthKey_*.p8
