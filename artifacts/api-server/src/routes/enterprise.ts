@@ -1015,6 +1015,26 @@ router.post("/enterprise/reconcile", async (_req, res) => {
   }
 });
 
+router.get("/enterprise/companies", async (_req, res) => {
+  try {
+    const r = await query(
+      `SELECT c.id, c.name, c.industry, c.invite_code, c.admin_email,
+              c.pilot_status, c.pilot_started_at, c.pilot_ends_at,
+              c.subscription_status, c.seat_count, c.suspended_at,
+              (SELECT COUNT(*)::int FROM enterprise_users WHERE company_id = c.id) as seats_used,
+              CASE WHEN c.pilot_ends_at IS NOT NULL
+                THEN GREATEST(0, EXTRACT(DAY FROM (c.pilot_ends_at - NOW()))::int)
+                ELSE NULL END as days_remaining
+       FROM companies c
+       ORDER BY c.created_at DESC`,
+    );
+    return res.json({ companies: r.rows, total: r.rows.length });
+  } catch (err: any) {
+    console.error("companies list error:", err.message);
+    return res.status(500).json({ error: "Failed to load companies" });
+  }
+});
+
 router.get("/enterprise/audit-log", async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
   const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);

@@ -108,7 +108,14 @@ interface RevenueData {
   active_schedules: number;
   mtd: { recognized: number; count: number; recognized_display: string };
   ytd: { recognized: number; count: number; recognized_display: string };
-  lifetime: { recognized: number; billed: number; refunded: number; recognized_display: string; billed_display: string; refunded_display: string };
+  lifetime: {
+    recognized: number;
+    billed: number;
+    refunded: number;
+    recognized_display: string;
+    billed_display: string;
+    refunded_display: string;
+  };
   companies: Array<{
     company_id: string;
     company_name: string;
@@ -204,12 +211,13 @@ function MetricCard({
           </span>
         )}
       </div>
-      <p className={`font-bold ${large ? "text-4xl" : "text-3xl"}`} style={{ color }}>
+      <p
+        className={`font-bold ${large ? "text-4xl" : "text-3xl"}`}
+        style={{ color }}
+      >
         {value}
       </p>
-      {subtitle && (
-        <p className="text-[11px] text-white/25 mt-2">{subtitle}</p>
-      )}
+      {subtitle && <p className="text-[11px] text-white/25 mt-2">{subtitle}</p>}
     </motion.div>
   );
 }
@@ -224,14 +232,20 @@ function TrendLineChart({ data }: { data: TrendDay[] }) {
   }
 
   const chartData = data.map((d) => ({
-    day: new Date(d.day).toLocaleDateString("en", { month: "short", day: "numeric" }),
+    day: new Date(d.day).toLocaleDateString("en", {
+      month: "short",
+      day: "numeric",
+    }),
     WRI: parseFloat(d.avg_wri),
     "Burnout Risk": parseFloat(d.avg_burnout_risk),
   }));
 
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <LineChart data={chartData} margin={{ top: 8, right: 12, left: -10, bottom: 0 }}>
+      <LineChart
+        data={chartData}
+        margin={{ top: 8, right: 12, left: -10, bottom: 0 }}
+      >
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
         <XAxis
           dataKey="day"
@@ -314,7 +328,11 @@ function OutcomeCard({ outcomes }: { outcomes: OutcomeMetrics }) {
         const val = item.value;
         const hasData = val !== null && val !== undefined;
         const isGood = hasData && item.good(val);
-        const color = hasData ? (isGood ? "#4ADE80" : "#F87171") : "rgba(255,255,255,0.25)";
+        const color = hasData
+          ? isGood
+            ? "#4ADE80"
+            : "#F87171"
+          : "rgba(255,255,255,0.25)";
         return (
           <motion.div
             key={item.label}
@@ -354,7 +372,8 @@ function RiskFactorsPanel({ factors }: { factors: RiskFactor[] }) {
         >
           <span className="text-xs text-white/50">{f.factor}</span>
           <span className="text-[10px] font-medium text-white/30">
-            {f.affected_employees} employee{f.affected_employees !== 1 ? "s" : ""}
+            {f.affected_employees} employee
+            {f.affected_employees !== 1 ? "s" : ""}
           </span>
         </div>
       ))}
@@ -367,53 +386,41 @@ export default function AdminDashboard() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [billing, setBilling] = useState<BillingData | null>(null);
   const [seatStatus, setSeatStatus] = useState<SeatStatus | null>(null);
-  const [webhookMetrics, setWebhookMetrics] = useState<WebhookMetrics | null>(null);
+  const [webhookMetrics, setWebhookMetrics] = useState<WebhookMetrics | null>(
+    null,
+  );
   const [invoices, setInvoices] = useState<InvoiceEntry[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
   const [revenueData, setRevenueData] = useState<RevenueData | null>(null);
   const [revenueMonthly, setRevenueMonthly] = useState<RevenueMonth[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [companyId, setCompanyId] = useState("");
-  const [companies, setCompanies] = useState<Array<{
-    id: string; name: string; industry: string | null; invite_code: string;
-    admin_email: string | null; pilot_status: string; subscription_status: string;
-    seats_used: number; seat_count: number; days_remaining: number | null;
-    suspended_at: string | null;
-  }>>([]);
-  const [companiesLoading, setCompaniesLoading] = useState(false);
   const [apiKey, setApiKey] = useState(() => {
     if (typeof window === "undefined") return "";
     const params = new URLSearchParams(window.location.search);
     const fromUrl = params.get("key");
     if (fromUrl) {
-      try { localStorage.setItem("nq_admin_key", fromUrl); } catch {}
+      try {
+        localStorage.setItem("nq_admin_key", fromUrl);
+      } catch {}
       return fromUrl;
     }
-    try { return localStorage.getItem("nq_admin_key") || ""; } catch { return ""; }
+    try {
+      return localStorage.getItem("nq_admin_key") || "";
+    } catch {
+      return "";
+    }
   });
   useEffect(() => {
     try {
       if (apiKey) localStorage.setItem("nq_admin_key", apiKey);
     } catch {}
   }, [apiKey]);
-
-  const loadCompanies = async () => {
-    if (!apiKey) return;
-    setCompaniesLoading(true);
-    try {
-      const res = await fetch(`${BASE}/api/enterprise/companies`, { headers: { "x-enterprise-key": apiKey } });
-      if (res.ok) {
-        const data = await res.json();
-        setCompanies(data.companies || []);
-      }
-    } catch (e) { console.error(e); }
-    finally { setCompaniesLoading(false); }
-  };
-
-  useEffect(() => { if (apiKey) loadCompanies(); }, [apiKey]);
   const [loading, setLoading] = useState(false);
   const [reconciling, setReconciling] = useState(false);
-  const [activeView, setActiveView] = useState<"executive" | "manager">("executive");
+  const [activeView, setActiveView] = useState<"executive" | "manager">(
+    "executive",
+  );
 
   const headers = { "x-enterprise-key": apiKey };
 
@@ -421,8 +428,20 @@ export default function AdminDashboard() {
     if (!id || !apiKey) return;
     setLoading(true);
     try {
-      const [dashRes, billingRes, seatRes, metricsRes, invoiceRes, auditRes, revSummaryRes, revMonthlyRes, revJournalRes] = await Promise.all([
-        fetch(`${BASE}/api/enterprise/company/${id}/dashboard?view=${view}`, { headers }),
+      const [
+        dashRes,
+        billingRes,
+        seatRes,
+        metricsRes,
+        invoiceRes,
+        auditRes,
+        revSummaryRes,
+        revMonthlyRes,
+        revJournalRes,
+      ] = await Promise.all([
+        fetch(`${BASE}/api/enterprise/company/${id}/dashboard?view=${view}`, {
+          headers,
+        }),
         fetch(`${BASE}/api/stripe-enterprise/billing/${id}`, { headers }),
         fetch(`${BASE}/api/enterprise/seats/${id}`, { headers }),
         fetch(`${BASE}/api/stripe-enterprise/webhook-metrics`, { headers }),
@@ -467,7 +486,10 @@ export default function AdminDashboard() {
   const triggerReconciliation = async () => {
     setReconciling(true);
     try {
-      await fetch(`${BASE}/api/enterprise/reconcile`, { method: "POST", headers });
+      await fetch(`${BASE}/api/enterprise/reconcile`, {
+        method: "POST",
+        headers,
+      });
       fetchDashboard(companyId, activeView);
     } catch {}
     setReconciling(false);
@@ -478,13 +500,16 @@ export default function AdminDashboard() {
     fetchDashboard(companyId, view);
   };
 
-  const sevColor = dashboard ? severityColors[dashboard.burnout_severity] || "#999" : "#999";
-  const trendInfo = dashboard?.trend_direction ? trendDirectionLabels[dashboard.trend_direction] : null;
+  const sevColor = dashboard
+    ? severityColors[dashboard.burnout_severity] || "#999"
+    : "#999";
+  const trendInfo = dashboard?.trend_direction
+    ? trendDirectionLabels[dashboard.trend_direction]
+    : null;
 
   return (
     <div className="min-h-screen bg-[#0a0a14] text-white antialiased">
       <div className="max-w-[1100px] mx-auto px-8 py-14">
-
         <div className="flex items-start justify-between mb-10">
           <div>
             <p className="text-[11px] font-medium tracking-[0.25em] text-indigo-400/70 uppercase mb-2">
@@ -494,7 +519,9 @@ export default function AdminDashboard() {
               Workforce Resilience Dashboard
             </h1>
             {dashboard?.engine_version && (
-              <p className="text-[10px] text-white/20 mt-1">Engine v{dashboard.engine_version}</p>
+              <p className="text-[10px] text-white/20 mt-1">
+                Engine v{dashboard.engine_version}
+              </p>
             )}
           </div>
           <button
@@ -508,7 +535,9 @@ export default function AdminDashboard() {
         <div className="mb-10 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-[11px] text-white/30 mb-1.5 block tracking-wide uppercase">API Key</label>
+              <label className="text-[11px] text-white/30 mb-1.5 block tracking-wide uppercase">
+                API Key
+              </label>
               <input
                 type="password"
                 value={apiKey}
@@ -518,7 +547,9 @@ export default function AdminDashboard() {
               />
             </div>
             <div>
-              <label className="text-[11px] text-white/30 mb-1.5 block tracking-wide uppercase">Company ID</label>
+              <label className="text-[11px] text-white/30 mb-1.5 block tracking-wide uppercase">
+                Company ID
+              </label>
               <input
                 type="text"
                 value={companyId}
@@ -538,7 +569,9 @@ export default function AdminDashboard() {
                   : "bg-white/[0.03] border border-white/[0.06] text-white/40 hover:text-white/60"
               }`}
             >
-              {loading && activeView === "executive" ? "Loading..." : "Executive View"}
+              {loading && activeView === "executive"
+                ? "Loading..."
+                : "Executive View"}
             </button>
             <button
               onClick={() => loadAll("manager")}
@@ -549,72 +582,11 @@ export default function AdminDashboard() {
                   : "bg-white/[0.03] border border-white/[0.06] text-white/40 hover:text-white/60"
               }`}
             >
-              {loading && activeView === "manager" ? "Loading..." : "Manager View"}
-            </button>
-            <button
-              onClick={loadCompanies}
-              disabled={!apiKey || companiesLoading}
-              className="px-5 py-2.5 rounded-lg text-xs font-medium transition disabled:opacity-30 bg-white/[0.03] border border-white/[0.06] text-white/40 hover:text-white/60 ml-auto"
-            >
-              {companiesLoading ? "Refreshing..." : "↻ Refresh List"}
+              {loading && activeView === "manager"
+                ? "Loading..."
+                : "Manager View"}
             </button>
           </div>
-
-          {companies.length > 0 && (
-            <div className="mt-6 bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
-                <p className="text-[11px] tracking-[0.25em] text-indigo-400/70 uppercase">All Companies ({companies.length})</p>
-                <p className="text-[10px] text-white/30">Click a row to load its dashboard</p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-left text-white/40 border-b border-white/[0.04]">
-                      <th className="px-4 py-2 font-medium">NAME</th>
-                      <th className="px-4 py-2 font-medium">CODE</th>
-                      <th className="px-4 py-2 font-medium">ADMIN</th>
-                      <th className="px-4 py-2 font-medium">SEATS</th>
-                      <th className="px-4 py-2 font-medium">STATUS</th>
-                      <th className="px-4 py-2 font-medium">DAYS LEFT</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {companies.map((c) => (
-                      <tr
-                        key={c.id}
-                        onClick={() => { setCompanyId(c.id); }}
-                        className={`border-b border-white/[0.03] cursor-pointer hover:bg-white/[0.03] transition ${
-                          companyId === c.id ? "bg-indigo-500/10" : ""
-                        }`}
-                      >
-                        <td className="px-4 py-3 text-white/90">
-                          {c.name}
-                          {c.industry && <span className="text-white/30 ml-2 text-[10px]">{c.industry}</span>}
-                        </td>
-                        <td className="px-4 py-3 text-white/60 font-mono">{c.invite_code || "—"}</td>
-                        <td className="px-4 py-3 text-white/50">{c.admin_email || "—"}</td>
-                        <td className="px-4 py-3 text-white/70">{c.seats_used}/{c.seat_count}</td>
-                        <td className="px-4 py-3">
-                          {c.suspended_at ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/10 text-rose-300">SUSPENDED</span>
-                          ) : c.pilot_status === "active" ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-300">PILOT</span>
-                          ) : c.subscription_status === "active" ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] bg-indigo-500/10 text-indigo-300">PAID</span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded text-[10px] bg-white/[0.05] text-white/40">{c.subscription_status || "none"}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-white/60">
-                          {c.days_remaining !== null ? `${c.days_remaining}d` : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
 
         <AnimatePresence mode="wait">
@@ -639,7 +611,9 @@ export default function AdminDashboard() {
                 >
                   <span className="text-base mt-0.5">⚠</span>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-white/75">{dashboard.burnout_alert}</p>
+                    <p className="text-sm font-medium text-white/75">
+                      {dashboard.burnout_alert}
+                    </p>
                     <div className="flex items-center gap-3 mt-2">
                       <span
                         className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider"
@@ -649,13 +623,19 @@ export default function AdminDashboard() {
                           border: `1px solid ${sevColor}25`,
                         }}
                       >
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: sevColor }} />
+                        <span
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: sevColor }}
+                        />
                         {dashboard.burnout_severity} risk
                       </span>
                       {trendInfo && (
                         <span
                           className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                          style={{ color: trendInfo.color, backgroundColor: trendInfo.color + "15" }}
+                          style={{
+                            color: trendInfo.color,
+                            backgroundColor: trendInfo.color + "15",
+                          }}
                         >
                           Trend: {trendInfo.label}
                         </span>
@@ -677,7 +657,13 @@ export default function AdminDashboard() {
                   label="Burnout Risk"
                   value={`${dashboard.avg_burnout_risk.toFixed(1)}%`}
                   subtitle="Company-wide average"
-                  color={dashboard.avg_burnout_risk > 50 ? "#EF4444" : dashboard.avg_burnout_risk > 35 ? "#FBBF24" : "#4ADE80"}
+                  color={
+                    dashboard.avg_burnout_risk > 50
+                      ? "#EF4444"
+                      : dashboard.avg_burnout_risk > 35
+                        ? "#FBBF24"
+                        : "#4ADE80"
+                  }
                   badge={{ text: dashboard.burnout_severity, color: sevColor }}
                 />
                 <MetricCard
@@ -685,7 +671,8 @@ export default function AdminDashboard() {
                   value={dashboard.total_employees}
                   color="#A78BFA"
                 />
-                {dashboard.view === "manager" && dashboard.high_risk_employees !== undefined ? (
+                {dashboard.view === "manager" &&
+                dashboard.high_risk_employees !== undefined ? (
                   <MetricCard
                     label="High Risk"
                     value={dashboard.high_risk_label || "0"}
@@ -695,7 +682,10 @@ export default function AdminDashboard() {
                 ) : (
                   <MetricCard
                     label="Risk Level"
-                    value={dashboard.burnout_severity.charAt(0).toUpperCase() + dashboard.burnout_severity.slice(1)}
+                    value={
+                      dashboard.burnout_severity.charAt(0).toUpperCase() +
+                      dashboard.burnout_severity.slice(1)
+                    }
                     color={sevColor}
                   />
                 )}
@@ -710,22 +700,35 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {dashboard.projected_burnout_7d !== null && dashboard.projected_burnout_7d !== undefined && (
-                <div className="grid grid-cols-2 gap-4">
-                  <MetricCard
-                    label="Projected Risk (7 Days)"
-                    value={`${dashboard.projected_burnout_7d}%`}
-                    subtitle="Linear regression on recent data"
-                    color={dashboard.projected_burnout_7d > 60 ? "#EF4444" : dashboard.projected_burnout_7d > 35 ? "#FBBF24" : "#4ADE80"}
-                  />
-                  <MetricCard
-                    label="Projected Risk (30 Days)"
-                    value={`${dashboard.projected_burnout_30d ?? "—"}%`}
-                    subtitle="Based on current trajectory"
-                    color={(dashboard.projected_burnout_30d ?? 0) > 60 ? "#EF4444" : (dashboard.projected_burnout_30d ?? 0) > 35 ? "#FBBF24" : "#4ADE80"}
-                  />
-                </div>
-              )}
+              {dashboard.projected_burnout_7d !== null &&
+                dashboard.projected_burnout_7d !== undefined && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <MetricCard
+                      label="Projected Risk (7 Days)"
+                      value={`${dashboard.projected_burnout_7d}%`}
+                      subtitle="Linear regression on recent data"
+                      color={
+                        dashboard.projected_burnout_7d > 60
+                          ? "#EF4444"
+                          : dashboard.projected_burnout_7d > 35
+                            ? "#FBBF24"
+                            : "#4ADE80"
+                      }
+                    />
+                    <MetricCard
+                      label="Projected Risk (30 Days)"
+                      value={`${dashboard.projected_burnout_30d ?? "—"}%`}
+                      subtitle="Based on current trajectory"
+                      color={
+                        (dashboard.projected_burnout_30d ?? 0) > 60
+                          ? "#EF4444"
+                          : (dashboard.projected_burnout_30d ?? 0) > 35
+                            ? "#FBBF24"
+                            : "#4ADE80"
+                      }
+                    />
+                  </div>
+                )}
 
               {dashboard.view === "manager" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -738,12 +741,22 @@ export default function AdminDashboard() {
                   <MetricCard
                     label="Cohesion Trend"
                     value={dashboard.cohesion_label || "—"}
-                    color={(dashboard.cohesion_delta ?? 0) >= 0 ? "#4ADE80" : "#EF4444"}
+                    color={
+                      (dashboard.cohesion_delta ?? 0) >= 0
+                        ? "#4ADE80"
+                        : "#EF4444"
+                    }
                     badge={
                       dashboard.cohesion_delta !== undefined
                         ? {
-                            text: dashboard.cohesion_delta >= 0 ? "improving" : "declining",
-                            color: dashboard.cohesion_delta >= 0 ? "#4ADE80" : "#EF4444",
+                            text:
+                              dashboard.cohesion_delta >= 0
+                                ? "improving"
+                                : "declining",
+                            color:
+                              dashboard.cohesion_delta >= 0
+                                ? "#4ADE80"
+                                : "#EF4444",
                           }
                         : undefined
                     }
@@ -758,14 +771,15 @@ export default function AdminDashboard() {
                 <TrendLineChart data={dashboard.trend_7d} />
               </div>
 
-              {dashboard.top_risk_factors && dashboard.top_risk_factors.length > 0 && (
-                <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
-                  <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase mb-4">
-                    Top Risk Factors (Explainability)
-                  </p>
-                  <RiskFactorsPanel factors={dashboard.top_risk_factors} />
-                </div>
-              )}
+              {dashboard.top_risk_factors &&
+                dashboard.top_risk_factors.length > 0 && (
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+                    <p className="text-[11px] font-medium tracking-[0.15em] text-white/35 uppercase mb-4">
+                      Top Risk Factors (Explainability)
+                    </p>
+                    <RiskFactorsPanel factors={dashboard.top_risk_factors} />
+                  </div>
+                )}
 
               {(billing || seatStatus) && (
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 space-y-4">
@@ -789,7 +803,12 @@ export default function AdminDashboard() {
                           {billing.seats} seats · ${billing.monthly_total}/mo
                         </p>
                         <p className="text-xs text-white/30 mt-1">
-                          Renews {billing.current_period_end ? new Date(billing.current_period_end).toLocaleDateString() : "—"}
+                          Renews{" "}
+                          {billing.current_period_end
+                            ? new Date(
+                                billing.current_period_end,
+                              ).toLocaleDateString()
+                            : "—"}
                         </p>
                       </div>
                       <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-emerald-400/15 text-emerald-400 border border-emerald-400/20">
@@ -797,36 +816,58 @@ export default function AdminDashboard() {
                       </span>
                     </div>
                   ) : (
-                    <p className="text-sm text-white/40">No active subscription · $12/seat/month</p>
+                    <p className="text-sm text-white/40">
+                      No active subscription · $12/seat/month
+                    </p>
                   )}
 
                   {seatStatus && (
                     <div className="grid grid-cols-3 gap-3">
                       <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                        <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Seats Used</p>
+                        <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                          Seats Used
+                        </p>
                         <p className="text-lg font-bold text-white/80">
-                          {seatStatus.seats_used}<span className="text-white/30">/{seatStatus.seats_total || "—"}</span>
+                          {seatStatus.seats_used}
+                          <span className="text-white/30">
+                            /{seatStatus.seats_total || "—"}
+                          </span>
                         </p>
                       </div>
                       <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                        <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Status</p>
-                        <p className={`text-lg font-bold ${
-                          seatStatus.is_active ? "text-emerald-400" :
-                          seatStatus.is_suspended ? "text-red-400" :
-                          seatStatus.is_past_due ? "text-amber-400" :
-                          "text-white/40"
-                        }`}>
+                        <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                          Status
+                        </p>
+                        <p
+                          className={`text-lg font-bold ${
+                            seatStatus.is_active
+                              ? "text-emerald-400"
+                              : seatStatus.is_suspended
+                                ? "text-red-400"
+                                : seatStatus.is_past_due
+                                  ? "text-amber-400"
+                                  : "text-white/40"
+                          }`}
+                        >
                           {seatStatus.status}
                         </p>
                       </div>
                       <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                        <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Dunning</p>
-                        <p className={`text-lg font-bold ${
-                          seatStatus.dunning_attempts >= 3 ? "text-red-400" :
-                          seatStatus.dunning_attempts > 0 ? "text-amber-400" :
-                          "text-emerald-400"
-                        }`}>
-                          {seatStatus.dunning_attempts > 0 ? `${seatStatus.dunning_attempts}/3 fails` : "Clean"}
+                        <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                          Dunning
+                        </p>
+                        <p
+                          className={`text-lg font-bold ${
+                            seatStatus.dunning_attempts >= 3
+                              ? "text-red-400"
+                              : seatStatus.dunning_attempts > 0
+                                ? "text-amber-400"
+                                : "text-emerald-400"
+                          }`}
+                        >
+                          {seatStatus.dunning_attempts > 0
+                            ? `${seatStatus.dunning_attempts}/3 fails`
+                            : "Clean"}
                         </p>
                       </div>
                     </div>
@@ -835,7 +876,8 @@ export default function AdminDashboard() {
                   {seatStatus?.is_suspended && (
                     <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
                       <p className="text-xs text-red-300 font-medium">
-                        Account suspended — 3 consecutive payment failures. Employee access restricted until billing is resolved.
+                        Account suspended — 3 consecutive payment failures.
+                        Employee access restricted until billing is resolved.
                       </p>
                     </div>
                   )}
@@ -843,7 +885,9 @@ export default function AdminDashboard() {
                   {seatStatus?.is_past_due && !seatStatus.is_suspended && (
                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-3">
                       <p className="text-xs text-amber-300 font-medium">
-                        Payment past due — {seatStatus.dunning_attempts} failed attempt{seatStatus.dunning_attempts !== 1 ? "s" : ""}. Account will be suspended after 3 failures.
+                        Payment past due — {seatStatus.dunning_attempts} failed
+                        attempt{seatStatus.dunning_attempts !== 1 ? "s" : ""}.
+                        Account will be suspended after 3 failures.
                       </p>
                     </div>
                   )}
@@ -857,22 +901,38 @@ export default function AdminDashboard() {
                   </p>
                   <div className="grid grid-cols-4 gap-3">
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Events</p>
-                      <p className="text-lg font-bold text-white/80">{webhookMetrics.total_24h}</p>
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                        Events
+                      </p>
+                      <p className="text-lg font-bold text-white/80">
+                        {webhookMetrics.total_24h}
+                      </p>
                     </div>
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Success Rate</p>
-                      <p className={`text-lg font-bold ${webhookMetrics.success_rate_24h >= 99 ? "text-emerald-400" : webhookMetrics.success_rate_24h >= 95 ? "text-amber-400" : "text-red-400"}`}>
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                        Success Rate
+                      </p>
+                      <p
+                        className={`text-lg font-bold ${webhookMetrics.success_rate_24h >= 99 ? "text-emerald-400" : webhookMetrics.success_rate_24h >= 95 ? "text-amber-400" : "text-red-400"}`}
+                      >
                         {webhookMetrics.success_rate_24h}%
                       </p>
                     </div>
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Avg Latency</p>
-                      <p className="text-lg font-bold text-white/80">{webhookMetrics.avg_processing_ms_24h}ms</p>
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                        Avg Latency
+                      </p>
+                      <p className="text-lg font-bold text-white/80">
+                        {webhookMetrics.avg_processing_ms_24h}ms
+                      </p>
                     </div>
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">DLQ Pending</p>
-                      <p className={`text-lg font-bold ${webhookMetrics.dlq_pending > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                        DLQ Pending
+                      </p>
+                      <p
+                        className={`text-lg font-bold ${webhookMetrics.dlq_pending > 0 ? "text-amber-400" : "text-emerald-400"}`}
+                      >
                         {webhookMetrics.dlq_pending}
                       </p>
                     </div>
@@ -887,31 +947,40 @@ export default function AdminDashboard() {
                       Revenue Recognition (ASC 606)
                     </p>
                     <span className="text-[10px] text-white/20">
-                      {new Date(revenueData.as_of).toLocaleString()} · {revenueData.active_schedules} active schedules
+                      {new Date(revenueData.as_of).toLocaleString()} ·{" "}
+                      {revenueData.active_schedules} active schedules
                     </span>
                   </div>
 
                   <div className="grid grid-cols-4 gap-3">
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Contract Value</p>
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                        Contract Value
+                      </p>
                       <p className="text-lg font-bold text-white/80">
                         ${revenueData.total_contract_value.toFixed(2)}
                       </p>
                     </div>
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Recognized</p>
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                        Recognized
+                      </p>
                       <p className="text-lg font-bold text-emerald-400">
                         ${revenueData.total_recognized.toFixed(2)}
                       </p>
                     </div>
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Deferred</p>
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                        Deferred
+                      </p>
                       <p className="text-lg font-bold text-amber-400">
                         ${revenueData.total_deferred.toFixed(2)}
                       </p>
                     </div>
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">% Recognized</p>
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                        % Recognized
+                      </p>
                       <p className="text-lg font-bold text-indigo-400">
                         {revenueData.percent_recognized}%
                       </p>
@@ -920,19 +989,38 @@ export default function AdminDashboard() {
 
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">MTD Recognized</p>
-                      <p className="text-md font-bold text-emerald-300">${revenueData.mtd.recognized_display}</p>
-                      <p className="text-[9px] text-white/20">{revenueData.mtd.count} entries</p>
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                        MTD Recognized
+                      </p>
+                      <p className="text-md font-bold text-emerald-300">
+                        ${revenueData.mtd.recognized_display}
+                      </p>
+                      <p className="text-[9px] text-white/20">
+                        {revenueData.mtd.count} entries
+                      </p>
                     </div>
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">YTD Recognized</p>
-                      <p className="text-md font-bold text-emerald-300">${revenueData.ytd.recognized_display}</p>
-                      <p className="text-[9px] text-white/20">{revenueData.ytd.count} entries</p>
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                        YTD Recognized
+                      </p>
+                      <p className="text-md font-bold text-emerald-300">
+                        ${revenueData.ytd.recognized_display}
+                      </p>
+                      <p className="text-[9px] text-white/20">
+                        {revenueData.ytd.count} entries
+                      </p>
                     </div>
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
-                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Lifetime</p>
-                      <p className="text-md font-bold text-emerald-300">${revenueData.lifetime.recognized_display}</p>
-                      <p className="text-[9px] text-white/20">billed: ${revenueData.lifetime.billed_display} · refunded: ${revenueData.lifetime.refunded_display}</p>
+                      <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">
+                        Lifetime
+                      </p>
+                      <p className="text-md font-bold text-emerald-300">
+                        ${revenueData.lifetime.recognized_display}
+                      </p>
+                      <p className="text-[9px] text-white/20">
+                        billed: ${revenueData.lifetime.billed_display} ·
+                        refunded: ${revenueData.lifetime.refunded_display}
+                      </p>
                     </div>
                   </div>
 
@@ -947,26 +1035,43 @@ export default function AdminDashboard() {
 
                   {revenueData.companies.length > 0 && (
                     <div className="space-y-2">
-                      <p className="text-[10px] text-white/25 uppercase tracking-wider">Per-Company Schedule Breakdown</p>
+                      <p className="text-[10px] text-white/25 uppercase tracking-wider">
+                        Per-Company Schedule Breakdown
+                      </p>
                       {revenueData.companies.map((c, i) => (
-                        <div key={`${c.company_id}-${i}`} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2.5">
+                        <div
+                          key={`${c.company_id}-${i}`}
+                          className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2.5"
+                        >
                           <div>
-                            <p className="text-xs text-white/60">{c.company_name}</p>
+                            <p className="text-xs text-white/60">
+                              {c.company_name}
+                            </p>
                             <p className="text-[10px] text-white/25 mt-0.5">
-                              {c.seat_count} seats · ${(c.daily_rate / 100).toFixed(2)}/day · {c.status}
+                              {c.seat_count} seats · $
+                              {(c.daily_rate / 100).toFixed(2)}/day · {c.status}
                             </p>
                             <p className="text-[9px] text-white/15 mt-0.5">
-                              {new Date(c.period_start).toLocaleDateString()} - {new Date(c.period_end).toLocaleDateString()}
+                              {new Date(c.period_start).toLocaleDateString()} -{" "}
+                              {new Date(c.period_end).toLocaleDateString()}
                             </p>
                           </div>
                           <div className="flex items-center gap-4 text-right">
                             <div>
-                              <p className="text-xs text-emerald-400">${(c.recognized / 100).toFixed(2)}</p>
-                              <p className="text-[9px] text-white/20">recognized</p>
+                              <p className="text-xs text-emerald-400">
+                                ${(c.recognized / 100).toFixed(2)}
+                              </p>
+                              <p className="text-[9px] text-white/20">
+                                recognized
+                              </p>
                             </div>
                             <div>
-                              <p className="text-xs text-amber-400">${(c.deferred / 100).toFixed(2)}</p>
-                              <p className="text-[9px] text-white/20">deferred</p>
+                              <p className="text-xs text-amber-400">
+                                ${(c.deferred / 100).toFixed(2)}
+                              </p>
+                              <p className="text-[9px] text-white/20">
+                                deferred
+                              </p>
                             </div>
                             <span className="text-[10px] font-medium text-indigo-400/70 min-w-[3rem] text-right">
                               {c.percent_recognized}%
@@ -986,15 +1091,41 @@ export default function AdminDashboard() {
                   </p>
                   <div className="space-y-2">
                     {revenueMonthly.map((m) => (
-                      <div key={m.month} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2.5">
-                        <span className="text-xs text-white/60 min-w-[4rem]">{m.month}</span>
+                      <div
+                        key={m.month}
+                        className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2.5"
+                      >
+                        <span className="text-xs text-white/60 min-w-[4rem]">
+                          {m.month}
+                        </span>
                         <div className="flex items-center gap-4">
-                          <span className="text-xs text-emerald-400">${(m.recognized / 100).toFixed(2)} rec</span>
-                          {m.billed > 0 && <span className="text-[10px] text-blue-400">+${(m.billed / 100).toFixed(2)} billed</span>}
-                          {m.refunded > 0 && <span className="text-[10px] text-red-400">-${(m.refunded / 100).toFixed(2)} refund</span>}
-                          {m.seat_changes !== 0 && <span className="text-[10px] text-purple-400">{m.seat_changes > 0 ? "+" : ""}${(m.seat_changes / 100).toFixed(2)} seats</span>}
-                          {m.deferred_released > 0 && <span className="text-[10px] text-amber-400">${(m.deferred_released / 100).toFixed(2)} released</span>}
-                          <span className="text-[10px] font-medium text-white/50">net: ${(m.net / 100).toFixed(2)}</span>
+                          <span className="text-xs text-emerald-400">
+                            ${(m.recognized / 100).toFixed(2)} rec
+                          </span>
+                          {m.billed > 0 && (
+                            <span className="text-[10px] text-blue-400">
+                              +${(m.billed / 100).toFixed(2)} billed
+                            </span>
+                          )}
+                          {m.refunded > 0 && (
+                            <span className="text-[10px] text-red-400">
+                              -${(m.refunded / 100).toFixed(2)} refund
+                            </span>
+                          )}
+                          {m.seat_changes !== 0 && (
+                            <span className="text-[10px] text-purple-400">
+                              {m.seat_changes > 0 ? "+" : ""}$
+                              {(m.seat_changes / 100).toFixed(2)} seats
+                            </span>
+                          )}
+                          {m.deferred_released > 0 && (
+                            <span className="text-[10px] text-amber-400">
+                              ${(m.deferred_released / 100).toFixed(2)} released
+                            </span>
+                          )}
+                          <span className="text-[10px] font-medium text-white/50">
+                            net: ${(m.net / 100).toFixed(2)}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -1011,7 +1142,10 @@ export default function AdminDashboard() {
                     <button
                       onClick={async () => {
                         try {
-                          const res = await fetch(`${BASE}/api/enterprise/revenue/journal?format=csv`, { headers });
+                          const res = await fetch(
+                            `${BASE}/api/enterprise/revenue/journal?format=csv`,
+                            { headers },
+                          );
                           if (res.ok) {
                             const blob = await res.blob();
                             const url = URL.createObjectURL(blob);
@@ -1030,26 +1164,43 @@ export default function AdminDashboard() {
                   </div>
                   <div className="space-y-1.5">
                     {journalEntries.map((e) => (
-                      <div key={e.id} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2">
+                      <div
+                        key={e.id}
+                        className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-2"
+                      >
                         <div className="flex-1">
-                          <p className="text-xs text-white/50">{e.description}</p>
+                          <p className="text-xs text-white/50">
+                            {e.description}
+                          </p>
                           <p className="text-[10px] text-white/20 mt-0.5">
-                            {new Date(e.entry_date).toLocaleDateString()} · {e.company_name || "—"}
+                            {new Date(e.entry_date).toLocaleDateString()} ·{" "}
+                            {e.company_name || "—"}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className={`text-xs font-medium ${e.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                            {e.amount >= 0 ? "+" : ""}${(e.amount / 100).toFixed(2)}
+                          <span
+                            className={`text-xs font-medium ${e.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}
+                          >
+                            {e.amount >= 0 ? "+" : ""}$
+                            {(e.amount / 100).toFixed(2)}
                           </span>
-                          <span className={`text-[9px] px-2 py-0.5 rounded-full ${
-                            e.entry_type === "recognition" ? "bg-emerald-400/15 text-emerald-400" :
-                            e.entry_type === "billing" ? "bg-blue-400/15 text-blue-400" :
-                            e.entry_type === "seat_change" ? "bg-purple-400/15 text-purple-400" :
-                            e.entry_type === "cancellation" ? "bg-red-400/15 text-red-400" :
-                            e.entry_type === "refund" ? "bg-red-300/15 text-red-300" :
-                            e.entry_type === "deferred_release" ? "bg-amber-400/15 text-amber-400" :
-                            "bg-white/5 text-white/30"
-                          }`}>
+                          <span
+                            className={`text-[9px] px-2 py-0.5 rounded-full ${
+                              e.entry_type === "recognition"
+                                ? "bg-emerald-400/15 text-emerald-400"
+                                : e.entry_type === "billing"
+                                  ? "bg-blue-400/15 text-blue-400"
+                                  : e.entry_type === "seat_change"
+                                    ? "bg-purple-400/15 text-purple-400"
+                                    : e.entry_type === "cancellation"
+                                      ? "bg-red-400/15 text-red-400"
+                                      : e.entry_type === "refund"
+                                        ? "bg-red-300/15 text-red-300"
+                                        : e.entry_type === "deferred_release"
+                                          ? "bg-amber-400/15 text-amber-400"
+                                          : "bg-white/5 text-white/30"
+                            }`}
+                          >
                             {e.entry_type.replace(/_/g, " ")}
                           </span>
                         </div>
@@ -1066,28 +1217,45 @@ export default function AdminDashboard() {
                   </p>
                   <div className="space-y-2">
                     {invoices.map((inv) => (
-                      <div key={inv.id} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-3">
+                      <div
+                        key={inv.id}
+                        className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-lg px-4 py-3"
+                      >
                         <div>
-                          <p className="text-xs text-white/60">{inv.number || inv.id}</p>
+                          <p className="text-xs text-white/60">
+                            {inv.number || inv.id}
+                          </p>
                           <p className="text-[10px] text-white/30 mt-0.5">
                             {new Date(inv.created).toLocaleDateString()}
-                            {inv.tax ? ` · Tax: $${(inv.tax / 100).toFixed(2)}` : ""}
+                            {inv.tax
+                              ? ` · Tax: $${(inv.tax / 100).toFixed(2)}`
+                              : ""}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className={`text-xs font-medium ${inv.status === "paid" ? "text-emerald-400" : inv.status === "open" ? "text-amber-400" : "text-white/40"}`}>
+                          <span
+                            className={`text-xs font-medium ${inv.status === "paid" ? "text-emerald-400" : inv.status === "open" ? "text-amber-400" : "text-white/40"}`}
+                          >
                             ${(inv.total / 100).toFixed(2)}
                           </span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                            inv.status === "paid" ? "bg-emerald-400/15 text-emerald-400" :
-                            inv.status === "open" ? "bg-amber-400/15 text-amber-400" :
-                            "bg-white/5 text-white/30"
-                          }`}>
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full ${
+                              inv.status === "paid"
+                                ? "bg-emerald-400/15 text-emerald-400"
+                                : inv.status === "open"
+                                  ? "bg-amber-400/15 text-amber-400"
+                                  : "bg-white/5 text-white/30"
+                            }`}
+                          >
                             {inv.status}
                           </span>
                           {inv.invoice_pdf && (
-                            <a href={inv.invoice_pdf} target="_blank" rel="noopener noreferrer"
-                               className="text-[10px] text-indigo-400/60 hover:text-indigo-400 transition">
+                            <a
+                              href={inv.invoice_pdf}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-indigo-400/60 hover:text-indigo-400 transition"
+                            >
                               PDF
                             </a>
                           )}
@@ -1106,9 +1274,10 @@ export default function AdminDashboard() {
                   </p>
                 </div>
                 <p className="text-xs text-white/30 leading-relaxed">
-                  All metrics are aggregated and anonymized. No individual biometric data
-                  is accessible through this dashboard. Employee-level data is never exposed
-                  to employers. Full audit trail maintained for SOC 2 compliance.
+                  All metrics are aggregated and anonymized. No individual
+                  biometric data is accessible through this dashboard.
+                  Employee-level data is never exposed to employers. Full audit
+                  trail maintained for SOC 2 compliance.
                 </p>
               </div>
             </motion.div>
@@ -1125,20 +1294,35 @@ export default function AdminDashboard() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/[0.05]">
-                    <th className="text-left px-5 py-3 text-[10px] text-white/30 font-medium uppercase tracking-wider">Time</th>
-                    <th className="text-left px-5 py-3 text-[10px] text-white/30 font-medium uppercase tracking-wider">Action</th>
-                    <th className="text-left px-5 py-3 text-[10px] text-white/30 font-medium uppercase tracking-wider">Resource</th>
-                    <th className="text-left px-5 py-3 text-[10px] text-white/30 font-medium uppercase tracking-wider">Details</th>
+                    <th className="text-left px-5 py-3 text-[10px] text-white/30 font-medium uppercase tracking-wider">
+                      Time
+                    </th>
+                    <th className="text-left px-5 py-3 text-[10px] text-white/30 font-medium uppercase tracking-wider">
+                      Action
+                    </th>
+                    <th className="text-left px-5 py-3 text-[10px] text-white/30 font-medium uppercase tracking-wider">
+                      Resource
+                    </th>
+                    <th className="text-left px-5 py-3 text-[10px] text-white/30 font-medium uppercase tracking-wider">
+                      Details
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {auditLogs.map((log) => (
-                    <tr key={log.id} className="border-b border-white/[0.03] hover:bg-white/[0.015] transition">
+                    <tr
+                      key={log.id}
+                      className="border-b border-white/[0.03] hover:bg-white/[0.015] transition"
+                    >
                       <td className="px-5 py-3 text-white/40 text-xs">
                         {new Date(log.created_at).toLocaleString()}
                       </td>
-                      <td className="px-5 py-3 text-white/60 text-xs">{log.action}</td>
-                      <td className="px-5 py-3 text-white/40 text-xs">{log.resource}</td>
+                      <td className="px-5 py-3 text-white/60 text-xs">
+                        {log.action}
+                      </td>
+                      <td className="px-5 py-3 text-white/40 text-xs">
+                        {log.resource}
+                      </td>
                       <td className="px-5 py-3 text-white/25 text-[11px] max-w-[200px] truncate">
                         {log.details ? JSON.stringify(log.details) : "—"}
                       </td>

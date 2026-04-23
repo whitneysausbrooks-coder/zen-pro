@@ -17,6 +17,7 @@ import AdminPanel from "@/pages/admin";
 import AdminDashboard from "@/pages/admin-dashboard";
 import Onboarding from "@/pages/onboarding";
 import JoinPage from "@/pages/join";
+import CompanyAdminPage from "@/pages/company-admin";
 import Blackjack from "@/pages/blackjack";
 import EQGame from "@/pages/eq-game";
 import PatternPulse from "@/pages/pattern-pulse";
@@ -152,6 +153,7 @@ function AppRoutes() {
           <Route path="/sponsor"     component={Sponsor} />
           <Route path="/admin"       component={AdminPanel} />
           <Route path="/admin-dashboard" component={AdminDashboard} />
+          <Route path="/company-admin" component={CompanyAdminPage} />
           <Route path="/elon"        component={ElonPage} />
           <Route path="/payment"     component={PaymentPage} />
           <Route path="/share"       component={SharePage} />

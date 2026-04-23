@@ -10,6 +10,7 @@ import adminRouter from "./admin";
 import notificationsRouter from "./notifications";
 import ssoScimRouter from "./sso-scim";
 import iapRouter from "./iap";
+import companyAdminRouter from "./company-admin";
 
 const router: IRouter = Router();
 
@@ -20,6 +21,7 @@ router.use(stripeRouter);
 router.use(iapRouter);
 router.use(ssoScimRouter);
 router.use(enterpriseRouter);
+router.use(companyAdminRouter);
 router.use(stripeEnterpriseRouter);
 router.use("/", sponsorRouter);
 router.use("/", adminRouter);
