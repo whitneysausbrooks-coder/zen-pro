@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
 import {
@@ -374,7 +374,21 @@ export default function AdminDashboard() {
   const [revenueMonthly, setRevenueMonthly] = useState<RevenueMonth[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [companyId, setCompanyId] = useState("");
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get("key");
+    if (fromUrl) {
+      try { localStorage.setItem("nq_admin_key", fromUrl); } catch {}
+      return fromUrl;
+    }
+    try { return localStorage.getItem("nq_admin_key") || ""; } catch { return ""; }
+  });
+  useEffect(() => {
+    try {
+      if (apiKey) localStorage.setItem("nq_admin_key", apiKey);
+    } catch {}
+  }, [apiKey]);
   const [loading, setLoading] = useState(false);
   const [reconciling, setReconciling] = useState(false);
   const [activeView, setActiveView] = useState<"executive" | "manager">("executive");

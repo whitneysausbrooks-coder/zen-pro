@@ -10,7 +10,9 @@ const router: IRouter = Router();
 function requireEnterpriseAuth(req: Request, res: Response, next: NextFunction) {
   const apiKey = req.headers["x-enterprise-key"] as string;
   const validKey = process.env.ENTERPRISE_API_KEY;
-  if (!validKey || apiKey !== validKey) {
+  const masterKey = process.env.ADMIN_MASTER_KEY;
+  const ok = (validKey && apiKey === validKey) || (masterKey && apiKey === masterKey);
+  if (!ok) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
