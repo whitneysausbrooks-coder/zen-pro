@@ -5,8 +5,24 @@ import { query, auditLog } from "../lib/db";
 
 const router: IRouter = Router();
 
+let warnedShortSecret = false;
 function getSecret(): string {
-  return process.env.ADMIN_MASTER_KEY || process.env.ENTERPRISE_API_KEY || "fallback-dev-only";
+  const secret = process.env.ADMIN_MASTER_KEY || process.env.ENTERPRISE_API_KEY;
+  if (!secret) {
+    // Fail closed — never sign or verify admin tokens with a known/guessable
+    // value. A misconfigured deploy that loses both env vars must NOT silently
+    // accept forged tokens.
+    throw new Error(
+      "Server misconfiguration: ADMIN_MASTER_KEY (or ENTERPRISE_API_KEY) is required for company admin authentication.",
+    );
+  }
+  if (secret.length < 32 && !warnedShortSecret) {
+    warnedShortSecret = true;
+    console.warn(
+      `[security] admin secret is only ${secret.length} chars — recommend rotating to a 32+ char value.`,
+    );
+  }
+  return secret;
 }
 
 function signCompanyToken(companyId: string, email: string): string {
@@ -218,6 +234,210 @@ router.get("/company-admin/wellness-summary", requireCompanyAdmin, async (req, r
   } catch (err: any) {
     console.error("company-admin wellness error:", err.message);
     return res.status(500).json({ error: "Failed to load wellness summary" });
+  }
+});
+
+/**
+ * Wearable engagement summary for the HR admin dashboard.
+ * Operational metrics (connected count, connection rate, sources, last sync)
+ * are always returned. Personal-health aggregates (avg score, avg HRV/sleep/steps,
+ * trend) are gated behind a 5-connected-employee privacy threshold so no
+ * individual can be inferred from a small sample.
+ */
+router.get("/company-admin/wearable-engagement", requireCompanyAdmin, async (req, res) => {
+  const companyId = (req as Request & { companyId?: string }).companyId!;
+  try {
+    const employeeCountQ = await query(
+      `SELECT COUNT(*)::int AS count FROM enterprise_users WHERE company_id = $1`,
+      [companyId],
+    );
+    const totalEmployees: number = employeeCountQ.rows[0].count;
+
+    const PRIVACY_THRESHOLD = 5;
+
+    // Headcount-only summary — safe to return at any cohort size
+    // because connected_30d is just a count, not behavior.
+    const headcountQ = await query(
+      `SELECT COUNT(DISTINCT wd.user_id)::int AS connected_30d,
+              COUNT(DISTINCT wd.user_id)
+                FILTER (WHERE wd.recorded_at >= NOW() - INTERVAL '7 days')::int AS active_7d
+         FROM wearable_data wd
+         JOIN enterprise_users eu ON eu.id = wd.user_id
+        WHERE eu.company_id = $1
+          AND wd.recorded_at >= NOW() - INTERVAL '30 days'`,
+      [companyId],
+    );
+    const h = headcountQ.rows[0];
+    const connected: number = h.connected_30d || 0;
+    const active7d: number = h.active_7d || 0;
+
+    const connectionRate =
+      totalEmployees > 0 ? Math.round((connected / totalEmployees) * 100) : 0;
+
+    // Always-safe headcount metrics (no behavioral data).
+    const baseSafe = {
+      total_employees: totalEmployees,
+      connected_30d: connected,
+      connection_rate: connectionRate,
+      privacy_threshold: PRIVACY_THRESHOLD,
+    };
+
+    // BELOW THRESHOLD: suppress all behavior signals (source breakdown,
+    // sync timing, totals, active-7d) because in a tiny cohort they can
+    // re-identify a specific employee (e.g., "1 connected, Garmin, 2 min ago"
+    // = the person we know wears a Garmin watch).
+    if (connected < PRIVACY_THRESHOLD) {
+      return res.json({
+        ...baseSafe,
+        privacy_threshold_met: false,
+        message:
+          connected === 0
+            ? "No employees have connected a wearable yet. Share the Wearable Setup Handout with your team to get started."
+            : `Detailed engagement and personal-health aggregates appear once ${PRIVACY_THRESHOLD} or more employees have connected. Currently: ${connected}.`,
+      });
+    }
+
+    // ABOVE THRESHOLD: also enforce that the 7-day active cohort is large
+    // enough before exposing behavior aggregates computed from that window.
+    const sevenDayCohortMet = active7d >= PRIVACY_THRESHOLD;
+
+    // Behavioral operational metrics — only safe at threshold.
+    const opsQ = await query(
+      `SELECT COUNT(DISTINCT wd.user_id)
+                FILTER (WHERE wd.recorded_at >= NOW() - INTERVAL '24 hours')::int AS synced_24h,
+              MAX(wd.recorded_at) AS last_sync_at,
+              COUNT(*)::int AS total_syncs_30d
+         FROM wearable_data wd
+         JOIN enterprise_users eu ON eu.id = wd.user_id
+        WHERE eu.company_id = $1
+          AND wd.recorded_at >= NOW() - INTERVAL '30 days'`,
+      [companyId],
+    );
+    const ops = opsQ.rows[0];
+
+    const sourcesQ = await query(
+      `SELECT wd.source, COUNT(DISTINCT wd.user_id)::int AS users
+         FROM wearable_data wd
+         JOIN enterprise_users eu ON eu.id = wd.user_id
+        WHERE eu.company_id = $1
+          AND wd.recorded_at >= NOW() - INTERVAL '30 days'
+        GROUP BY wd.source
+        ORDER BY users DESC`,
+      [companyId],
+    );
+
+    // Coarsen last_sync_at to a relative bucket so we never expose a
+    // minute-precision timestamp that could be tied to one person's habits.
+    function coarsenSync(iso: string | null): string | null {
+      if (!iso) return null;
+      const diffH = (Date.now() - new Date(iso).getTime()) / 3_600_000;
+      if (diffH < 6) return "within last 6 hours";
+      if (diffH < 24) return "within last 24 hours";
+      if (diffH < 24 * 7) return "within last 7 days";
+      return "more than 7 days ago";
+    }
+
+    const operational = {
+      ...baseSafe,
+      synced_24h: ops.synced_24h || 0,
+      active_7d: active7d,
+      last_sync_bucket: coarsenSync(ops.last_sync_at),
+      total_syncs_30d: ops.total_syncs_30d || 0,
+      sources: sourcesQ.rows.map((r) => ({ source: r.source, users: r.users })),
+    };
+
+    // Personal-health aggregates require BOTH 30-day connected ≥ 5 AND
+    // 7-day active ≥ 5 (because the aggregates are computed from 7-day data).
+    if (!sevenDayCohortMet) {
+      return res.json({
+        ...operational,
+        privacy_threshold_met: false,
+        message: `Personal-health aggregates appear once ${PRIVACY_THRESHOLD} or more employees have synced in the last 7 days. Currently: ${active7d}.`,
+      });
+    }
+
+    // Per-metric k-anonymity: SQL AVG() ignores nulls, so we must enforce the
+    // threshold on the COUNT of non-null contributing values for EACH metric
+    // independently — otherwise a field with only 1–4 reporters would leak.
+    const aggQ = await query(
+      `WITH company_users AS (
+         SELECT id FROM enterprise_users WHERE company_id = $1
+       ),
+       per_user_latest AS (
+         SELECT DISTINCT ON (wd.user_id)
+                wd.user_id,
+                wd.neuro_resilience_score,
+                wd.hrv,
+                wd.sleep_duration_minutes,
+                wd.steps
+           FROM wearable_data wd
+           JOIN company_users e ON e.id = wd.user_id
+          WHERE wd.recorded_at >= NOW() - INTERVAL '7 days'
+          ORDER BY wd.user_id, wd.recorded_at DESC
+       )
+       SELECT
+         CASE WHEN COUNT(neuro_resilience_score) >= $2
+              THEN AVG(neuro_resilience_score)::numeric(5,1) END AS avg_score,
+         CASE WHEN COUNT(hrv) >= $2
+              THEN AVG(hrv)::numeric(5,1) END AS avg_hrv,
+         CASE WHEN COUNT(sleep_duration_minutes) >= $2
+              THEN AVG(sleep_duration_minutes)::numeric(6,1) END AS avg_sleep_minutes,
+         CASE WHEN COUNT(steps) >= $2
+              THEN AVG(steps)::numeric(8,0) END AS avg_steps
+       FROM per_user_latest`,
+      [companyId, PRIVACY_THRESHOLD],
+    );
+    const a = aggQ.rows[0] || {};
+
+    // Per-day k-anonymity: only emit a trend point if that day's distinct
+    // user count meets the threshold; otherwise emit count + null score so
+    // the UI can render a tick mark without revealing aggregate behavior.
+    const trendQ = await query(
+      `WITH company_users AS (
+         SELECT id FROM enterprise_users WHERE company_id = $1
+       ),
+       day_user AS (
+         SELECT DISTINCT ON (DATE_TRUNC('day', wd.recorded_at), wd.user_id)
+                DATE_TRUNC('day', wd.recorded_at)::date AS day,
+                wd.user_id,
+                wd.neuro_resilience_score AS score
+           FROM wearable_data wd
+           JOIN company_users e ON e.id = wd.user_id
+          WHERE wd.recorded_at >= NOW() - INTERVAL '7 days'
+          ORDER BY DATE_TRUNC('day', wd.recorded_at), wd.user_id, wd.recorded_at DESC
+       )
+       SELECT day,
+              COUNT(*)::int AS connected,
+              COUNT(score)::int AS scored_count,
+              AVG(score)::numeric(5,1) AS avg_score
+         FROM day_user
+         GROUP BY day
+         ORDER BY day`,
+      [companyId],
+    );
+
+    return res.json({
+      ...operational,
+      privacy_threshold_met: true,
+      avg_resilience_score: a.avg_score != null ? parseFloat(a.avg_score) : null,
+      avg_hrv: a.avg_hrv != null ? parseFloat(a.avg_hrv) : null,
+      avg_sleep_minutes: a.avg_sleep_minutes != null ? parseFloat(a.avg_sleep_minutes) : null,
+      avg_steps: a.avg_steps != null ? Math.round(parseFloat(a.avg_steps)) : null,
+      trend_7d: trendQ.rows.map((r) => ({
+        day: r.day,
+        connected: r.connected,
+        // Per-day, per-metric k-anon: gate on the count of NON-NULL scores
+        // (not just total user count) to prevent leakage when only a subset
+        // of that day's active users reported a resilience score.
+        avg_score:
+          r.scored_count >= PRIVACY_THRESHOLD && r.avg_score != null
+            ? parseFloat(r.avg_score)
+            : null,
+      })),
+    });
+  } catch (err: any) {
+    console.error("company-admin wearable-engagement error:", err.message);
+    return res.status(500).json({ error: "Failed to load wearable engagement" });
   }
 });
 

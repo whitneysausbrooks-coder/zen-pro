@@ -3,6 +3,7 @@ import { motion } from "framer-motion"
 import {
   Building2, LogOut, Loader2, Users, Calendar, Activity, Mail,
   Trash2, Copy, CheckCircle2, AlertCircle, ShieldAlert, TrendingUp,
+  HeartPulse, Watch, Moon, Footprints, Wifi, WifiOff,
 } from "lucide-react"
 import { GlassCard, GlassCardContent } from "@/components/ui/glass-card"
 import { LuxuryButton } from "@/components/ui/luxury-button"
@@ -52,6 +53,48 @@ interface WellnessSummary {
   trend_14d?: Array<{ day: string; avg_mood: string; avg_engagement: string; checkins: number }>
 }
 
+interface WearableEngagement {
+  total_employees: number
+  connected_30d: number
+  connection_rate: number
+  privacy_threshold: number
+  privacy_threshold_met: boolean
+  message?: string
+  // Behavioral metrics — only present when 30-day cohort >= threshold
+  synced_24h?: number
+  active_7d?: number
+  last_sync_bucket?: string | null
+  total_syncs_30d?: number
+  sources?: Array<{ source: string; users: number }>
+  // Personal-health aggregates — only present when 7-day cohort >= threshold
+  avg_resilience_score?: number | null
+  avg_hrv?: number | null
+  avg_sleep_minutes?: number | null
+  avg_steps?: number | null
+  trend_7d?: Array<{ day: string; connected: number; avg_score: number | null }>
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  apple_health: "Apple Health",
+  google_fit: "Google Fit",
+  fitbit: "Fitbit",
+  garmin: "Garmin",
+  whoop: "Whoop",
+  oura: "Oura",
+  manual: "Manual",
+}
+
+function fmtRelative(iso: string | null | undefined): string {
+  if (!iso) return "Never"
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000
+  if (!Number.isFinite(diff) || diff < 0) return new Date(iso).toLocaleString()
+  if (diff < 60) return "just now"
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)} d ago`
+  return new Date(iso).toLocaleDateString()
+}
+
 export default function CompanyAdminPage() {
   const { toast } = useToast()
   const [token, setToken] = useState<string>(() => {
@@ -64,7 +107,10 @@ export default function CompanyAdminPage() {
   const [me, setMe] = useState<MeResponse | null>(null)
   const [team, setTeam] = useState<TeamMember[]>([])
   const [wellness, setWellness] = useState<WellnessSummary | null>(null)
+  const [wearable, setWearable] = useState<WearableEngagement | null>(null)
+  const [wearableError, setWearableError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [tab, setTab] = useState<"overview" | "team" | "wellness">("overview")
 
   const headers = useMemo(() => ({
@@ -75,26 +121,59 @@ export default function CompanyAdminPage() {
   const loadAll = async () => {
     if (!token) return
     setLoading(true)
+    setLoadError(null)
+    // Use Promise.allSettled so one failed widget can't strand the entire
+    // dashboard in a perpetual loading state. Each section handles its own
+    // empty/error fallback; the page itself only fails hard if /me fails.
+    const [meSettled, teamSettled, wellSettled, wearSettled] = await Promise.allSettled([
+      fetch(`${BASE}/api/company-admin/me`, { headers }),
+      fetch(`${BASE}/api/company-admin/team`, { headers }),
+      fetch(`${BASE}/api/company-admin/wellness-summary`, { headers }),
+      fetch(`${BASE}/api/company-admin/wearable-engagement`, { headers }),
+    ])
     try {
-      const [meRes, teamRes, wellRes] = await Promise.all([
-        fetch(`${BASE}/api/company-admin/me`, { headers }),
-        fetch(`${BASE}/api/company-admin/team`, { headers }),
-        fetch(`${BASE}/api/company-admin/wellness-summary`, { headers }),
-      ])
+      // /me is the page anchor — without it, we cannot render the dashboard.
+      if (meSettled.status === "rejected") {
+        setLoadError("Cannot reach the dashboard service. Check your connection and try again.")
+        return
+      }
+      const meRes = meSettled.value
       if (meRes.status === 401) {
         try { localStorage.removeItem(TOKEN_KEY) } catch {}
         setToken("")
         toast({ title: "Session expired", description: "Please log in again.", variant: "destructive" })
         return
       }
-      const meData = await meRes.json()
-      const teamData = await teamRes.json()
-      const wellData = await wellRes.json()
-      setMe(meData)
-      setTeam(teamData.team || [])
-      setWellness(wellData)
+      if (!meRes.ok) {
+        setLoadError(`Dashboard failed to load (HTTP ${meRes.status}). Try refreshing.`)
+        return
+      }
+      setMe(await meRes.json())
+
+      // Optional widgets — degrade gracefully.
+      if (teamSettled.status === "fulfilled" && teamSettled.value.ok) {
+        const teamData = await teamSettled.value.json()
+        setTeam(teamData.team || [])
+      } else {
+        setTeam([])
+      }
+
+      if (wellSettled.status === "fulfilled" && wellSettled.value.ok) {
+        setWellness(await wellSettled.value.json())
+      } else {
+        setWellness(null)
+      }
+
+      if (wearSettled.status === "fulfilled" && wearSettled.value.ok) {
+        setWearable(await wearSettled.value.json())
+        setWearableError(null)
+      } else {
+        setWearable(null)
+        const httpHint = wearSettled.status === "fulfilled" ? `HTTP ${wearSettled.value.status}` : "network error"
+        setWearableError(`Wearable engagement failed to load (${httpHint}). Try refreshing.`)
+      }
     } catch (err) {
-      toast({ title: "Failed to load dashboard", description: String(err), variant: "destructive" })
+      setLoadError(`Dashboard failed to load: ${String(err)}`)
     } finally {
       setLoading(false)
     }
@@ -206,6 +285,26 @@ export default function CompanyAdminPage() {
   }
 
   // ---------- DASHBOARD ----------
+  if (loadError && !me) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#1a1830] to-[#2d2b55] flex items-center justify-center p-6">
+        <div className="max-w-md w-full">
+          <GlassCard>
+            <GlassCardContent className="p-6 text-center">
+              <ShieldAlert className="w-10 h-10 text-rose-400 mx-auto mb-3" />
+              <p className="text-white/90 mb-4 leading-relaxed">{loadError}</p>
+              <button
+                onClick={loadAll}
+                className="px-4 py-2 rounded-lg bg-[#FFD700] text-[#1a1830] font-semibold hover:bg-[#FFA500] transition"
+              >
+                Retry
+              </button>
+            </GlassCardContent>
+          </GlassCard>
+        </div>
+      </div>
+    )
+  }
   if (loading || !me) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1a1830] to-[#2d2b55] flex items-center justify-center">
@@ -359,6 +458,220 @@ export default function CompanyAdminPage() {
         {/* Wellness */}
         {tab === "wellness" && wellness && (
           <div className="space-y-4">
+            {/* Wearable Engagement (always visible — operational metrics)  */}
+            <GlassCard>
+              <GlassCardContent className="p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Watch className="w-4 h-4 text-[#FFD700]" />
+                  <p className="text-white/80 text-sm font-semibold tracking-wide">WEARABLE ENGAGEMENT</p>
+                </div>
+
+                {wearableError ? (
+                  <div className="flex items-start gap-3 py-4 px-4 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                    <ShieldAlert className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm text-white/90 leading-relaxed">{wearableError}</p>
+                      <button
+                        onClick={loadAll}
+                        className="mt-2 text-xs text-[#FFD700] hover:text-[#FFA500] underline-offset-2 hover:underline"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                ) : !wearable ? (
+                  <div className="flex items-center gap-2 text-white/60 text-sm py-6">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+                  </div>
+                ) : (
+                  <>
+                    {/* Always-safe headcount metrics */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs text-white/60 mb-1">CONNECTED</p>
+                        <p
+                          className="text-3xl font-bold text-white"
+                          aria-label={`${wearable.connected_30d} of ${wearable.total_employees} employees connected`}
+                        >
+                          {wearable.connected_30d}
+                          <span className="text-white/40 text-lg"> / {wearable.total_employees}</span>
+                        </p>
+                        <p className="text-xs text-white/50 mt-1">{wearable.connection_rate}% of seats</p>
+                      </div>
+                      {wearable.synced_24h !== undefined && (
+                        <div>
+                          <p className="text-xs text-white/60 mb-1">SYNCED 24H</p>
+                          <p className="text-3xl font-bold text-white">{wearable.synced_24h}</p>
+                          <p className="text-xs text-white/50 mt-1">
+                            {wearable.active_7d} active in 7 days
+                          </p>
+                        </div>
+                      )}
+                      {wearable.last_sync_bucket !== undefined && (
+                        <div>
+                          <p className="text-xs text-white/60 mb-1">LAST SYNC</p>
+                          <p className="text-xl font-semibold text-white flex items-center gap-2">
+                            {wearable.last_sync_bucket ? (
+                              <Wifi className="w-4 h-4 text-emerald-400" />
+                            ) : (
+                              <WifiOff className="w-4 h-4 text-white/30" />
+                            )}
+                            {wearable.last_sync_bucket || "No syncs yet"}
+                          </p>
+                          {wearable.total_syncs_30d !== undefined && (
+                            <p className="text-xs text-white/50 mt-1">
+                              {wearable.total_syncs_30d.toLocaleString()} syncs in last 30 days
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Connection rate bar */}
+                    <div className="mt-5">
+                      <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(100, wearable.connection_rate)}%` }}
+                          transition={{ duration: 0.7, ease: "easeOut" }}
+                          className="h-full bg-gradient-to-r from-[#FFD700] to-[#FFA500]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Source breakdown — only present at threshold */}
+                    {wearable.sources && wearable.sources.length > 0 && (
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        {wearable.sources.map((src) => (
+                          <span
+                            key={src.source}
+                            className="px-3 py-1.5 rounded-full text-xs bg-white/5 border border-white/10 text-white/80"
+                          >
+                            {SOURCE_LABELS[src.source] || src.source}
+                            <span className="ml-2 text-[#FFD700] font-semibold">{src.users}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Privacy-gated personal-health aggregates */}
+                    {wearable.privacy_threshold_met ? (
+                      <div className="mt-6 pt-6 border-t border-white/10">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-[#FFD700]/10 flex items-center justify-center">
+                              <HeartPulse className="w-4 h-4 text-[#FFD700]" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-white/60">RESILIENCE</p>
+                              <p className="text-xl font-bold text-white">
+                                {wearable.avg_resilience_score != null
+                                  ? wearable.avg_resilience_score.toFixed(1)
+                                  : "—"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-rose-500/10 flex items-center justify-center">
+                              <Activity className="w-4 h-4 text-rose-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-white/60">AVG HRV</p>
+                              <p className="text-xl font-bold text-white">
+                                {wearable.avg_hrv != null ? `${wearable.avg_hrv.toFixed(0)} ms` : "—"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                              <Moon className="w-4 h-4 text-indigo-300" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-white/60">AVG SLEEP</p>
+                              <p className="text-xl font-bold text-white">
+                                {wearable.avg_sleep_minutes != null
+                                  ? `${(wearable.avg_sleep_minutes / 60).toFixed(1)} h`
+                                  : "—"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                              <Footprints className="w-4 h-4 text-emerald-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-white/60">AVG STEPS</p>
+                              <p className="text-xl font-bold text-white">
+                                {wearable.avg_steps != null ? wearable.avg_steps.toLocaleString() : "—"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 7-day resilience trend (per-day k-anonymity already enforced server-side) */}
+                        {wearable.trend_7d && wearable.trend_7d.length > 0 && (() => {
+                          const points = wearable.trend_7d
+                          const scored = points.filter(p => p.avg_score != null) as Array<{day:string;connected:number;avg_score:number}>
+                          const minS = scored.length > 0 ? Math.min(...scored.map(p => p.avg_score)) : 0
+                          const maxS = scored.length > 0 ? Math.max(...scored.map(p => p.avg_score)) : 100
+                          const range = Math.max(1, maxS - minS)
+                          return (
+                            <div className="mt-6">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs text-white/60 tracking-wide">RESILIENCE — LAST 7 DAYS</p>
+                                <p className="text-[10px] text-white/40">
+                                  {scored.length > 0 ? `range ${minS.toFixed(0)}–${maxS.toFixed(0)}` : "—"}
+                                </p>
+                              </div>
+                              <div className="flex items-end gap-1.5 h-20">
+                                {points.map((p) => {
+                                  const heightPct = p.avg_score != null
+                                    ? 20 + ((p.avg_score - minS) / range) * 80
+                                    : 6
+                                  const label = new Date(p.day).toLocaleDateString(undefined, { weekday: "short" })
+                                  return (
+                                    <div key={p.day} className="flex-1 flex flex-col items-center gap-1">
+                                      <div className="w-full flex-1 flex items-end">
+                                        <motion.div
+                                          initial={{ height: 0 }}
+                                          animate={{ height: `${heightPct}%` }}
+                                          transition={{ duration: 0.5, ease: "easeOut" }}
+                                          className={`w-full rounded-sm ${
+                                            p.avg_score != null
+                                              ? "bg-gradient-to-t from-[#FFD700]/60 to-[#FFD700]"
+                                              : "bg-white/10"
+                                          }`}
+                                          title={
+                                            p.avg_score != null
+                                              ? `${label}: ${p.avg_score.toFixed(1)} (${p.connected} active)`
+                                              : `${label}: privacy-suppressed (${p.connected} active)`
+                                          }
+                                        />
+                                      </div>
+                                      <span className="text-[10px] text-white/40">{label}</span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        })()}
+
+                        <p className="text-[11px] text-white/40 mt-4">
+                          Aggregated across {wearable.active_7d ?? wearable.connected_30d} active employees · last 7 days · individual scores never shown · days with fewer than {wearable.privacy_threshold} active users are suppressed.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mt-6 pt-5 border-t border-white/10 flex items-start gap-3">
+                        <ShieldAlert className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-white/70 leading-relaxed">{wearable.message}</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </GlassCardContent>
+            </GlassCard>
+
             {!wellness.privacy_threshold_met ? (
               <GlassCard><GlassCardContent className="p-8 text-center">
                 <ShieldAlert className="w-10 h-10 text-[#FFD700] mx-auto mb-3" />
