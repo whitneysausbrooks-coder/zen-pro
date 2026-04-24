@@ -18,7 +18,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GlassCard } from "@/components/GlassCard";
@@ -134,6 +134,7 @@ function computeEmpathyIndex(data: LiveData) {
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [data, setData] = useState<LiveData>({
     neuralEnergy: 0,
     totalDonated: 0,
@@ -569,6 +570,27 @@ export default function ProfileScreen() {
             </GlassCard>
           ))}
         </View>
+
+        <Text style={styles.sectionEyebrow}>WEARABLE</Text>
+        <Pressable
+          onPress={() => router.push("/wearable")}
+          style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Connect Apple Health"
+        >
+          <GlassCard style={styles.settingsCard} borderColor="rgba(167,139,250,0.25)">
+            <View style={styles.settingRow}>
+              <MaterialCommunityIcons name="heart-pulse" size={20} color="#A78BFA" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingLabel}>Connect Apple Health</Text>
+                <Text style={{ color: Colors.whiteAlpha60, fontSize: 12, marginTop: 2 }}>
+                  Sync HRV, sleep, and steps
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={16} color={Colors.whiteAlpha20} />
+            </View>
+          </GlassCard>
+        </Pressable>
 
         <Text style={styles.sectionEyebrow}>SETTINGS</Text>
         <GlassCard style={styles.settingsCard} borderColor={Colors.glassBorderLight}>

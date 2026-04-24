@@ -1282,6 +1282,87 @@ router.get("/enterprise/wearable/:userId/trend", async (req, res) => {
   }
 });
 
+/**
+ * Mobile-friendly wearable sync.
+ * Identifies the user by work email (cached on device after first save),
+ * resolves their enterprise_users.id, and ingests via the standard pipeline.
+ * Mounted at /api/wearable/sync.
+ */
+router.post("/wearable/sync", async (req, res) => {
+  const schema = z.object({
+    email: z.string().email().max(255),
+    invite_code: z.string().min(4).max(32),
+    source: z.enum(["apple_health", "google_fit", "fitbit", "garmin", "whoop", "oura", "manual"]).default("apple_health"),
+    hrv: z.number().min(0).max(300).nullable().optional(),
+    sleep_duration: z.number().min(0).max(1440).nullable().optional(),
+    steps: z.number().int().min(0).max(200000).nullable().optional(),
+    recorded_at: z.string().datetime().optional(),
+  }).refine(
+    (d) => d.hrv != null || d.sleep_duration != null || d.steps != null,
+    { message: "Provide at least one of hrv, sleep_duration, or steps" }
+  );
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const email = parsed.data.email.toLowerCase();
+  const inviteCode = parsed.data.invite_code.toUpperCase();
+
+  try {
+    const lookup = await query(
+      `SELECT eu.id AS user_id,
+              c.id AS company_id,
+              c.pilot_status,
+              c.subscription_status,
+              c.suspended_at,
+              c.pilot_ends_at,
+              c.invite_code
+         FROM enterprise_users eu
+         JOIN companies c ON c.id = eu.company_id
+        WHERE LOWER(eu.email) = $1
+          AND UPPER(c.invite_code) = $2
+        LIMIT 1`,
+      [email, inviteCode]
+    );
+
+    if (lookup.rows.length === 0) {
+      return res.status(404).json({
+        error: "Email and invite code don't match a NeuroQuest pilot member. Double-check your work email and the code your admin shared.",
+      });
+    }
+
+    const u = lookup.rows[0];
+    if (u.suspended_at) {
+      return res.status(403).json({ error: "Your company's account is currently suspended." });
+    }
+    const pilotActive =
+      u.pilot_status === "active" && u.pilot_ends_at && new Date(u.pilot_ends_at) > new Date();
+    const subActive = u.subscription_status === "trialing" || u.subscription_status === "active";
+    if (!pilotActive && !subActive) {
+      return res.status(403).json({ error: "Your company's pilot or subscription is not active." });
+    }
+
+    const result = await ingestWearableData({
+      user_id: u.user_id,
+      hrv: parsed.data.hrv ?? null,
+      sleep_duration: parsed.data.sleep_duration ?? null,
+      steps: parsed.data.steps ?? null,
+      source: parsed.data.source,
+      recorded_at: parsed.data.recorded_at,
+    });
+
+    return res.json({
+      success: true,
+      neuro_resilience_score: result.neuro_resilience.neuro_resilience_score,
+      classification: result.neuro_resilience.classification,
+      imputed_metrics: result.imputed_metrics,
+    });
+  } catch (err: any) {
+    console.error("Mobile wearable sync error:", err.message);
+    return res.status(500).json({ error: "Failed to sync wearable data" });
+  }
+});
+
 router.post("/enterprise/wearable/score", async (req, res) => {
   const schema = z.object({
     hrv: z.number().min(0).max(300).nullable().optional(),
