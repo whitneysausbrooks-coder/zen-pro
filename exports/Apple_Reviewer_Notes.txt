@@ -1,38 +1,40 @@
-(Thank you for reviewing NeuroQuest Zen Pro.
+Thank you for reviewing NeuroQuest Zen Pro.
 
 WHAT THIS APP DOES
-NeuroQuest is a B2B brain-training and wellness app distributed exclusively through enterprise pilot programs. End users are employees of customer companies (currently Kaylee's Creatives and Bead'd) who receive a one-time company invite code from their HR or wellness lead. There is no consumer signup, no self-serve purchase path, and no public registration. We are not a direct-to-consumer health app.
+NeuroQuest serves both individual users (free tier + Zen Pro IAP at $9.99/month) and enterprise customers (employees authenticate with a company invite code; their employer pays $50/seat/year via Stripe, so they bypass the paywall). It combines HRV-based resilience scoring with short cognitive exercises.
 
-SIGN-IN CREDENTIALS
+SIGN-IN CREDENTIALS (for the enterprise flow)
 User Name: apple-review@neuroquestzen.pro
 Password:  SQVU453X
 
 NOTE ON THE PASSWORD FIELD
-NeuroQuest does not use traditional passwords. The Password value above is the company invite code. On the Wearable screen of the app, the reviewer enters the email in the Email field and the invite code (SQVU453X) in the Invite Code field, then taps Save & verify. We use this email + invite_code pattern because the invite code is a first-party shared secret issued by the employer — it is not third-party social authentication, so Sign in with Apple (Guideline 4.8) does not apply. The credentials above are seeded on production; the pilot expires April 2027.
+NeuroQuest enterprise users do not use traditional passwords. The Password value above is the company invite code. On the Wearable screen, enter the email in the Email field and the invite code (SQVU453X) in the Invite Code field, then tap Save & verify. The invite code is a first-party shared secret issued by the employer — it is not third-party social authentication, so Sign in with Apple (Guideline 4.8) does not apply. Credentials are seeded on production; the pilot expires April 2027.
 
 HOW TO TEST THE APP
 
-1) HOME, TRAIN, PLAY, RESILIENCE, SHOP, PROFILE TABS — These do not require sign-in. After completing onboarding, please explore each tab. The Train and Play tabs contain the brain-training exercises (Memory Match, Slot Machine, Blackjack, EQ Game, Pattern Pulse). The Resilience tab shows the Neuro Resilience Score. Shop offers optional cosmetic Zen Pro upgrades sold via StoreKit; sandbox accounts work as expected.
+1) INDIVIDUAL FLOW (no credentials needed) — Launch the app and complete onboarding without entering an invite code. You land on the Free Tier with full access to the Home dashboard, Neural Energy tracking, Morning Bloom gratitude ritual, and Empathy Index. Tapping any locked brain-training game (Neural Challenge, Mind-Reader, EQ, Pattern Pulse) opens the Zen Pro paywall via Apple StoreKit. The Shop tab also offers IAP for Zen Pro Monthly, Daily Pass, and Extra Spins consumables. Sandbox accounts work as expected.
 
-2) APPLE HEALTH SYNC (Wearable screen, accessed from Profile or Resilience tab) — Use the credentials above. Tap Save & verify, then Connect Apple Health and grant permissions for HRV, Sleep, and Steps. Tap Sync now.
+2) ENTERPRISE FLOW — Use the credentials above on the Wearable screen. Enterprise users bypass the paywall entirely; all training games unlock, and the Resilience tab shows aggregated company data when 5+ teammates participate.
+
+3) APPLE HEALTH SYNC (Wearable screen, from Profile or Resilience) — After saving credentials, tap Connect Apple Health and grant permissions for HRV, Sleep, and Steps. Tap Sync now.
 
 NOTE ON HEALTHKIT TESTING
-A real Neuro Resilience Score requires an Apple Watch with recorded HRV, Sleep, and Step data. The review device may have no recorded data, in which case the app shows "No health data found" with an Open Settings option — this is the documented graceful path. If permission is denied, every tab in the app remains fully usable; HealthKit is optional, not required.
+A real Neuro Resilience Score requires an Apple Watch with recorded HRV, Sleep, and Step data. The review device may have no recorded data, in which case the app shows "No health data found" with an Open Settings option — this is the documented graceful path. If permission is denied, every tab remains fully usable; HealthKit is optional, not required.
 
 HEALTHKIT DATA USAGE
-Read-only: Heart Rate Variability (SDNN), Sleep Analysis, Step Count. Never written back to Apple Health. Sent to our server over HTTPS, encrypted at rest, used only to compute the user's individual Neuro Resilience Score. Aggregated for employer dashboards only when 5 or more team members participate (k-anonymity threshold of 5); individual data is never visible to employers under any circumstances. Full HealthKit data handling: https://neuroquestzen.pro/privacy.
+Read-only: Heart Rate Variability (SDNN), Sleep Analysis, Step Count. Never written back to Apple Health. Sent over HTTPS, encrypted at rest, used only to compute the user's Neuro Resilience Score. Aggregated for employer dashboards only when 5 or more team members participate (k-anonymity threshold of 5); individual data is never visible to employers. Full details: https://neuroquestzen.pro/privacy.
 
 ACCOUNT DELETION
-Available in-app under Profile → Delete Account. Permanently removes the user record, all HealthKit-derived scores, and all session data from our servers. Compliant with Guideline 5.1.1(v).
+Available in-app under Profile → Delete Account. Permanently removes the user record, all HealthKit-derived scores, and all session data. Compliant with Guideline 5.1.1(v).
 
 PAYMENT MODEL
-Companies pay $50 per seat per year directly to NeuroQuest via Stripe (B2B services exempt under Guideline 3.1.3(b)). Employees never see a paywall. The Shop tab sells optional cosmetic upgrades via Apple In-App Purchase (StoreKit), as required by Guideline 3.1.1.
+Individual users purchase Zen Pro (subscription), Daily Pass (non-consumable), and Extra Spins (consumables) via Apple In-App Purchase (Guideline 3.1.1). Enterprise customers (companies) purchase seats out-of-app via Stripe at $50/seat/year — a B2B services transaction exempt under Guideline 3.1.3(b). The app contains no buttons, links, or messaging directing individual users to pay outside of IAP.
 
 PRIVACY AND TRACKING
-This app does not use IDFA, does not implement App Tracking Transparency prompts (we do no tracking), and contains no third-party advertising or analytics SDKs. We do not read Location, Contacts, Photos, Calendar, or Microphone. HealthKit background delivery is disabled; data is read only when the user opens the Wearable screen and taps Sync.
+No IDFA, no App Tracking Transparency prompts (we do no tracking), no third-party advertising or analytics SDKs. We do not read Location, Contacts, Photos, Calendar, or Microphone. HealthKit background delivery is disabled; data is read only when the user opens the Wearable screen and taps Sync.
 
 MEDICAL DISCLAIMER
-NeuroQuest is a wellness tool, not a medical device. It does not diagnose, treat, cure, or prevent any disease. This is stated in the app footer and on every public-facing page.
+NeuroQuest is a wellness tool, not a medical device. It does not diagnose, treat, cure, or prevent any disease.
 
 CONTACT
-Whitney Sausbrooks · whitneysausbrooks@icloud.com · response within 4 hours during US business hours, or via the Contact App Review reply form.
+Whitney Sausbrooks · whitneysausbrooks@icloud.com · response within 4 hours during US business hours.
