@@ -186,3 +186,9 @@ id = "2Ukdku-3Za-qRr1fgOUzp"
 uri = "file://exports/NeuroQuest_Apple_Submission_Workbook.pdf"
 type = "pdf"
 title = "NeuroQuest Apple Submission Workbook (final reviewer credentials)"
+
+[[outputs]]
+id = "DH63E4rVa2Q3m35nbmMBN"
+uri = "file://exports/Apple_Reviewer_Notes.txt"
+type = "text"
+title = "App Store Connect — Reviewer Notes (3,902 / 4,000 chars)"
