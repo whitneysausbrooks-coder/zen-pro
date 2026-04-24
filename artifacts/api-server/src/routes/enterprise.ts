@@ -1,6 +1,8 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { z } from "zod";
+import { createHash } from "crypto";
 import { query, auditLog } from "../lib/db";
+import pool from "../lib/db";
 import {
   calculateFullResilience,
   detectBurnoutTrend,
@@ -1377,6 +1379,99 @@ router.post("/enterprise/wearable/score", async (req, res) => {
 
   const result = computeNeuroResilienceScore(parsed.data.hrv, parsed.data.sleep_duration, parsed.data.steps);
   return res.json(result);
+});
+
+router.post("/account/delete", async (req: Request, res: Response) => {
+  const schema = z.object({
+    email: z.string().email(),
+    invite_code: z.string().min(4).max(12),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Email and invite code are required to delete your account." });
+  }
+  const code = parsed.data.invite_code.trim().toUpperCase();
+  const email = parsed.data.email.trim().toLowerCase();
+
+  const generic404 = "The email and invite code combination doesn't match any account on file.";
+  const client = await pool.connect();
+  try {
+    const companyResult = await client.query(
+      `SELECT id FROM companies WHERE invite_code = $1`,
+      [code]
+    );
+    if (companyResult.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ error: generic404 });
+    }
+    const companyId = companyResult.rows[0].id;
+
+    const userResult = await client.query(
+      `SELECT id FROM enterprise_users WHERE email = $1 AND company_id = $2`,
+      [email, companyId]
+    );
+    if (userResult.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ error: generic404 });
+    }
+    const userId = userResult.rows[0].id;
+    const emailHash = createHash("sha256").update(email).digest("hex").slice(0, 16);
+
+    await client.query("BEGIN");
+
+    const userScopedTables = [
+      "iap_transactions",
+      "iap_entitlements",
+      "resilience_scores",
+      "biometrics",
+      "behaviors",
+      "user_baselines",
+      "user_spin_balance",
+      "wearable_data",
+      "sso_sessions",
+    ];
+    const deleted: Record<string, number> = {};
+    const failures: string[] = [];
+    for (const table of userScopedTables) {
+      try {
+        const r = await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [userId]);
+        deleted[table] = r.rowCount || 0;
+      } catch (e: any) {
+        failures.push(`${table}: ${e.message}`);
+      }
+    }
+    if (failures.length > 0) {
+      throw new Error(`Required user-data deletes failed: ${failures.join("; ")}`);
+    }
+
+    await client.query(`DELETE FROM audit_logs WHERE user_id = $1`, [userId]);
+
+    await client.query(
+      `INSERT INTO audit_logs (user_id, action, resource, details, created_at)
+       VALUES (NULL, 'account_deleted', 'enterprise_users', $1::jsonb, now())`,
+      [JSON.stringify({ email_hash: emailHash, company_id: companyId, deleted_counts: deleted })]
+    );
+
+    const userDel = await client.query(`DELETE FROM enterprise_users WHERE id = $1`, [userId]);
+    deleted.enterprise_users = userDel.rowCount || 0;
+
+    const usersDel = await client.query(`DELETE FROM users WHERE email = $1`, [email]);
+    deleted.users = usersDel.rowCount || 0;
+
+    await client.query("COMMIT");
+
+    return res.json({
+      success: true,
+      message: "Your account and all associated health and activity data have been permanently deleted from our servers.",
+      records_removed: deleted,
+    });
+  } catch (err: any) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Account deletion failed:", err.message);
+    return res.status(500).json({ error: "Could not delete account. Please contact admin@neuroquestllc.info." });
+  } finally {
+    client.release();
+  }
 });
 
 export default router;

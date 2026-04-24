@@ -78,6 +78,35 @@ export async function clearStoredCredentials(): Promise<void> {
   } catch {}
 }
 
+export interface DeleteAccountResult {
+  serverDeleted: boolean;
+  recordsRemoved?: Record<string, number>;
+  message?: string;
+  error?: string;
+}
+
+export async function deleteAccount(): Promise<DeleteAccountResult> {
+  const email = await getStoredEmail();
+  const inviteCode = await getStoredInviteCode();
+  if (!email || !inviteCode) {
+    return { serverDeleted: false, message: "No enterprise account on file. Local data cleared." };
+  }
+  try {
+    const res = await fetch(`${getApiBase()}/api/account/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, invite_code: inviteCode }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { serverDeleted: false, error: data?.error || `Delete failed (HTTP ${res.status})` };
+    }
+    return { serverDeleted: true, recordsRemoved: data?.records_removed, message: data?.message };
+  } catch (e: any) {
+    return { serverDeleted: false, error: e?.message || "Network error during account deletion." };
+  }
+}
+
 export async function getLastSyncAt(): Promise<string | null> {
   try {
     return await AsyncStorage.getItem(LAST_SYNC_KEY);

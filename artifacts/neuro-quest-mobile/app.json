@@ -19,7 +19,8 @@
       "buildNumber": "1",
       "infoPlist": {
         "NSHumanReadableCopyright": "© 2026 NeuroQuest LLC",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationCategoryType": "public.app-category.healthcare-fitness"
       }
     },
     "android": {
@@ -37,7 +38,7 @@
       [
         "expo-router",
         {
-          "origin": "https://replit.com/"
+          "origin": "https://neuroquestzen.pro"
         }
       ],
       "expo-font",

@@ -336,8 +336,10 @@ export default function ShopScreen() {
             ].map((tier) => (
               <Pressable
                 key={tier.spins}
+                disabled={purchasing !== null}
                 onPress={() => {
                   if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  const planKey = `spins-${tier.spins}`;
                   Alert.alert(
                     `${tier.spins} Extra Spins — ${tier.price}`,
                     `Purchase ${tier.spins} bonus spins for ${tier.price}. ${tier.donation} of this purchase goes to charity.\n\nPayment processed securely through the App Store.`,
@@ -345,15 +347,12 @@ export default function ShopScreen() {
                       { text: "Cancel", style: "cancel" },
                       {
                         text: `Buy ${tier.price}`,
-                        onPress: () => {
-                          if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                          Alert.alert("Purchase Pending", "In-app purchases will be available when the app launches on the App Store.", [{ text: "OK" }]);
-                        },
+                        onPress: () => runPurchase(planKey),
                       },
                     ]
                   );
                 }}
-                style={({ pressed }) => [styles.spinsTierItem, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                style={({ pressed }) => [styles.spinsTierItem, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }, purchasing !== null && { opacity: 0.6 }]}
                 accessibilityRole="button"
                 accessibilityLabel={`Buy ${tier.spins} spins for ${tier.price}`}
               >

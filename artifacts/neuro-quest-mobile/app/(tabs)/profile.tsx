@@ -72,6 +72,7 @@ const SETTINGS = [
   { id: "terms", label: "Terms of Use", icon: "file-text", toggle: false },
   { id: "support", label: "Contact Support", icon: "message-circle", toggle: false },
   { id: "reset", label: "Reset All Data", icon: "trash-2", toggle: false },
+  { id: "delete_account", label: "Delete Account", icon: "user-x", toggle: false, destructive: true },
 ];
 
 async function shareText(message: string, title: string) {
@@ -265,6 +266,67 @@ export default function ProfileScreen() {
             Alert.alert("Contact Support", "Email us at admin@neuroquestllc.info");
           }
         });
+        break;
+      case "delete_account":
+        Alert.alert(
+          "Delete Account",
+          "This will permanently delete your NeuroQuest account from our servers, including all health data, resilience scores, activity history, and purchase records. Your enterprise pilot seat will be released. This action cannot be undone.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Continue",
+              style: "destructive",
+              onPress: () => {
+                Alert.alert(
+                  "Are you absolutely sure?",
+                  "Type-free final confirmation. Once deleted, your account cannot be recovered. To use NeuroQuest again, you would need a new invite code from your employer.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete Forever",
+                      style: "destructive",
+                      onPress: async () => {
+                        try {
+                          const { deleteAccount, clearStoredCredentials } = await import("@/lib/health");
+                          const result = await deleteAccount();
+                          await clearStoredCredentials();
+                          await AsyncStorage.multiRemove([
+                            NEURAL_ENERGY_KEY, DONATIONS_KEY, SPINS_KEY, STREAK_KEY,
+                            WINS_KEY, GRATITUDE_LOG_KEY, TOTAL_SPINS_USED_KEY,
+                            "nq_morning_bloom_date", "nq_gratitude_streak",
+                          ]);
+                          if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          if (result.serverDeleted) {
+                            Alert.alert(
+                              "Account Deleted",
+                              result.message || "Your account and all associated data have been permanently deleted.",
+                              [{ text: "OK", onPress: () => router.replace("/onboarding" as any) }]
+                            );
+                          } else if (result.error) {
+                            Alert.alert(
+                              "Deletion Issue",
+                              `Local data was cleared, but the server reported: ${result.error}\n\nPlease email admin@neuroquestllc.info to confirm full deletion.`,
+                              [{ text: "OK", onPress: () => router.replace("/onboarding" as any) }]
+                            );
+                          } else {
+                            Alert.alert(
+                              "Local Data Cleared",
+                              result.message || "All local data has been cleared from this device.",
+                              [{ text: "OK", onPress: () => router.replace("/onboarding" as any) }]
+                            );
+                          }
+                        } catch (e: any) {
+                          if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                          Alert.alert("Error", `Could not complete deletion: ${e?.message || "Unknown error"}\n\nPlease email admin@neuroquestllc.info.`);
+                        }
+                      },
+                    },
+                  ]
+                );
+              },
+            },
+          ]
+        );
         break;
       case "reset":
         Alert.alert(
