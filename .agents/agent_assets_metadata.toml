@@ -1,5 +1,34 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "kNwFOgu6vGsLxTRbAsVMP"
+uri = "file://exports/iap-images/01-zen-pro-monthly.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "3w6yJ61UXerkp9SK4R-aP"
+uri = "file://exports/iap-images/02-daily-pass.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "NuBkV7y03ju41BdaL288k"
+uri = "file://exports/iap-images/03-spins-5.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "9Qd_ym2cCdddkq_K8Jigw"
+uri = "file://exports/iap-images/04-spins-15.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "CXQC5nRueQhKYcamzfKDs"
+uri = "file://exports/iap-images/05-spins-50.png"
+type = "image"
+title = "generated_image"
 
 [[outputs]]
 id = "wpWIJfZp3S9ptbGnfeCYJ"
@@ -192,3 +221,39 @@ id = "DH63E4rVa2Q3m35nbmMBN"
 uri = "file://exports/Apple_Reviewer_Notes.txt"
 type = "text"
 title = "App Store Connect — Reviewer Notes (hybrid model, 3,949 / 4,000 chars)"
+
+[[outputs]]
+id = "zDaN3Gng5fMdkwpjekhnV"
+uri = "file://exports/IAP_App_Store_Connect.md"
+type = "text"
+title = "App Store Connect — IAP Submission Guide (all 5 products)"
+
+[[outputs]]
+id = "qzhtciUmdpiErRxBynZUs"
+uri = "file://exports/iap-images/01-zen-pro-monthly.png"
+type = "image"
+title = "1 · Zen Pro Monthly — $9.99/mo"
+
+[[outputs]]
+id = "gZhwgw99-9EBOxPxRQv3K"
+uri = "file://exports/iap-images/02-daily-pass.png"
+type = "image"
+title = "2 · Daily Pass — $5.99 / 24h"
+
+[[outputs]]
+id = "-DXpqxZPCy6XjDlku_8y8"
+uri = "file://exports/iap-images/03-spins-5.png"
+type = "image"
+title = "3 · 5 Extra Spins — $0.99"
+
+[[outputs]]
+id = "ZRVJqX6jljZuVMVCkA0Go"
+uri = "file://exports/iap-images/04-spins-15.png"
+type = "image"
+title = "4 · 15 Extra Spins — $1.99 (POPULAR)"
+
+[[outputs]]
+id = "siqbmnaEBhPiY8QMf_HIQ"
+uri = "file://exports/iap-images/05-spins-50.png"
+type = "image"
+title = "5 · 50 Extra Spins — $4.99 (BEST VALUE)"
