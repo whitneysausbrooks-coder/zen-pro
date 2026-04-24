@@ -59,7 +59,7 @@ const PLANS = [
     price: "$5.99",
     period: "/24 hours",
     badge: null,
-    donationNote: "$1.50 donated per pass",
+    donationNote: "$1.80 donated per pass",
     features: [
       "50 spins for 24 hours",
       "All Zen Pro features for the day",

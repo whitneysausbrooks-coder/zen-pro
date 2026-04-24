@@ -309,7 +309,7 @@ kv([
   ["Reference Name", "Daily Pass"],
   ["Product ID", "pro.neuroquestzen.app.daypass"],
   ["Price", "$5.99 USD  (Tier 6)"],
-  ["Charity disclosure", "$1.50 donated to verified charity partners"],
+  ["Charity disclosure", "$1.80 donated to verified charity partners  (30% of price, matching all other products)"],
   ["Localized display name", "Daily Pass"],
   ["Description", "24-hour access to all premium brain-training games and analytics. One-time purchase."],
 ]);
