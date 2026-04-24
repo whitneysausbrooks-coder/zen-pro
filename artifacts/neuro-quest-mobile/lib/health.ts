@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { Platform, Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface WearableMetrics {
@@ -20,6 +20,22 @@ const INVITE_KEY = "nq_enterprise_invite_code";
 const LAST_SYNC_KEY = "nq_health_last_sync";
 
 export const isHealthKitAvailable = Platform.OS === "ios";
+
+/**
+ * Open the iOS Settings page for this app, where the user can grant or
+ * revoke HealthKit permissions. iOS HealthKit's authorization API is
+ * intentionally opaque — we cannot detect denial directly, so we offer
+ * this one-tap path to Settings whenever a sync returns no data.
+ */
+export async function openAppSettings(): Promise<void> {
+  try {
+    await Linking.openSettings();
+  } catch {
+    try {
+      await Linking.openURL("app-settings:");
+    } catch {}
+  }
+}
 
 function getApiBase(): string {
   return Platform.OS === "web"
@@ -247,7 +263,8 @@ export async function syncToServer(
   ) {
     return {
       success: false,
-      message: "No new health data available. Try again after wearing your device for a day.",
+      message:
+        "We couldn't read any health data. This usually means Apple Health permissions weren't fully granted, or your device hasn't recorded HRV, sleep, or steps recently. Open Settings to grant access, or wear your Apple Watch overnight and try again.",
     };
   }
 

@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "pro.neuroquestzen.app",
-      "buildNumber": "2",
+      "buildNumber": "1",
       "infoPlist": {
         "NSHumanReadableCopyright": "© 2026 NeuroQuest LLC",
         "ITSAppUsesNonExemptEncryption": false
@@ -27,7 +27,8 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#070D09"
       },
-      "package": "pro.neuroquestzen.app"
+      "package": "pro.neuroquestzen.app",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/images/icon.png"

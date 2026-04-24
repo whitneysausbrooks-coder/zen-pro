@@ -29,6 +29,7 @@ import {
   requestHealthPermissions,
   readLatestMetrics,
   syncToServer,
+  openAppSettings,
   type WearableMetrics,
 } from "@/lib/health";
 
@@ -48,7 +49,7 @@ export default function WearableScreen() {
   const [email, setEmail] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [credsSaved, setCredsSaved] = useState(false);
-  const [permGranted, setPermGranted] = useState(false);
+  const [healthRequested, setHealthRequested] = useState(false);
   const [busy, setBusy] = useState(false);
   const [metrics, setMetrics] = useState<WearableMetrics | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
@@ -101,13 +102,17 @@ export default function WearableScreen() {
     }
     setBusy(true);
     const ok = await requestHealthPermissions();
-    setPermGranted(ok);
+    setHealthRequested(ok);
     if (ok) {
       if (Platform.OS === "ios") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
       Alert.alert(
-        "Permission needed",
-        "Please open Settings → Privacy → Health → NeuroQuest and enable HRV, Sleep, and Steps."
+        "Couldn't open Apple Health",
+        "Apple Health didn't respond. You can grant access manually in Settings.",
+        [
+          { text: "Open Settings", onPress: () => openAppSettings() },
+          { text: "OK", style: "cancel" },
+        ],
       );
     }
     setBusy(false);
@@ -127,7 +132,18 @@ export default function WearableScreen() {
       setMetrics(m);
       const result = await syncToServer(email, inviteCode, m);
       if (!result.success) {
-        Alert.alert("Sync failed", result.message || "Unknown error");
+        const noData =
+          m.hrv == null && m.sleep_duration_minutes == null && m.steps == null;
+        Alert.alert(
+          noData ? "No health data found" : "Sync failed",
+          result.message || "Unknown error",
+          noData
+            ? [
+                { text: "Open Settings", onPress: () => openAppSettings() },
+                { text: "OK", style: "cancel" },
+              ]
+            : [{ text: "OK" }],
+        );
       } else {
         setScore(result.neuro_resilience_score ?? null);
         setClassification(result.classification ?? null);
@@ -137,7 +153,7 @@ export default function WearableScreen() {
     } finally {
       setBusy(false);
     }
-  }, [credsSaved, email]);
+  }, [credsSaved, email, inviteCode]);
 
   const showWebNote = Platform.OS === "web";
 
@@ -236,7 +252,7 @@ export default function WearableScreen() {
           >
             <Feather name="heart" size={16} color="#fff" />
             <Text style={styles.primaryBtnText}>
-              {permGranted ? "Permissions granted ✓" : "Connect Apple Health"}
+              {healthRequested ? "Apple Health requested ✓ — tap Sync below" : "Connect Apple Health"}
             </Text>
           </Pressable>
         </GlassCard>
