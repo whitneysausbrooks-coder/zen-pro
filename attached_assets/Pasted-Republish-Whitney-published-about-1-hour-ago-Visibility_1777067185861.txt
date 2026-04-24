@@ -1,0 +1,286 @@
+Republish
+Whitney published about 1 hour ago
+Visibility:
+Public
+Okay now walk me thru a fail proof apple review before I submit.
+1 hour ago
+Here's the fail-proof Apple review playbook, written specifically for NeuroQuest's setup (HealthKit, enterprise invite-code identity, wellness positioning, expo-iap installed). The rejection rate jumps when even one of these is missing — getting them all right typically clears review on the first submission.
+
+1. The Five Things That Will Get You Rejected on This App Specifically
+These are the highest-probability rejection reasons for your combination of features:
+
+a) HealthKit usage strings that aren't specific. In app.json, the NSHealthShareUsageDescription must explain exactly what you read and why — and it must mention each type. Reviewers reject generic strings like "to track your health." Use something like:
+
+"NeuroQuest reads your Heart Rate Variability, Sleep, and Step Count to compute your daily Neuro Resilience Score. Your data stays on your device and is only shared with your employer in fully-anonymized aggregates of 5+ employees."
+b) Account deletion missing. Since June 2022, any app with account creation must offer in-app account deletion (not just a "contact us" link). Add a "Delete my account" button in Profile that wipes the user from enterprise_users server-side and clears AsyncStorage.
+
+c) Sign in with Apple. Guideline 4.8: if you offer any third-party social login, you must also offer Sign in with Apple. You currently use email + invite_code (not social) — this is safe because invite_code is a "first-party shared secret," but document it that way in review notes so the reviewer doesn't misread it as social login.
+
+d) Therapeutic / medical claims. "Brain training," "resilience," "wellness" are fine. "Treats anxiety," "diagnoses burnout," "clinical-grade" anywhere user-facing will trigger a medical device escalation that can take weeks. Audit your in-app copy and App Store description for any word a reviewer could read as a treatment claim. Add a footer disclaimer: "NeuroQuest is a wellness tool, not a medical device. Not intended to diagnose, treat, cure, or prevent any disease. Consult a healthcare professional for medical advice."
+
+e) IAP misconfiguration. You have expo-iap installed. If the app sells anything to consumers (subscriptions, unlocks, etc.) it MUST go through Apple IAP. Your B2B model (enterprise pays $50/seat/year via Stripe outside the app) is exempt under guideline 3.1.3(b) — but only if employees never see a paywall in the app. If expo-iap isn't actually selling anything to end users right now, remove the dependency before submitting; reviewers see it and ask "what are you selling?"
+
+2. Pre-Flight Checklist (do these in the next hour)
+In artifacts/neuro-quest-mobile:
+
+ app.json → NSHealthShareUsageDescription is specific (see template above)
+ app.json → bundle identifier is your final production one (not com.expo.…)
+ app.json → version + build number incremented
+ App icon is exactly 1024×1024, no transparency, no rounded corners (Apple adds them)
+ App launches and is fully usable without granting HealthKit permission (graceful denial)
+ App does not crash on a fresh install with no logged-in user
+ "Delete account" exists in the Profile tab and actually deletes server-side
+ No console warnings about deprecated permissions / Info.plist keys
+ No references to Replit/dev URLs anywhere user-facing — only your prod domain
+ Privacy policy URL is live and explicitly covers HealthKit data (Apple checks)
+ Support URL is live (can be a Notion page or a mailto: form)
+3. App Store Connect Configuration
+When you create the app listing:
+
+Privacy Nutrition Labels — declare every data type you collect:
+Health & Fitness → HRV, Sleep, Steps → "Used for App Functionality" → Linked to user → Not used for tracking
+Contact Info → Email → "Used for App Functionality" → Linked to user
+Identifiers → User ID → "Used for App Functionality" → Linked to user
+Age Rating: 4+ is fine if no user-generated content, no chat, no ads
+App Privacy: link to your live privacy policy
+Category: Health & Fitness (primary), Medical (secondary) — do not set Medical as primary; that triggers stricter review
+Screenshots: required for 6.7" iPhone, 6.5" iPhone, and 5.5" iPhone (you can usually generate from one). Show real UI, not marketing mockups. Apple rejects screenshots that include other apps' UI or false claims.
+4. Review Notes (the magic field most people skip)
+In App Store Connect → "App Review Information" → "Notes," paste this — tailored to your setup. This single field has saved more apps than any other step:
+
+NeuroQuest is a B2B enterprise wellness platform. End users are employees of customer companies (currently in pilot with Kaylee's Creatives and Bead'd) who receive a one-time invite code from their HR admin. There is no consumer signup or self-serve purchase path, which is why we use email + invite code rather than Sign in with Apple — the invite code is a first-party shared secret, not third-party social authentication.
+
+Demo credentials for review:
+
+Work email: appreview@neuroquestzen.pro
+Invite code: [create a dedicated reviewer code on prod, never expires]
+HealthKit usage: We read HRV, Sleep, and Step Count once per session to compute the user's daily Neuro Resilience Score, displayed only to the user. Aggregates shared with the employer require a minimum cohort of 5 connected employees and are anonymized; no individual employee data is ever exposed.
+
+Payment model: Companies pay $50/seat/year directly to NeuroQuest via Stripe (B2B services exempt under guideline 3.1.3(b)). Employees never see a paywall in the app.
+
+Account deletion: Available in Profile tab. Deletes user record server-side and revokes all sessions.
+Create that reviewer account on production before you submit, and make sure the invite code is bound to a real test company with at least one piece of seeded content so the reviewer sees a working dashboard, not an empty state.
+
+5. Submission Strategy
+Submit to TestFlight first, not directly to the App Store. Run the build through internal testing for 24–48 hours to catch crashes you'll otherwise discover during review.
+Submit Mon–Wed morning Pacific time. Reviews submitted Friday afternoon or weekends sit longer.
+Use phased release (in App Store Connect → Version Release) — rolls the update out to 1%, 2%, 5%, 10%, 20%, 50%, 100% over 7 days. If a crash spikes, you halt before all users are hit.
+6. The 24-Hour Watch After Approval
+When approved and live:
+
+Monitor crash-free rate in App Store Connect → Analytics (target >99.5%)
+Watch the deployment logs for HealthKit sync errors — if iOS pushes back on auth, you'll see it server-side first
+Have a rollback plan: expo eas update can push a JS-only hotfix without re-review for non-native bugs
+Most Common Rejection Reasons by Category (for your app)
+Risk	Likelihood	What stops it
+Vague HealthKit usage string	High	Use the specific template above
+Missing account deletion	High	Add Profile → Delete Account
+Reviewer can't log in	Medium	Pre-create reviewer account on prod, paste creds in review notes
+Therapeutic claims in copy	Medium	Audit copy + add disclaimer footer
+expo-iap installed but unused	Medium	Remove the dependency or wire it to a real product
+App requires HealthKit to function	Low–Medium	Test the "denied permission" path
+Privacy policy doesn't mention HealthKit	Low	One-line addition to your policy
+If you want, I can audit your current app.json, the Profile tab for the delete-account flow, and any user-facing copy that might trigger a medical-claim flag — say the word and I'll do it as a single sweep so you're shipping a build that's already passed the most common review filters.
+Put the info I need into a pdf so I can save
+1 hour ago
+Pre-Flight Checklist (do these in the next hour)
+In artifacts/neuro-quest-mobile:
+app.json → NSHealthShareUsageDescription is specific (see template above)
+app.json → bundle identifier is your final production one (not com.expo.…)
+app.json → version + build number incremented
+App icon is exactly 1024×1024, no transparency, no rounded corners (Apple adds them)
+App launches and is fully usable without granting HealthKit permission (graceful denial)
+App does not crash on a fresh install with no logged-in user
+"Delete account" exists in the Profile tab and actually deletes server-side
+No console warnings about deprecated permissions / Info.plist keys
+No references to Replit/dev URLs anywhere user-facing — only your prod domain
+Privacy policy URL is live and explicitly covers HealthKit data (Apple checks)
+Support URL is live (can be a Notion page or a mailto: form) Walk me thru the first one step by step until we finish
+1 hour ago
+Yes please
+1 hour ago
+Do you want to keep the existing bundle ID Info.neuroquest.zenpro (zero work, App Store Connect record stays) or change it (creates a brand new App Store Connect app and abandons ascAppId 6762701920)?
+Change it — I want a cleaner reverse-DNS bundle ID and I haven't shipped anything yet
+Have you already uploaded any builds to TestFlight or invited any testers under the existing App Store Connect record (ascAppId 6762701920)?
+It was rejected
+1 hour ago
+I'm registering a new bundle of now what capabilities do I check off, app services, and capability requests?
+1 hour ago
+Let me audit exactly what your app uses so I can tell you which boxes to check — and which to leave unchecked (because checking unused ones is itself a rejection trigger):
+Looked at exactly what your app does in code. Here's the precise checklist for the new App ID page — what to check, what to leave alone, and one trap to avoid.
+
+The short answer: check ONE box
+Check: HealthKit
+
+That's it. Everything else stays unchecked.
+
+Why so few?
+Here's the audit of what NeuroQuest actually uses:
+
+Feature	Status in your code	Capability needed?
+HealthKit (HRV, Sleep, Steps)	✅ Real, in lib/health.ts	✅ Check it
+In-App Purchase (expo-iap)	✅ Real, in lib/iap.ts and shop.tsx	⛔ No checkbox — IAP is auto-enabled for every App ID, configured separately in App Store Connect
+Push Notifications	❌ Not used anywhere in code	⛔ Don't check
+Sign in with Apple	❌ Not used	⛔ Don't check
+Background Modes	❌ Your HealthKit is "background": false	⛔ Don't check
+Associated Domains	❌ No universal links configured	⛔ Don't check
+iCloud / CloudKit	❌ Not used	⛔ Don't check
+Apple Pay	❌ Not used (IAP ≠ Apple Pay)	⛔ Don't check
+The rule: every capability you check is a promise to Apple that you use it. Checking unused ones triggers reviewer questions like "Why does this app declare X if it never calls X?" — which is exactly the kind of friction we're trying to avoid.
+
+When you click HealthKit — IMPORTANT sub-option
+After you check HealthKit, Apple expands a sub-checkbox below it:
+
+☐ Clinical Health Records
+Do NOT check Clinical Health Records.
+
+That sub-capability is for apps that read medical-grade data — lab results, prescriptions, allergy lists, immunization records pulled from a hospital portal. NeuroQuest reads consumer wellness data (heart rate variability, sleep stages, steps). Checking "Clinical Health Records" forces your app into Apple's much stricter clinical review queue and can trigger HIPAA-adjacent questions you're not set up to answer. Leave it unchecked.
+
+App Services tab
+When you scroll down or switch tabs to App Services (it's a separate section in the new portal UI), the typical options are MusicKit, WeatherKit, Apple Pay Payment Processing, ClassKit, News Publisher, etc.
+
+Check nothing. None of those apply to NeuroQuest.
+
+Capability Requests tab
+This is where Apple lists capabilities that need a special application form (CarPlay, MDM, Low Latency HLS, App Tracking Transparency special cases, etc.).
+
+Submit nothing. None apply to NeuroQuest, and submitting requests you don't need creates open paperwork that can hold up your review.
+
+Final recap of the App ID page
+Description:    NeuroQuest Zen Pro
+Bundle ID:      Explicit → pro.neuroquestzen.app
+Capabilities:
+  ✅ HealthKit
+       └─ ☐ Clinical Health Records   ← leave UNCHECKED
+  All other capabilities: leave unchecked
+App Services:        nothing
+Capability Requests: nothing
+Click Continue → Register when that's how it looks.
+
+What happens next
+Once you register the App ID, head to App Store Connect for Step B from my last message — create the new App with bundle ID pro.neuroquestzen.app, and send me the 10-digit ascAppId so I can update eas.json.
+
+Take your time on this — there's no rush, and I'll be here when you're ready.
+pro.neuroquestzen.app is the bundle id what should the sku be?
+53 minutes ago
+6763640852
+51 minutes ago
+Path a and I need a fail proof apple review
+49 minutes ago
+Yes and give me all app info to fill in App Store Connect while you do that
+43 minutes ago
+Going to do both at the same time — auditing fresh-install crashes while preparing the App Store Connect copy:
+I see one real crash trap I want to look at more carefully. Let me read the full ErrorBoundary and the Home tab's data-loading code:
+Both done in one shot. First the audit results, then the full ASC fill-in guide.
+
+✓ Item #6 — No-crash on fresh install (clean!)
+I traced the full first-launch path. Here's what happens when a brand-new user opens NeuroQuest after install:
+
+Step	Code	Crash risk?
+Splash screen shown	SplashScreen.preventAutoHideAsync()	✓ Held until both fonts AND onboarding state load
+Fonts load	useFonts(...)	✓ Returns null until done (no half-rendered tree)
+AsyncStorage check for onboarding	.then().catch() wrapper, defaults to true on error	✓ Won't crash even if storage is broken
+Onboarding shown	<OnboardingFlow />	✓
+Tabs render	Home tab rehydrateData()	✓ Wrapped in try/catch; null-checks every value; Number.isNaN guards
+ErrorBoundary	defaultProps.FallbackComponent = ErrorFallback	✓ Always has a fallback even if not passed explicitly
+Verdict: no fresh-install crashes detected. Apple will install, open, see splash → onboarding → home tab. Clean.
+
+There's one small upgrade opportunity I'll mention but not fix right now (it's not blocking): the ErrorBoundary uses defaultProps on a class component, which React 19 has deprecated. It still works, just emits a warning in dev. Not a review-blocker. Filing it as a low-priority cleanup.
+
+Item #6 stays ✓ — moving on
+Now the big ask. Here's the complete App Store Connect fill-in guide. Copy each block into the matching ASC field. I'll flag every place where I need a decision from you.
+
+📋 App Store Connect — Complete Fill-In Guide for NeuroQuest Zen Pro
+Section 1 — App Information (left sidebar)
+Field	Value
+Name	NeuroQuest Zen Pro
+Subtitle (max 30 chars)	Brain Training & Resilience (27 chars)
+Bundle ID	pro.neuroquestzen.app (auto-filled)
+SKU	neuroquest-zenpro-ios (already entered)
+Primary Language	English (U.S.)
+Category — Primary	Health & Fitness ← required for HealthKit apps
+Category — Secondary	Lifestyle
+Content Rights	✓ "Does your app contain, show, or access third-party content?" → No (assuming all music/games are original — confirm with me)
+Age Rating	12+ (see breakdown below)
+Age Rating questionnaire — answer these exactly:
+Apple's question	Your answer
+Cartoon or Fantasy Violence	None
+Realistic Violence	None
+Sexual Content or Nudity	None
+Profanity or Crude Humor	None
+Alcohol, Tobacco, or Drug Use or References	None
+Mature/Suggestive Themes	None
+Horror/Fear Themes	None
+Medical/Treatment Information	Infrequent/Mild ← because you describe HRV/resilience scoring
+Gambling	None
+Contests	None
+Unrestricted Web Access	None
+Gambling and Contests	No
+Made for Kids	No
+This will compute to a 12+ rating. That's correct for a wellness app with health metrics.
+
+Section 2 — Pricing and Availability
+Field	Value
+Price	Free
+Availability	All countries and regions (or limit to US — your call; I'd recommend All for B2B pilots)
+Pre-Orders	Off
+Volume Purchase Program (Education)	Off
+Distribute on iPad	Off (your app.json has supportsTablet: false)
+Section 3 — App Privacy ⚠️ MOST CRITICAL SECTION
+This is where most apps fail. Apple cross-references your declarations against your actual code. Mismatches = rejection.
+
+Step 1 — "Does your app collect data?" → Yes
+Step 2 — Tracking → No, this app does not track users
+(You don't use IDFA, no third-party ad SDKs, no cross-app tracking)
+
+Step 3 — Data types collected (check exactly these):
+Category	Data Type	Linked to user?	Used for tracking?	Purposes
+Health & Fitness	Health (HRV, Sleep, Steps)	Yes	No	App Functionality, Analytics
+Contact Info	Email Address (work email)	Yes	No	App Functionality
+Identifiers	User ID (your invite code → user mapping)	Yes	No	App Functionality
+Purchases	Purchase History (in-app purchases)	Yes	No	App Functionality
+For each one, tick:
+
+Linked to user identity: Yes
+Used for tracking: No
+Purpose: App Functionality (and "Analytics" only for the Health data, since aggregation is analytics)
+Do NOT check: Location, Browsing History, Search History, Photos, Audio, Contacts, Customer Support, Crash Data, Performance Data, Diagnostics — none of these are collected.
+
+Section 4 — Version 1.0.0 (Prepare for Submission)
+Promotional Text (170 chars, can update without new version)
+Train your brain in 5-minute sessions backed by science. Sync Apple Watch to see your Neuro-Resilience Score grow. Free 75-day pilot for teams.
+(146 chars — leaves room to tweak)
+
+Description (4000 chars max — paste this)
+NeuroQuest Zen Pro is a clinically-inspired brain training and wellness app designed for high-performing professionals and the teams that support them.
+WHY NEUROQUEST
+Modern work pushes your nervous system to its limits. NeuroQuest gives you 5-minute, science-backed exercises that build cognitive resilience, focus, and emotional regulation — without making you feel like another wellness gimmick is being sold to you.
+WHAT'S INSIDE
+• Daily Bloom: a 30-second gratitude practice that anchors your morning
+• Train: focused micro-sessions for working memory, attention, and reframing
+• Play: skill-building games disguised as fun
+• Resilience: your personal Neuro-Resilience Score, computed from HRV, sleep, and step data
+• Apple Health integration: read-only sync of HRV, Sleep, and Steps from your iPhone or Apple Watch
+FOR TEAMS (NEUROQUEST ZEN PRO ENTERPRISE)
+HR leaders can sponsor a free 75-day pilot for their team and see anonymized engagement and resilience trends — never individual data. Your participation is always private. Aggregate insights only become visible to your employer when 5 or more teammates participate, and your name is never attached.
+YOUR PRIVACY IS THE PRODUCT
+• Your individual scores are visible only to you
+• Your employer sees aggregate trends only when 5+ teammates participate
+• You can disconnect Apple Health anytime in iOS Settings → Privacy → Health
+• We never read location, messages, contacts, photos, or workouts
+• Health data is processed solely to compute your Neuro-Resilience Score
+PILOT PROGRAM
+NeuroQuest Zen Pro Enterprise offers a FREE 75-day pilot for teams. After the pilot, $50 per seat per year. No credit card required to start.
+Ask your HR or wellness lead about activating NeuroQuest for your team — or visit neuroquestzen.pro to start a pilot.
+Keywords (100 chars total, comma-separated, NO SPACES around commas)
+brain training,resilience,HRV,wellness,meditation,focus,sleep,mindfulness,neuro,heart rate variability
+(98 chars — Apple counts every char including commas)
+
+Support URL (REQUIRED) — need from you
+Most likely: https://neuroquestzen.pro/support — does this page exist? If not, we need to create one before submitting (could be as simple as a contact form + FAQ).
+
+Marketing URL (optional)
+https://neuroquestzen.pro
+
+Privacy Policy URL (REQUIRED for HealthKit) — need from you
+Most likely: https://neuroquestzen.pro/privacy — does this exist? If not, this is a HARD blocker — Apple will reject without a working privacy policy URL that specifically mentions HealthKit data
