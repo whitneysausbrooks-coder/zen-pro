@@ -115,7 +115,7 @@ doc.fillColor(SLATE).font("Helvetica").fontSize(10).text("Paste these into App S
 doc.fillColor(NAVY).font("Helvetica-Bold").fontSize(11).text("User Name:", boxX + 14, boxY + 58);
 doc.fillColor(SLATE).font("Courier-Bold").fontSize(11).text("apple-review@neuroquestzen.pro", boxX + 110, boxY + 58);
 doc.fillColor(NAVY).font("Helvetica-Bold").fontSize(11).text("Password:", boxX + 14, boxY + 78);
-doc.fillColor(SLATE).font("Courier-Bold").fontSize(11).text("APPL2026", boxX + 110, boxY + 78);
+doc.fillColor(SLATE).font("Courier-Bold").fontSize(11).text("SQVU453X", boxX + 110, boxY + 78);
 doc.y = boxY + 120;
 doc.moveDown(0.4);
 
@@ -360,11 +360,12 @@ codebox("© 2026 NeuroQuest LLC");
 
 doc.addPage();
 h2("4.5  Sign-In Required for Apple to Test  →  Yes");
-p("B2B apps must give the reviewer working credentials. Without these, automatic rejection within hours.");
+p("B2B apps must give the reviewer working credentials. These are live on production right now.");
 kv([
-  ["Demo email", "Recommend creating apple-review@neuroquestzen.pro as a dedicated review seat"],
-  ["Demo invite code", "Create a dedicated review code on PROD (do not use T3M4CNT9 — keeps Bead'd's pilot data clean)"],
-  ["Notes about sign-in", "NeuroQuest uses email + company invite code (no password). Enter the email above and the invite code above on the Wearable screen Step 1."],
+  ["User Name", "apple-review@neuroquestzen.pro"],
+  ["Password", "SQVU453X  (this is the company invite code)"],
+  ["Notes about sign-in", "NeuroQuest does not use traditional passwords. The password field above contains the company invite code. On the Wearable screen, the reviewer enters the email in the Email field and the password value in the Invite Code field, then taps Save & verify."],
+  ["Status", "Live on production (verified via /api/enterprise/lookup-invite). Pilot expires 2027-04-24."],
 ]);
 
 h2("4.6  App Review Information (the most-overlooked section)");

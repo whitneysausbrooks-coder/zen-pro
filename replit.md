@@ -108,11 +108,13 @@ The monorepo leverages TypeScript composite projects with project references for
 -   **Web Push API (VAPID):** Push notifications.
 ## Apple Reviewer Credentials (seeded April 2026)
 
-Dedicated reviewer account for App Store Connect. Seeded in the dev DB; production seed pending first deployment.
+Dedicated reviewer account for App Store Connect, live on both production and dev.
 
 - **User Name (email):** `apple-review@neuroquestzen.pro`
-- **Password (= invite code):** `APPL2026`
-- **Pilot company:** "Apple App Review", 10 seats, expires 2031
-- **Re-seed script:** `psql "$DATABASE_URL" -f scripts/seed-apple-reviewer.sql`
+- **Password (= invite code):** `SQVU453X`
+- **Pilot company:** "Apple App Review", 10 seats, expires 2027-04-24
+- **Production company_id:** `2148be9a-0d99-4ebe-b6fa-8394fb45944b`
+- **Production seed method:** `POST https://neuroquestzen.pro/api/enterprise/onboard-pilot` with `x-enterprise-key` header (returned the SQVU453X code)
+- **Dev re-seed script:** `psql "$DATABASE_URL" -f scripts/seed-apple-reviewer.sql`
 
 The mobile app uses email + invite_code (no traditional passwords). The "password" field in App Store Connect holds the invite code; this is documented in the App Review Notes.
