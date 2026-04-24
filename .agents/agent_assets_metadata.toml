@@ -168,3 +168,9 @@ id = "dYQ0zIGlmY4stPV53Ja58"
 uri = "file://enterprise-pilot-templates/03_Team_Announcement.md"
 type = "text"
 title = "Team Announcement (buyer sends to employees)"
+
+[[outputs]]
+id = "QhIdVKFFMphsoYgi_P5N1"
+uri = "file://enterprise-pilot-templates/11_Wearable_Setup_Handout.md"
+type = "text"
+title = "Wearable Setup — Employee Handout (one-pager)"
