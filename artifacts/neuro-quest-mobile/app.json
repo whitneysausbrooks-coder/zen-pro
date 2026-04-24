@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "Info.neuroquest.zenpro",
+      "bundleIdentifier": "pro.neuroquestzen.app",
       "buildNumber": "2",
       "infoPlist": {
         "NSHumanReadableCopyright": "© 2026 NeuroQuest LLC",
@@ -27,7 +27,7 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#070D09"
       },
-      "package": "app.replit.neuroquest"
+      "package": "pro.neuroquestzen.app"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
