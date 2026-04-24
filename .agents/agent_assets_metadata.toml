@@ -174,3 +174,9 @@ id = "QhIdVKFFMphsoYgi_P5N1"
 uri = "file://enterprise-pilot-templates/11_Wearable_Setup_Handout.md"
 type = "text"
 title = "Wearable Setup — Employee Handout (one-pager)"
+
+[[outputs]]
+id = "hCvm6qcMdu0ZLpdRSIdrV"
+uri = "file://exports/NeuroQuest_Apple_Review_Playbook.pdf"
+type = "pdf"
+title = "NeuroQuest — Fail-Proof Apple Review Playbook"
