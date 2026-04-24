@@ -308,12 +308,11 @@ h3("Non-Consumable (1 product)");
 kv([
   ["Reference Name", "Daily Pass"],
   ["Product ID", "pro.neuroquestzen.app.daypass"],
-  ["Price", "$4.99 USD  (Tier 5)"],
+  ["Price", "$5.99 USD  (Tier 6)"],
   ["Charity disclosure", "$1.50 donated to verified charity partners"],
   ["Localized display name", "Daily Pass"],
   ["Description", "24-hour access to all premium brain-training games and analytics. One-time purchase."],
 ]);
-muted("Note: code lists this as $5.00. Closest Apple tier is $4.99 (Tier 5). Use $4.99 in App Store Connect; the in-app label will round to $5 only if you also update the Shop screen.");
 
 h3("Consumables (3 products — Extra Spins)");
 kv([

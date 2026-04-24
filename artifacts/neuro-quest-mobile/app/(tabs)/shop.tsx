@@ -56,7 +56,7 @@ const PLANS = [
   {
     id: "daily",
     title: "Daily Pass",
-    price: "$5.00",
+    price: "$5.99",
     period: "/24 hours",
     badge: null,
     donationNote: "$1.50 donated per pass",
