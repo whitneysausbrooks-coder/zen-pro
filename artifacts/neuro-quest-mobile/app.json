@@ -45,8 +45,7 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "NeuroQuest reads your heart rate variability, sleep, and step data from Apple Health to compute your personal Neuro-Resilience Score. Your individual data is never visible to your employer.",
-          "NSHealthUpdateUsageDescription": "NeuroQuest does not write data back to Apple Health.",
+          "NSHealthShareUsageDescription": "NeuroQuest reads your Heart Rate Variability, Sleep Analysis, and Step Count from Apple Health when you open the app, so we can compute your personal Neuro Resilience Score. Your individual readings are only used to show your own score; anything shared with your employer is anonymized into aggregates of 5 or more employees, and your name is never attached.",
           "background": false
         }
       ]
