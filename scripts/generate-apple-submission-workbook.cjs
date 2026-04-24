@@ -282,13 +282,71 @@ muted("Computed result: 12+. Correct for a wellness app showing health metrics."
 doc.addPage();
 h2("4.2  Pricing and Availability");
 kv([
-  ["Price", "Free"],
-  ["Availability", "All countries and regions  (recommended for B2B pilots)"],
+  ["App Price", "Free  (download is free; revenue is via IAP and out-of-app B2B Stripe)"],
+  ["Availability", "All countries and regions"],
   ["Pre-Orders", "Off"],
   ["Volume Purchase Program (Education)", "Off"],
   ["Distribute on iPad", "Off  (app.json has supportsTablet: false)"],
 ]);
 
+h2("4.2.5  In-App Purchases — pricing & product setup");
+p("Create these five records under Monetization. The product IDs are prefixed with the bundle ID (pro.neuroquestzen.app) so they cannot collide with any other developer's products. All prices in USD; Apple auto-converts to local currency using the matched price tier.");
+
+h3("Auto-Renewable Subscription (1 product, in a subscription group named \"Zen Pro\")");
+kv([
+  ["Reference Name", "Zen Pro Monthly"],
+  ["Product ID", "pro.neuroquestzen.app.zenpro.monthly"],
+  ["Subscription Group", "Zen Pro"],
+  ["Duration", "1 Month"],
+  ["Price", "$9.99 USD  (Tier 10)"],
+  ["Charity disclosure", "$3.00 of every subscription is donated to verified charity partners"],
+  ["Localized display name", "Zen Pro Monthly"],
+  ["Description", "Unlimited access to all brain-training games, advanced resilience analytics, and priority HealthKit sync. Auto-renews monthly."],
+]);
+
+h3("Non-Consumable (1 product)");
+kv([
+  ["Reference Name", "Daily Pass"],
+  ["Product ID", "pro.neuroquestzen.app.daypass"],
+  ["Price", "$4.99 USD  (Tier 5)"],
+  ["Charity disclosure", "$1.50 donated to verified charity partners"],
+  ["Localized display name", "Daily Pass"],
+  ["Description", "24-hour access to all premium brain-training games and analytics. One-time purchase."],
+]);
+muted("Note: code lists this as $5.00. Closest Apple tier is $4.99 (Tier 5). Use $4.99 in App Store Connect; the in-app label will round to $5 only if you also update the Shop screen.");
+
+h3("Consumables (3 products — Extra Spins)");
+kv([
+  ["Reference Name", "5 Extra Spins"],
+  ["Product ID", "pro.neuroquestzen.app.spins.5"],
+  ["Price", "$0.99 USD  (Tier 1)"],
+  ["Charity disclosure", "$0.30 donated to verified charity partners"],
+  ["Description", "5 bonus spins for the Slot Machine training game."],
+]);
+kv([
+  ["Reference Name", "15 Extra Spins"],
+  ["Product ID", "pro.neuroquestzen.app.spins.15"],
+  ["Price", "$1.99 USD  (Tier 2)"],
+  ["Charity disclosure", "$0.60 donated to verified charity partners"],
+  ["Description", "15 bonus spins for the Slot Machine training game.  (Marked POPULAR in the Shop UI.)"],
+]);
+kv([
+  ["Reference Name", "50 Extra Spins"],
+  ["Product ID", "pro.neuroquestzen.app.spins.50"],
+  ["Price", "$4.99 USD  (Tier 5)"],
+  ["Charity disclosure", "$1.50 donated to verified charity partners"],
+  ["Description", "50 bonus spins for the Slot Machine training game.  (Marked BEST VALUE in the Shop UI.)"],
+]);
+
+h3("Submission flow");
+bullet([
+  "Submit all five IAP records for review with the v1.0.0 binary (not separately). Apple reviews them in the same pass.",
+  "For the subscription, attach a localized review screenshot showing the Zen Pro paywall modal in the Train tab.",
+  "Each consumable also needs a localized review screenshot of the Shop tab.",
+  "Charity disclosure language must appear visibly inside the app on every IAP CTA — already implemented in shop.tsx (donationNote field).",
+]);
+
+doc.addPage();
 h2("4.3  App Privacy  ⚠ MOST CRITICAL SECTION");
 p("Apple cross-references your declarations against your actual code. Mismatches cause rejection.");
 
@@ -360,7 +418,7 @@ codebox("© 2026 NeuroQuest LLC");
 
 doc.addPage();
 h2("4.5  Sign-In Required for Apple to Test  →  Yes");
-p("B2B apps must give the reviewer working credentials. These are live on production right now.");
+p("NeuroQuest is a hybrid app: individuals can use the free tier and purchase Zen Pro via IAP without any credentials, while enterprise users authenticate with a company invite code that bypasses the paywall. The credentials below test the enterprise flow and are live on production right now.");
 kv([
   ["User Name", "apple-review@neuroquestzen.pro"],
   ["Password", "SQVU453X  (this is the company invite code)"],
@@ -377,48 +435,8 @@ kv([
   ["Demo Account", "(email + invite code from above)"],
 ]);
 
-h3("Notes for Reviewer (paste verbatim — this saves more apps than any other field)");
-codebox(`Thank you for reviewing NeuroQuest Zen Pro.
-
-WHAT THIS APP DOES
-NeuroQuest is a B2B brain-training and wellness app distributed to enterprise pilot programs. End users are employees of customer companies (currently in pilot with Kaylee's Creatives and Bead'd) who receive a one-time invite code from their HR admin. There is no consumer signup or self-serve purchase path.
-
-We use email + invite_code rather than Sign in with Apple because the invite code is a first-party shared secret, not third-party social authentication. This is consistent with Guideline 4.8.
-
-HR administrators see anonymized, aggregated team trends only — never individual data, and only when 5 or more team members participate (k-anonymity threshold of 5).
-
-HOW TO TEST
-
-1) HOME, TRAIN, PLAY, RESILIENCE, SHOP, PROFILE TABS
-These do not require sign-in. Open the app, complete onboarding, then explore each tab.
-
-2) APPLE HEALTH SYNC (Wearable screen, accessed from Profile or Resilience tab)
-This requires the demo credentials provided above.
-- Tap "Save & verify"
-- Tap "Connect Apple Health" and grant permissions for HRV, Sleep, and Steps
-- Tap "Sync now"
-
-NOTE ON HEALTHKIT TESTING
-Real Neuro-Resilience Scores require an Apple Watch that has recorded HRV, Sleep, and Step data. The review device may have no recorded data, in which case the app will show "No health data found" with an Open Settings option — this is the documented graceful path. Our seeded demo account returns a sample score regardless of device data.
-
-HEALTHKIT DATA USAGE
-- Read-only: HKQuantityTypeIdentifierHeartRateVariabilitySDNN, HKCategoryTypeIdentifierSleepAnalysis, HKQuantityTypeIdentifierStepCount
-- Never written back to Apple Health
-- Sent to our server, encrypted in transit (HTTPS), stored encrypted at rest
-- Used only to compute the user's individual Neuro-Resilience Score
-- Aggregated for employer dashboards only when 5+ team members participate; individual data is never visible to employers
-
-PRIVACY POLICY
-Full HealthKit data handling is documented at: https://neuroquestzen.pro/privacy
-
-ACCOUNT DELETION
-Users can delete their account in-app under Profile → Delete Account, which permanently removes all health data and personal information from our servers.
-
-PAYMENT MODEL
-Companies pay $50 per seat per year directly to NeuroQuest via Stripe (B2B services exempt under guideline 3.1.3(b)). Employees never see a paywall in the app.
-
-CONTACT
-For any questions during review, please reach me at whitneysausbrooks@icloud.com or use the Contact App Review reply form. I will respond within 4 hours during US business hours.`);
+h3("Notes for Reviewer (paste verbatim into ASC → App Review Information → Notes — this saves more apps than any other field; 3,949 / 4,000 chars)");
+codebox(require("fs").readFileSync(require("path").join(__dirname, "..", "exports", "Apple_Reviewer_Notes.txt"), "utf8").trim());
 
 h3("Attachment");
 p("Upload the existing Fail-Proof Apple Review Playbook PDF as an attachment so the reviewer has the full context: exports/NeuroQuest_Apple_Review_Playbook.pdf");
