@@ -59,6 +59,15 @@ export default function PrivacyPage() {
             <p>We collect information you provide directly to us, such as when you create an account, participate in brain training exercises, make purchases, or contact us for support. This may include your name, email address, and usage data related to your training activities.</p>
           </Section>
 
+          <Section title="Apple HealthKit Data">
+            <p><strong>What we read.</strong> If you grant permission, NeuroQuest reads three specific data types from Apple Health: Heart Rate Variability (HRV), Sleep Analysis, and Step Count. We do not read any other HealthKit data type — no workouts, no heart rate, no body measurements, no medical records, no clinical data.</p>
+            <p><strong>What we do with it.</strong> Your HealthKit readings are used only to compute your personal Neuro Resilience Score, which is shown only to you in the app. Readings are transmitted to our servers over HTTPS, encrypted in transit and at rest, and used solely for your individual score and for fully-anonymized employer aggregates (see below).</p>
+            <p><strong>What we never do.</strong> We never write data back to Apple Health. We never use HealthKit data for advertising, marketing, or sharing with data brokers. We never derive your identity or location from HealthKit data. We do not share individual HealthKit data with your employer under any circumstances.</p>
+            <p><strong>Employer aggregates.</strong> If your employer is sponsoring your NeuroQuest pilot, they see anonymized, aggregated team trends only — and only when 5 or more teammates participate (k-anonymity threshold of 5). Your name and individual readings are never visible to your employer.</p>
+            <p><strong>Revoking access.</strong> You can revoke HealthKit access at any time in iOS Settings → Privacy &amp; Security → Health → NeuroQuest. You can also delete your account in-app under Profile → Delete Account, which permanently removes all HealthKit-derived data from our servers.</p>
+            <p><strong>HealthKit policy compliance.</strong> NeuroQuest's use of HealthKit data complies with Apple's HealthKit usage requirements. We do not use HealthKit data for purposes other than providing health and fitness services within the App.</p>
+          </Section>
+
           <Section title="Local Data Storage">
             <p>NeuroQuest stores your training progress, Neural Energy balance, streak data, gratitude entries, and preferences locally on your device using secure on-device storage. This data remains on your device and is not transmitted to external servers unless you explicitly choose to sync or share it.</p>
           </Section>

@@ -106,3 +106,13 @@ The monorepo leverages TypeScript composite projects with project references for
 -   **Stripe:** Payment gateway.
 -   **Clerk:** User authentication (SSO, Organizations, enterprise identity).
 -   **Web Push API (VAPID):** Push notifications.
+## Apple Reviewer Credentials (seeded April 2026)
+
+Dedicated reviewer account for App Store Connect. Seeded in the dev DB; production seed pending first deployment.
+
+- **User Name (email):** `apple-review@neuroquestzen.pro`
+- **Password (= invite code):** `APPL2026`
+- **Pilot company:** "Apple App Review", 10 seats, expires 2031
+- **Re-seed script:** `psql "$DATABASE_URL" -f scripts/seed-apple-reviewer.sql`
+
+The mobile app uses email + invite_code (no traditional passwords). The "password" field in App Store Connect holds the invite code; this is documented in the App Review Notes.

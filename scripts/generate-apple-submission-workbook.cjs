@@ -104,6 +104,21 @@ doc.y = 170;
 p("This workbook is the running record of what we changed in the codebase to prepare NeuroQuest Zen Pro for App Store review, plus every value you need to paste into App Store Connect. Use it alongside the Fail-Proof Apple Review Playbook.");
 muted(`Generated ${new Date().toLocaleString("en-US", { dateStyle: "long", timeStyle: "short" })}  ·  Bundle ID: pro.neuroquestzen.app  ·  ascAppId: 6763640852`);
 
+doc.moveDown(0.5);
+const boxY = doc.y;
+const boxX = doc.page.margins.left;
+const boxW = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+doc.fillColor("#fdf6e3").rect(boxX, boxY, boxW, 110).fill();
+doc.strokeColor(GOLD).lineWidth(1.5).rect(boxX, boxY, boxW, 110).stroke();
+doc.fillColor(NAVY).font("Helvetica-Bold").fontSize(12).text("APPLE REVIEWER CREDENTIALS", boxX + 14, boxY + 12);
+doc.fillColor(SLATE).font("Helvetica").fontSize(10).text("Paste these into App Store Connect → App Review Information → Sign-In Information.", boxX + 14, boxY + 30, { width: boxW - 28 });
+doc.fillColor(NAVY).font("Helvetica-Bold").fontSize(11).text("User Name:", boxX + 14, boxY + 58);
+doc.fillColor(SLATE).font("Courier-Bold").fontSize(11).text("apple-review@neuroquestzen.pro", boxX + 110, boxY + 58);
+doc.fillColor(NAVY).font("Helvetica-Bold").fontSize(11).text("Password:", boxX + 14, boxY + 78);
+doc.fillColor(SLATE).font("Courier-Bold").fontSize(11).text("APPL2026", boxX + 110, boxY + 78);
+doc.y = boxY + 120;
+doc.moveDown(0.4);
+
 // ============ SECTION 1 — PROGRESS ============
 h1("1. Pre-Flight Checklist Progress");
 p("Where we are in the 11-item playbook:");
