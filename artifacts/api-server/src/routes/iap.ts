@@ -9,21 +9,21 @@ const APPLE_VERIFY_PROD = "https://buy.itunes.apple.com/verifyReceipt";
 const APPLE_VERIFY_SANDBOX = "https://sandbox.itunes.apple.com/verifyReceipt";
 
 const KNOWN_PRODUCTS = new Set([
-  "com.neuroquest.pro.monthly",
-  "com.neuroquest.daypass",
-  "com.neuroquest.spins.5",
-  "com.neuroquest.spins.15",
-  "com.neuroquest.spins.50",
+  "pro.neuroquestzen.app.zenpro.monthly",
+  "pro.neuroquestzen.app.daypass",
+  "pro.neuroquestzen.app.spins.5",
+  "pro.neuroquestzen.app.spins.15",
+  "pro.neuroquestzen.app.spins.50",
 ]);
 
 const CONSUMABLES: Record<string, number> = {
-  "com.neuroquest.spins.5": 5,
-  "com.neuroquest.spins.15": 15,
-  "com.neuroquest.spins.50": 50,
+  "pro.neuroquestzen.app.spins.5": 5,
+  "pro.neuroquestzen.app.spins.15": 15,
+  "pro.neuroquestzen.app.spins.50": 50,
 };
 
-const SUBSCRIPTIONS = new Set(["com.neuroquest.pro.monthly"]);
-const NON_CONSUMABLES = new Set(["com.neuroquest.daypass"]);
+const SUBSCRIPTIONS = new Set(["pro.neuroquestzen.app.zenpro.monthly"]);
+const NON_CONSUMABLES = new Set(["pro.neuroquestzen.app.daypass"]);
 
 function requireUserId(req: any, res: any): string | null {
   const auth = getAuth(req);
@@ -239,7 +239,7 @@ router.get("/iap/entitlements", async (req, res) => {
     entitlements: ents.rows,
     spin_balance: spins.rows[0]?.balance || 0,
     pro_active: ents.rows.some(
-      (r: any) => r.product_id === "com.neuroquest.pro.monthly" && r.status === "active",
+      (r: any) => r.product_id === "pro.neuroquestzen.app.zenpro.monthly" && r.status === "active",
     ),
   });
 });

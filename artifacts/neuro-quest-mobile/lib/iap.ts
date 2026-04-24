@@ -9,12 +9,12 @@ import {
 } from "expo-iap";
 
 export const PRODUCT_IDS = {
-  subscriptions: ["com.neuroquest.pro.monthly"],
-  nonConsumables: ["com.neuroquest.daypass"],
+  subscriptions: ["pro.neuroquestzen.app.zenpro.monthly"],
+  nonConsumables: ["pro.neuroquestzen.app.daypass"],
   consumables: [
-    "com.neuroquest.spins.5",
-    "com.neuroquest.spins.15",
-    "com.neuroquest.spins.50",
+    "pro.neuroquestzen.app.spins.5",
+    "pro.neuroquestzen.app.spins.15",
+    "pro.neuroquestzen.app.spins.50",
   ],
 };
 

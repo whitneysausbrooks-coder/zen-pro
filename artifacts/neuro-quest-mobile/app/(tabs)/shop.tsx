@@ -24,11 +24,11 @@ import {
 } from "@/lib/iap";
 
 const PRODUCT_MAP: Record<string, string> = {
-  pro: "com.neuroquest.pro.monthly",
-  daily: "com.neuroquest.daypass",
-  "spins-5": "com.neuroquest.spins.5",
-  "spins-15": "com.neuroquest.spins.15",
-  "spins-50": "com.neuroquest.spins.50",
+  pro: "pro.neuroquestzen.app.zenpro.monthly",
+  daily: "pro.neuroquestzen.app.daypass",
+  "spins-5": "pro.neuroquestzen.app.spins.5",
+  "spins-15": "pro.neuroquestzen.app.spins.15",
+  "spins-50": "pro.neuroquestzen.app.spins.50",
 };
 
 const nd = Platform.OS !== "web";
