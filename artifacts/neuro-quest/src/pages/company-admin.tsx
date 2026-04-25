@@ -3,7 +3,7 @@ import { motion } from "framer-motion"
 import {
   Building2, LogOut, Loader2, Users, Calendar, Activity, Mail,
   Trash2, Copy, CheckCircle2, AlertCircle, ShieldAlert, TrendingUp,
-  HeartPulse, Watch, Moon, Footprints, Wifi, WifiOff,
+  HeartPulse, Watch, Moon, Footprints, Wifi, WifiOff, UserPlus,
 } from "lucide-react"
 import { GlassCard, GlassCardContent } from "@/components/ui/glass-card"
 import { LuxuryButton } from "@/components/ui/luxury-button"
@@ -214,6 +214,37 @@ export default function CompanyAdminPage() {
     setToken(""); setMe(null); setTeam([]); setWellness(null)
   }
 
+  const handleAdd = async (email: string, department: string) => {
+    const trimmed = email.trim().toLowerCase()
+    if (!trimmed || !/^\S+@\S+\.\S+$/.test(trimmed)) {
+      toast({ title: "Invalid email", description: "Please enter a valid email address.", variant: "destructive" })
+      return false
+    }
+    try {
+      const res = await fetch(`${BASE}/api/company-admin/team`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed, department: department.trim() || undefined }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast({ title: "Couldn't add member", description: d?.error || "Please try again.", variant: "destructive" })
+        return false
+      }
+      toast({
+        title: d.already_member ? "Already on your team" : "Member added",
+        description: d.already_member
+          ? `${trimmed} is already on the roster.`
+          : `${trimmed} can now sign in and unlock premium features.`,
+      })
+      loadAll()
+      return true
+    } catch (err) {
+      toast({ title: "Network error", description: String(err), variant: "destructive" })
+      return false
+    }
+  }
+
   const handleRemove = async (userId: string, email: string) => {
     if (!confirm(`Remove ${email} from your team? They will lose access.`)) return
     try {
@@ -410,13 +441,18 @@ export default function CompanyAdminPage() {
 
         {/* Team Roster */}
         {tab === "team" && (
-          <GlassCard><GlassCardContent className="p-0">
+          <div className="space-y-4">
+            <AddMemberCard
+              seatsRemaining={me.seats_total - me.seats_used}
+              onAdd={handleAdd}
+            />
+            <GlassCard><GlassCardContent className="p-0">
             {team.length === 0 ? (
               <div className="p-12 text-center">
                 <Users className="w-12 h-12 text-white/30 mx-auto mb-3" />
                 <p className="text-white/70">No employees have joined yet.</p>
                 <p className="text-white/50 text-sm mt-2">
-                  Share invite code <span className="font-mono text-[#FFD700]">{me.invite_code}</span> with your team.
+                  Add a teammate above, or share invite code <span className="font-mono text-[#FFD700]">{me.invite_code}</span> with your team.
                 </p>
               </div>
             ) : (
@@ -453,6 +489,7 @@ export default function CompanyAdminPage() {
               </div>
             )}
           </GlassCardContent></GlassCard>
+          </div>
         )}
 
         {/* Wellness */}
@@ -736,5 +773,73 @@ export default function CompanyAdminPage() {
         )}
       </div>
     </div>
+  )
+}
+
+function AddMemberCard({
+  seatsRemaining,
+  onAdd,
+}: {
+  seatsRemaining: number
+  onAdd: (email: string, department: string) => Promise<boolean>
+}) {
+  const [email, setEmail] = useState("")
+  const [department, setDepartment] = useState("")
+  const [busy, setBusy] = useState(false)
+  const noSeats = seatsRemaining <= 0
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (busy || !email.trim()) return
+    setBusy(true)
+    const ok = await onAdd(email, department)
+    setBusy(false)
+    if (ok) {
+      setEmail("")
+      setDepartment("")
+    }
+  }
+
+  return (
+    <GlassCard>
+      <GlassCardContent className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <UserPlus className="w-5 h-5 text-[#FFD700]" />
+            <p className="text-white/90 font-semibold">Add team member</p>
+          </div>
+          <p className="text-xs text-white/50">
+            {noSeats
+              ? "All seats used — add seats in billing"
+              : `${seatsRemaining} seat${seatsRemaining === 1 ? "" : "s"} available`}
+          </p>
+        </div>
+        <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-[1fr_200px_auto] gap-3">
+          <input
+            type="email"
+            required
+            placeholder="teammate@company.com"
+            value={email}
+            disabled={busy || noSeats}
+            onChange={(e) => setEmail(e.target.value)}
+            className="px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-[#FFD700] disabled:opacity-50"
+          />
+          <input
+            type="text"
+            placeholder="Department (optional)"
+            value={department}
+            disabled={busy || noSeats}
+            onChange={(e) => setDepartment(e.target.value)}
+            className="px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-[#FFD700] disabled:opacity-50"
+          />
+          <LuxuryButton type="submit" disabled={busy || noSeats || !email.trim()}>
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add"}
+          </LuxuryButton>
+        </form>
+        <p className="text-xs text-white/50 mt-3">
+          They'll automatically unlock premium features the next time they sign in with this email.
+        </p>
+      </GlassCardContent>
+    </GlassCard>
   )
 }

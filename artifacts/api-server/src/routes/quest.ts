@@ -15,6 +15,7 @@ import {
 import { eq, desc, and, gte, count, sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { randomUUID } from "crypto";
+import { resolveClerkIdentity } from "../lib/clerkUser";
 
 async function getRaidMultiplier(): Promise<number> {
   try {
@@ -337,9 +338,7 @@ router.get("/access-status", async (req, res) => {
   // Enterprise pilot grant: any signed-in member of an active pilot/paid company
   // gets full premium access for the duration of the pilot/subscription.
   try {
-    const auth = getAuth(req);
-    const clerkId = (auth?.sessionClaims?.userId as string | undefined) || auth?.userId;
-    const email = ((auth?.sessionClaims as any)?.email as string | undefined)?.toLowerCase() || null;
+    const { clerkId, email } = await resolveClerkIdentity(req);
     if (clerkId || email) {
       const r: any = await db.execute(sql`
         SELECT 1

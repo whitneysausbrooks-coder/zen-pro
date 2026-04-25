@@ -248,14 +248,18 @@ router.post("/stripe-enterprise/update-seats", requireBillingRole, async (req, r
   const schema = z.object({
     company_id: z.string().uuid(),
     new_employee_count: z.number().int().min(1).max(10000),
-    proration_behavior: z.enum(["create_prorations", "none", "always_invoice"]).default("create_prorations"),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
+  // Mid-month seat changes MUST credit/charge customers immediately so we
+  // can pass the Series A audit. Force `create_prorations` server-side
+  // regardless of any caller-supplied value to prevent silent under-billing.
+  const proration_behavior = "create_prorations" as const;
+
   try {
     const stripe = getStripeClient();
-    const { company_id, new_employee_count, proration_behavior } = parsed.data;
+    const { company_id, new_employee_count } = parsed.data;
 
     const companyResult = await query(
       `SELECT stripe_customer_id, seat_count FROM companies WHERE id = $1`,

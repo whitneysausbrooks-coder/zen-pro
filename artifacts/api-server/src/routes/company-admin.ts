@@ -1,7 +1,20 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { z } from "zod";
 import { createHmac, timingSafeEqual } from "crypto";
-import { query, auditLog } from "../lib/db";
+import { query, auditLog, withTransaction } from "../lib/db";
+import { checkSeatAvailability } from "../lib/seatEnforcement";
+
+/** Sentinel error so withTransaction rolls back business-rule failures. */
+class AddMemberError extends Error {
+  status: number;
+  extra: Record<string, unknown>;
+  constructor(status: number, message: string, extra: Record<string, unknown> = {}) {
+    super(message);
+    this.name = "AddMemberError";
+    this.status = status;
+    this.extra = extra;
+  }
+}
 
 const router: IRouter = Router();
 
@@ -438,6 +451,123 @@ router.get("/company-admin/wearable-engagement", requireCompanyAdmin, async (req
   } catch (err: any) {
     console.error("company-admin wearable-engagement error:", err.message);
     return res.status(500).json({ error: "Failed to load wearable engagement" });
+  }
+});
+
+/**
+ * Add a teammate by email. Idempotent (re-adding the same email is a no-op
+ * but reports success so admin UX stays simple). Respects the company's
+ * seat cap, and logs the action for auditing.
+ */
+router.post("/company-admin/team", requireCompanyAdmin, async (req, res) => {
+  const companyId = (req as Request & { companyId?: string }).companyId!;
+  const adminEmail = (req as Request & { adminEmail?: string }).adminEmail!;
+  const schema = z.object({
+    email: z.string().email().max(255),
+    department: z.string().max(100).optional(),
+    role: z.enum(["employee", "manager"]).default("employee"),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Please enter a valid email address." });
+  }
+  const email = parsed.data.email.trim().toLowerCase();
+  try {
+    // Belongs to another company? (read outside the txn — purely informational)
+    const other = await query(
+      `SELECT eu.id, c.name AS company_name
+         FROM enterprise_users eu
+         JOIN companies c ON c.id = eu.company_id
+        WHERE eu.email = $1 AND eu.company_id <> $2 LIMIT 1`,
+      [email, companyId],
+    );
+    if (other.rows.length > 0) {
+      return res.status(409).json({
+        error: `${email} is already a member of ${other.rows[0].company_name}. Ask them to leave that company first.`,
+      });
+    }
+
+    // Atomic seat-cap enforcement: take a row lock on the company row so
+    // two concurrent admins can't each pass the seat check and overflow
+    // the cap (TOCTOU). Re-check after lock, then insert in the same txn.
+    // Business-rule failures THROW so withTransaction rolls the txn back;
+    // they're caught below and translated into HTTP responses.
+    type AddResult =
+      | { kind: "ok"; user_id: string }
+      | { kind: "already"; user_id: string };
+    const result: AddResult = await withTransaction(async (client) => {
+      const companyRow = await client.query(
+        `SELECT subscription_status, seat_count, seat_cap, suspended_at
+           FROM companies
+          WHERE id = $1
+          FOR UPDATE`,
+        [companyId],
+      );
+      if (companyRow.rows.length === 0) {
+        throw new AddMemberError(404, "Company not found.");
+      }
+      const company = companyRow.rows[0];
+      if (company.suspended_at) {
+        throw new AddMemberError(
+          403,
+          "Account suspended due to payment failure. Please update billing.",
+        );
+      }
+      if (
+        company.subscription_status !== "active" &&
+        company.subscription_status !== "trialing"
+      ) {
+        throw new AddMemberError(
+          403,
+          "No active subscription. Please subscribe to add team members.",
+        );
+      }
+
+      // Idempotent: if the email is already on this company, succeed.
+      const existing = await client.query(
+        `SELECT id FROM enterprise_users WHERE email = $1 AND company_id = $2`,
+        [email, companyId],
+      );
+      if (existing.rows.length > 0) {
+        return { kind: "already", user_id: existing.rows[0].id };
+      }
+
+      const countRow = await client.query(
+        `SELECT COUNT(*)::int AS count FROM enterprise_users WHERE company_id = $1`,
+        [companyId],
+      );
+      const currentEmployees = countRow.rows[0].count as number;
+      const seatLimit = Math.min(company.seat_count || 0, company.seat_cap || 10000);
+      if (currentEmployees >= seatLimit) {
+        throw new AddMemberError(
+          403,
+          `You've used all ${seatLimit} seats. Add more seats in billing or remove a member first.`,
+          { seats_used: currentEmployees, seats_total: seatLimit },
+        );
+      }
+
+      const insert = await client.query(
+        `INSERT INTO enterprise_users (email, company_id, role, department)
+           VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [email, companyId, parsed.data.role, parsed.data.department || null],
+      );
+      return { kind: "ok", user_id: insert.rows[0].id };
+    });
+
+    if (result.kind === "already") {
+      return res.json({ success: true, already_member: true, user_id: result.user_id });
+    }
+    await auditLog(result.user_id, "company_admin_added_employee", "enterprise_users", {
+      company_id: companyId, email, added_by: adminEmail,
+    });
+    return res.json({ success: true, user_id: result.user_id });
+  } catch (err: any) {
+    if (err instanceof AddMemberError) {
+      return res.status(err.status).json({ error: err.message, ...err.extra });
+    }
+    console.error("company-admin add error:", err.message);
+    return res.status(500).json({ error: "Failed to add team member." });
   }
 });
 

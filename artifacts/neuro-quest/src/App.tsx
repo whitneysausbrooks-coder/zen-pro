@@ -16,6 +16,8 @@ import Sponsor from "@/pages/sponsor";
 import AdminPanel from "@/pages/admin";
 import AdminDashboard from "@/pages/admin-dashboard";
 import Onboarding from "@/pages/onboarding";
+import WearableSetup from "@/pages/wearable-setup";
+import { BootstrapGate } from "@/components/bootstrap-gate";
 import JoinPage from "@/pages/join";
 import CompanyAdminPage from "@/pages/company-admin";
 import Blackjack from "@/pages/blackjack";
@@ -112,16 +114,12 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
-function HomeRedirect() {
-  const [location, navigate] = useLocation();
-
-  useEffect(() => {
-    if (!localStorage.getItem("nq_onboarding_done") && location === "/") {
-      navigate("/onboarding");
-    }
-  }, []);
-
-  return <Dashboard />;
+function HomeGated() {
+  return (
+    <BootstrapGate>
+      <Dashboard />
+    </BootstrapGate>
+  );
 }
 
 function AppRoutes() {
@@ -138,8 +136,9 @@ function AppRoutes() {
         transition={pageTransition.transition}
       >
         <Switch location={location}>
-          <Route path="/"            component={HomeRedirect} />
+          <Route path="/"            component={HomeGated} />
           <Route path="/onboarding"  component={Onboarding} />
+          <Route path="/wearable-setup" component={WearableSetup} />
           <Route path="/join"        component={JoinPage} />
           <Route path="/sign-in/*?"  component={SignInPage} />
           <Route path="/sign-up/*?"  component={SignUpPage} />

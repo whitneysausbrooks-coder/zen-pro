@@ -97,12 +97,23 @@ function SplashStep({ onNext }: { onNext: () => void }) {
 function FocusTestStep({ onComplete }: { onComplete: (score: number, responseMs: number[]) => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [dotPos, setDotPos] = useState({ x: 50, y: 50 }) // percent
-  const [hits, setHits] = useState(0)
   const [timeLeft, setTimeLeft] = useState(FOCUS_DURATION)
   const [started, setStarted] = useState(false)
-  const [responses, setResponses] = useState<number[]>([])
+  // Score & responses are tracked in refs so that recording a tap does NOT
+  // re-run the countdown effect (which would reset the 1-second interval and
+  // make the test run far longer than 30 seconds).
+  const hitsRef = useRef(0)
+  const responsesRef = useRef<number[]>([])
+  const [hitsDisplay, setHitsDisplay] = useState(0)
   const dotAppearRef = useRef<number>(Date.now())
   const moveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const completedRef = useRef(false)
+  const startedAtRef = useRef<number>(0)
+
+  // Dot movement uses the live `timeLeft` value via a ref to avoid recreating
+  // the moveDot closure each tick.
+  const timeLeftRef = useRef(timeLeft)
+  useEffect(() => { timeLeftRef.current = timeLeft }, [timeLeft])
 
   const moveDot = useCallback(() => {
     const padding = 15
@@ -110,36 +121,51 @@ function FocusTestStep({ onComplete }: { onComplete: (score: number, responseMs:
     const y = padding + Math.random() * (100 - padding * 2)
     setDotPos({ x, y })
     dotAppearRef.current = Date.now()
-    // Decrease interval as time decreases (harder)
-    const remaining = timeLeft
+    const remaining = timeLeftRef.current
     const interval = Math.max(600, 1400 - (FOCUS_DURATION - remaining) * 28)
     moveRef.current = setTimeout(moveDot, interval)
-  }, [timeLeft])
+  }, [])
 
-  // Countdown timer
+  // Single, stable countdown — depends only on `started` so taps don't reset it.
+  // Uses wall-clock time (Date.now) so that any background-tab throttling or
+  // requestAnimationFrame jitter cannot lengthen the test beyond 30 seconds.
   useEffect(() => {
     if (!started) return
-    if (timeLeft <= 0) {
-      onComplete(hits, responses)
-      return
+    completedRef.current = false
+    startedAtRef.current = Date.now()
+    const tick = () => {
+      const elapsedMs = Date.now() - startedAtRef.current
+      const remaining = Math.max(0, FOCUS_DURATION - Math.floor(elapsedMs / 1000))
+      setTimeLeft(remaining)
+      if (remaining <= 0 && !completedRef.current) {
+        completedRef.current = true
+        clearInterval(t)
+        if (moveRef.current) clearTimeout(moveRef.current)
+        // Fire completion exactly once with the latest tally.
+        onComplete(hitsRef.current, responsesRef.current.slice())
+      }
     }
-    const t = setInterval(() => setTimeLeft(s => s - 1), 1000)
-    return () => clearInterval(t)
-  }, [started, timeLeft, hits, onComplete, responses])
+    const t = setInterval(tick, 250)
+    return () => {
+      clearInterval(t)
+      if (moveRef.current) clearTimeout(moveRef.current)
+    }
+  }, [started, onComplete])
 
-  // Dot movement
+  // Dot movement loop
   useEffect(() => {
-    if (!started || timeLeft <= 0) return
+    if (!started) return
     moveRef.current = setTimeout(moveDot, 1200)
     return () => { if (moveRef.current) clearTimeout(moveRef.current) }
-  }, [started])
+  }, [started, moveDot])
 
   const handleDotClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!started) return
+    if (!started || completedRef.current) return
     const ms = Date.now() - dotAppearRef.current
-    setHits(h => h + 1)
-    setResponses(r => [...r, ms])
+    hitsRef.current += 1
+    responsesRef.current.push(ms)
+    setHitsDisplay(hitsRef.current)
     if (moveRef.current) clearTimeout(moveRef.current)
     moveDot()
   }
@@ -173,7 +199,7 @@ function FocusTestStep({ onComplete }: { onComplete: (score: number, responseMs:
         </div>
         <div className="flex justify-between text-xs text-muted-foreground mb-6">
           <span>{timeLeft}s left</span>
-          <span className="font-bold text-primary tabular-nums">{hits} hits</span>
+          <span className="font-bold text-primary tabular-nums">{hitsDisplay} hits</span>
         </div>
 
         {/* Focus arena */}
@@ -241,7 +267,7 @@ function ResultsStep({ score, responseMs }: { score: number; responseMs: number[
       })
       setAwarded(true)
     } catch {}
-    localStorage.setItem("nq_onboarding_done", "true")
+    localStorage.setItem("nq_onboarding_done", "1")
     navigate("/")
   }
 
