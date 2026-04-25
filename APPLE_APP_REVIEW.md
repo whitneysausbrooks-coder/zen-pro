@@ -145,25 +145,91 @@ In **App Store Connect → App Privacy**, declare the following:
 
 ---
 
-## Subscription Details (paste into Subscription product page)
+## In-App Purchases — Complete Catalog
+
+NQ Zen Pro ships **five** IAP products. All five must be created in App Store Connect → In-App Purchases and submitted **with the same build** that's submitted for review (Apple reviews IAP and the binary together).
+
+### 1. Auto-Renewing Subscription
 
 | Field | Value |
 |---|---|
 | Reference Name | Zen Pro Monthly |
 | Product ID | `pro.neuroquestzen.app.zenpro.monthly` |
-| Subscription Group | Zen Pro |
-| Duration | 1 Month, Auto-Renewable |
-| Price | $9.99 USD (Tier 10) |
-| Free Trial | None |
+| Type | Auto-Renewable Subscription |
+| Subscription Group | **Zen Pro** (create this group first) |
+| Duration | 1 Month |
+| Price | **$9.99 USD** (Tier 10) |
+| Free Trial / Intro Offer | None |
+| Family Sharing | Off (recommended) |
 
 **Localized Display Name:** Zen Pro Monthly
 **Localized Description:**
 > Unlock unlimited cognitive games, advanced Neuro Resilience Score insights, daily personalized training plans, and priority access to new brain-training content. Subscription auto-renews monthly at $9.99 USD until cancelled in your Apple ID Settings.
 
-**Required EULA-style disclosure shown in-app on the paywall:**
-> Payment will be charged to your Apple ID account at confirmation of purchase. Subscription automatically renews unless it is cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage and cancel your subscriptions by going to your Apple ID account settings after purchase.
+### 2. Non-Consumable
 
-(This text is required by Guideline 3.1.2 and must be visible on the same screen as the Subscribe button.)
+| Field | Value |
+|---|---|
+| Reference Name | NeuroQuest Day Pass |
+| Product ID | `pro.neuroquestzen.app.daypass` |
+| Type | Non-Consumable |
+| Price | **$5.99 USD** (Tier 6) |
+
+**Localized Display Name:** NeuroQuest Day Pass
+**Localized Description:**
+> 24-hour all-access pass: unlimited daily spins, all premium games, and full Neuro Resilience analytics. One-time purchase — no subscription.
+
+### 3–5. Consumables (Spin Packs)
+
+| Reference Name | Product ID | Type | Price |
+|---|---|---|---|
+| Spin Pack — 5 | `pro.neuroquestzen.app.spins.5` | Consumable | **$0.99 USD** (Tier 1) |
+| Spin Pack — 15 | `pro.neuroquestzen.app.spins.15` | Consumable | **$1.99 USD** (Tier 2) |
+| Spin Pack — 50 | `pro.neuroquestzen.app.spins.50` | Consumable | **$4.99 USD** (Tier 5) |
+
+**Localized Display Names:** "5 Bonus Spins", "15 Bonus Spins", "50 Bonus Spins"
+**Localized Description (template):**
+> Adds {N} bonus spins to your account that never expire. Spins are used in the Compassion Wheel and Lucky Wheel mini-games. A portion of each purchase supports the World Hunger Relief Fund.
+
+### Required EULA-Style Disclosure on the Paywall (Guideline 3.1.2)
+
+The Zen Pro paywall in-app already shows this text immediately above the Subscribe button (verified in `app/(tabs)/shop.tsx` line 150):
+
+> Payment will be processed securely through the App Store. Subscriptions auto-renew unless cancelled at least 24 hours before the end of the current period. You can manage and cancel your subscriptions by going to your Apple ID account settings after purchase.
+
+The paywall also links to the Privacy Policy (https://neuroquestzen.pro/privacy) and Terms of Use / EULA (https://neuroquestzen.pro/terms) as required.
+
+---
+
+## How the Reviewer Tests IAP
+
+The reviewer's pre-provisioned account has **enterprise premium access**, so gated content is testable without a purchase. To test the IAP plumbing itself, do **one** of the following:
+
+**Option A — Sandbox account (preferred, no real charge):**
+1. On the test device, go to Settings → App Store → **Sandbox Account** and sign in with the Sandbox tester credentials Apple provides.
+2. Open NQ Zen Pro → Shop tab → tap any product. Sandbox prices show "$0.00" and no real money is charged.
+
+**Option B — Use the reviewer account directly:**
+1. Sign in with `apple-review@neuroquestzen.pro`.
+2. Tap Shop → Subscribe / Buy. The Apple sandbox sheet appears (no real charge in Apple's review environment).
+3. After purchase, tap **Restore Purchases** at the bottom of the Shop tab to confirm restore works (Guideline 3.1.1).
+
+**What happens server-side:**
+Each purchase posts the receipt to `POST /api/iap/validate`, which verifies the receipt against Apple's verifyReceipt service, records the entitlement in the user's `user_profiles` row, and returns `{ ok, entitlement }`. Restores hit `POST /api/iap/restore` and re-validate the latest receipt. Entitlement reads come from `GET /api/iap/entitlements`.
+
+---
+
+## IAP Submission Checklist (App Store Connect)
+
+Apple rejects builds where the IAP products aren't ready for review. Before you submit:
+
+- [ ] Create the **Zen Pro** subscription group.
+- [ ] Create all 5 product records with the **exact** product IDs above.
+- [ ] For each product, fill in: reference name, localized display name, localized description, price tier, and at least one **screenshot** of where the product appears in-app (Apple requires this — use a screenshot of the Shop tab for each).
+- [ ] Set each product's status to **"Ready to Submit"**.
+- [ ] On the version submission page, scroll to the **In-App Purchases** section and **attach all 5 products to this version**. (Easy to miss — if you skip this, Apple reviews the binary without the IAP and you'll get a rejection asking why the Subscribe button doesn't work.)
+- [ ] Add **App-Specific Shared Secret** (App Store Connect → Users and Access → Integrations → App-Specific Shared Secret) and confirm it matches the `APPLE_IAP_SHARED_SECRET` env var on your server. (Already set ✅)
+- [ ] Submit the binary and the IAP products together as one review submission.
 
 ---
 
