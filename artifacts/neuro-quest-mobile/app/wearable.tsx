@@ -29,8 +29,11 @@ import {
   requestHealthPermissions,
   readLatestMetrics,
   syncToServer,
+  syncManualMetrics,
+  getLoginMode,
   openAppSettings,
   type WearableMetrics,
+  type LoginMode,
 } from "@/lib/health";
 
 function fmtSync(iso: string | null): string {
@@ -55,19 +58,39 @@ export default function WearableScreen() {
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [classification, setClassification] = useState<string | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualHrv, setManualHrv] = useState("");
+  const [manualSleep, setManualSleep] = useState("");
+  const [manualSteps, setManualSteps] = useState("");
+  const [manualBusy, setManualBusy] = useState(false);
+  const [loginMode, setLoginModeState] = useState<LoginMode | null>(null);
 
   useEffect(() => {
     (async () => {
-      const [storedEmail, storedCode] = await Promise.all([
+      const [storedEmail, storedCode, mode] = await Promise.all([
         getStoredEmail(),
         getStoredInviteCode(),
+        getLoginMode(),
       ]);
-      if (storedEmail) setEmail(storedEmail);
-      if (storedCode) setInviteCode(storedCode);
-      if (storedEmail && storedCode) setCredsSaved(true);
+      setLoginModeState(mode);
+      // Only treat creds as "saved" when the user is in enterprise mode AND
+      // both pieces are present. Prevents stale creds on a shared device
+      // from auto-syncing under a previous identity.
+      if (mode === "enterprise" && storedEmail) setEmail(storedEmail);
+      if (mode === "enterprise" && storedCode) setInviteCode(storedCode);
+      if (mode === "enterprise" && storedEmail && storedCode) setCredsSaved(true);
       setLastSync(await getLastSyncAt());
     })();
   }, []);
+
+  const blockedIfNotEnterprise = useCallback((): boolean => {
+    if (loginMode === "enterprise") return false;
+    Alert.alert(
+      "Sign in required",
+      "Sign in as a pilot member from your Profile to sync to your team baseline. Manual entry without sign-in stays on this device only.",
+    );
+    return true;
+  }, [loginMode]);
 
   const onSaveCreds = useCallback(async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -118,7 +141,54 @@ export default function WearableScreen() {
     setBusy(false);
   }, []);
 
+  const onSubmitManual = useCallback(async () => {
+    // Manual entry is allowed for everyone — the lib gracefully saves
+    // locally for non-enterprise users (no server sync) and pushes to the
+    // pilot baseline for enterprise users with valid creds.
+    const hrvNum = manualHrv.trim() ? Number(manualHrv.trim()) : null;
+    const sleepNum = manualSleep.trim() ? Number(manualSleep.trim()) : null;
+    const stepsNum = manualSteps.trim() ? Number(manualSteps.trim()) : null;
+    if (hrvNum == null && sleepNum == null && stepsNum == null) {
+      Alert.alert("Nothing to save", "Enter at least one of HRV, sleep, or steps.");
+      return;
+    }
+    if (
+      (hrvNum != null && (!Number.isFinite(hrvNum) || hrvNum < 0 || hrvNum > 300)) ||
+      (sleepNum != null && (!Number.isFinite(sleepNum) || sleepNum < 0 || sleepNum > 24)) ||
+      (stepsNum != null && (!Number.isFinite(stepsNum) || stepsNum < 0 || stepsNum > 200000))
+    ) {
+      Alert.alert(
+        "Check your numbers",
+        "HRV must be 0-300 ms, sleep 0-24 h, steps 0-200,000.",
+      );
+      return;
+    }
+    setManualBusy(true);
+    try {
+      const result = await syncManualMetrics(email, inviteCode, {
+        hrv: hrvNum,
+        sleep_hours: sleepNum,
+        steps: stepsNum != null ? Math.round(stepsNum) : null,
+      });
+      if (!result.success) {
+        Alert.alert("Couldn't save", result.message || "Unknown error");
+        return;
+      }
+      setScore(result.neuro_resilience_score ?? null);
+      setClassification(result.classification ?? null);
+      setLastSync(new Date().toISOString());
+      setManualHrv("");
+      setManualSleep("");
+      setManualSteps("");
+      setManualOpen(false);
+      if (Platform.OS === "ios") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } finally {
+      setManualBusy(false);
+    }
+  }, [email, inviteCode, manualHrv, manualSleep, manualSteps]);
+
   const onSync = useCallback(async () => {
+    if (blockedIfNotEnterprise()) return;
     if (!credsSaved) {
       Alert.alert(
         "Confirm your email and code first",
@@ -308,7 +378,86 @@ export default function WearableScreen() {
               <Text style={styles.scoreLabel}>Your Neuro-Resilience Score</Text>
               <Text style={styles.scoreValue}>{score}</Text>
               {classification ? <Text style={styles.scoreClass}>{classification.toUpperCase()}</Text> : null}
+              <View style={styles.aiBadge}>
+                <Feather name="cpu" size={13} color="#FFCD63" />
+                <Text style={styles.aiBadgeText}>AI baseline learning from your data</Text>
+              </View>
             </View>
+          ) : null}
+        </GlassCard>
+
+        <GlassCard style={styles.card}>
+          <Pressable
+            onPress={() => setManualOpen((v) => !v)}
+            style={styles.manualToggleRow}
+            accessibilityRole="button"
+            accessibilityLabel={manualOpen ? "Hide manual entry" : "Show manual entry"}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionLabel}>Or enter manually</Text>
+              <Text style={styles.cardSub}>
+                No wearable? Type in your numbers — works on every device.
+              </Text>
+            </View>
+            <Feather
+              name={manualOpen ? "chevron-up" : "chevron-down"}
+              size={22}
+              color={Colors.white}
+            />
+          </Pressable>
+
+          {manualOpen ? (
+            <>
+              <View style={{ height: 8 }} />
+              <Text style={styles.manualLabel}>HRV (ms)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 45"
+                placeholderTextColor="#7280A0"
+                keyboardType="decimal-pad"
+                value={manualHrv}
+                onChangeText={setManualHrv}
+                accessibilityLabel="HRV in milliseconds"
+              />
+              <Text style={[styles.manualLabel, { marginTop: 10 }]}>Sleep (hours)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 7.5"
+                placeholderTextColor="#7280A0"
+                keyboardType="decimal-pad"
+                value={manualSleep}
+                onChangeText={setManualSleep}
+                accessibilityLabel="Sleep duration in hours"
+              />
+              <Text style={[styles.manualLabel, { marginTop: 10 }]}>Steps today</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 8200"
+                placeholderTextColor="#7280A0"
+                keyboardType="number-pad"
+                value={manualSteps}
+                onChangeText={setManualSteps}
+                accessibilityLabel="Steps today"
+              />
+              <Pressable
+                onPress={onSubmitManual}
+                disabled={manualBusy}
+                style={[
+                  styles.primaryBtn,
+                  { marginTop: 12 },
+                  manualBusy && styles.btnDisabled,
+                ]}
+              >
+                {manualBusy ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Feather name="save" size={16} color="#fff" />
+                    <Text style={styles.primaryBtnText}>Save manual entry</Text>
+                  </>
+                )}
+              </Pressable>
+            </>
           ) : null}
         </GlassCard>
 
@@ -401,6 +550,19 @@ const styles = StyleSheet.create({
   scoreLabel: { color: "#7280A0", fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" },
   scoreValue: { color: "#A78BFA", fontSize: 42, fontWeight: "800" },
   scoreClass: { color: "#9AA8C4", fontSize: 12, fontWeight: "600", letterSpacing: 1.5 },
+  aiBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,205,99,0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
+    marginTop: 10,
+  },
+  aiBadgeText: { color: "#FFCD63", fontSize: 11, fontWeight: "700", letterSpacing: 0.3 },
+  manualToggleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  manualLabel: { color: "#7280A0", fontSize: 11, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 },
   note: {
     flexDirection: "row",
     alignItems: "center",

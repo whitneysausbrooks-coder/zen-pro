@@ -23,6 +23,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OnboardingFlow, ONBOARDING_KEY } from "@/components/OnboardingFlow";
+import { OnboardingSignIn } from "@/components/OnboardingSignIn";
+import { OnboardingHealth } from "@/components/OnboardingHealth";
+import { getLoginMode, getHealthChoice, onSignOut } from "@/lib/health";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -48,6 +51,8 @@ export default function RootLayout() {
   });
 
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+  const [loginDone, setLoginDone] = useState<boolean | null>(null);
+  const [healthDone, setHealthDone] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== "web") {
@@ -71,19 +76,47 @@ export default function RootLayout() {
     AsyncStorage.getItem(ONBOARDING_KEY)
       .then((val) => setOnboardingDone(val === "1"))
       .catch(() => setOnboardingDone(true));
+    getLoginMode()
+      .then((mode) => setLoginDone(mode !== null))
+      .catch(() => setLoginDone(true));
+    getHealthChoice()
+      .then((choice) => setHealthDone(choice !== null))
+      .catch(() => setHealthDone(true));
   }, []);
 
   useEffect(() => {
-    if ((fontsLoaded || fontError) && onboardingDone !== null) {
+    if (
+      (fontsLoaded || fontError) &&
+      onboardingDone !== null &&
+      loginDone !== null &&
+      healthDone !== null
+    ) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError, onboardingDone]);
+  }, [fontsLoaded, fontError, onboardingDone, loginDone, healthDone]);
+
+  // Reset to the sign-in onboarding step when the user signs out from
+  // Profile or finishes account deletion. Keeps device hand-off seamless
+  // without requiring an app restart.
+  useEffect(() => {
+    const unsub = onSignOut(() => {
+      setLoginDone(false);
+      setHealthDone(false);
+    });
+    return unsub;
+  }, []);
 
   if (!fontsLoaded && !fontError) return null;
-  if (onboardingDone === null) return null;
+  if (onboardingDone === null || loginDone === null || healthDone === null) return null;
 
   const handleOnboardingComplete = () => {
     setOnboardingDone(true);
+  };
+  const handleLoginComplete = () => {
+    setLoginDone(true);
+  };
+  const handleHealthComplete = () => {
+    setHealthDone(true);
   };
 
   return (
@@ -92,10 +125,14 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
-              {onboardingDone ? (
-                <RootLayoutNav />
-              ) : (
+              {!onboardingDone ? (
                 <OnboardingFlow onComplete={handleOnboardingComplete} />
+              ) : !loginDone ? (
+                <OnboardingSignIn onComplete={handleLoginComplete} />
+              ) : !healthDone ? (
+                <OnboardingHealth onComplete={handleHealthComplete} />
+              ) : (
+                <RootLayoutNav />
               )}
             </KeyboardProvider>
           </GestureHandlerRootView>

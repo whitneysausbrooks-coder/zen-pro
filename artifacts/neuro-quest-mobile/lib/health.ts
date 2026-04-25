@@ -18,6 +18,115 @@ export interface SyncResult {
 const EMAIL_KEY = "nq_enterprise_email";
 const INVITE_KEY = "nq_enterprise_invite_code";
 const LAST_SYNC_KEY = "nq_health_last_sync";
+const LOGIN_DONE_KEY = "nq_login_done";
+const HEALTH_CHOICE_KEY = "nq_health_choice";
+
+export type LoginMode = "enterprise" | "individual";
+export type HealthChoice = "apple_health" | "manual" | "skipped";
+
+export async function getLoginMode(): Promise<LoginMode | null> {
+  try {
+    const v = await AsyncStorage.getItem(LOGIN_DONE_KEY);
+    return v === "enterprise" || v === "individual" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setLoginMode(mode: LoginMode): Promise<void> {
+  try {
+    await AsyncStorage.setItem(LOGIN_DONE_KEY, mode);
+  } catch {}
+}
+
+export async function getHealthChoice(): Promise<HealthChoice | null> {
+  try {
+    const v = await AsyncStorage.getItem(HEALTH_CHOICE_KEY);
+    return v === "apple_health" || v === "manual" || v === "skipped" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setHealthChoice(choice: HealthChoice): Promise<void> {
+  try {
+    await AsyncStorage.setItem(HEALTH_CHOICE_KEY, choice);
+  } catch {}
+}
+
+/**
+ * Sync user-entered health metrics. Used when the user opted for manual
+ * entry instead of (or in addition to) Apple Health.
+ *  - hrv: milliseconds (e.g. 45)
+ *  - sleep_hours: hours (e.g. 7.5) — converted to minutes server-side schema
+ *  - steps: integer
+ * Any field can be null; at least one must be provided.
+ * For individual (non-enterprise) users without an invite code, the
+ * function persists locally only and reports success without server sync.
+ */
+export async function syncManualMetrics(
+  email: string,
+  inviteCode: string | null,
+  data: { hrv: number | null; sleep_hours: number | null; steps: number | null },
+): Promise<SyncResult> {
+  const { hrv, sleep_hours, steps } = data;
+  if (hrv == null && sleep_hours == null && steps == null) {
+    return { success: false, message: "Enter at least one of HRV, sleep, or steps." };
+  }
+
+  // Defense-in-depth: refuse server sync unless the user is in enterprise
+  // login mode. Prevents stale enterprise credentials from leaking under a
+  // new individual user on the same device.
+  const mode = await getLoginMode();
+  if (mode !== "enterprise") {
+    await setLastSyncAt();
+    return {
+      success: true,
+      message:
+        "Saved on this device. Sign in as a pilot member to sync to your team baseline.",
+    };
+  }
+
+  if (!email.trim() || !inviteCode || !inviteCode.trim()) {
+    await setLastSyncAt();
+    return {
+      success: true,
+      message:
+        "Saved on this device. Sign in with your work email + invite code to sync to your team baseline.",
+    };
+  }
+
+  const sleep_duration =
+    sleep_hours != null ? Math.max(0, Math.min(1440, Math.round(sleep_hours * 60))) : null;
+
+  try {
+    const res = await fetch(`${getApiBase()}/api/wearable/sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        invite_code: inviteCode.trim().toUpperCase(),
+        source: "manual",
+        hrv,
+        sleep_duration,
+        steps,
+        recorded_at: new Date().toISOString(),
+      }),
+    });
+    const resData = await res.json().catch(() => ({}));
+    if (!res.ok || !resData.success) {
+      return { success: false, message: resData.error || `Server returned ${res.status}` };
+    }
+    await setLastSyncAt();
+    return {
+      success: true,
+      neuro_resilience_score: resData.neuro_resilience_score,
+      classification: resData.classification,
+    };
+  } catch (e: any) {
+    return { success: false, message: e?.message || "Network error" };
+  }
+}
 
 export const isHealthKitAvailable = Platform.OS === "ios";
 
@@ -76,6 +185,43 @@ export async function clearStoredCredentials(): Promise<void> {
     await AsyncStorage.removeItem(EMAIL_KEY);
     await AsyncStorage.removeItem(INVITE_KEY);
   } catch {}
+}
+
+// Subscribers that want to be notified when the device is signed out
+// (so they can reset in-memory onboarding state without an app restart).
+const signOutListeners = new Set<() => void>();
+
+/**
+ * Subscribe to sign-out events. Returns an unsubscribe function.
+ * Used by the root layout to re-render the onboarding state machine.
+ */
+export function onSignOut(cb: () => void): () => void {
+  signOutListeners.add(cb);
+  return () => {
+    signOutListeners.delete(cb);
+  };
+}
+
+/**
+ * Atomically clear credentials, login mode, and health choice so the
+ * onboarding state machine restarts at sign-in. Used by the Profile
+ * "Switch Account" action and after account deletion. This is the ONLY
+ * supported way to hand a device off to a different user.
+ */
+export async function signOutAndReset(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([
+      EMAIL_KEY,
+      INVITE_KEY,
+      LOGIN_DONE_KEY,
+      HEALTH_CHOICE_KEY,
+    ]);
+  } catch {}
+  signOutListeners.forEach((cb) => {
+    try {
+      cb();
+    } catch {}
+  });
 }
 
 export interface DeleteAccountResult {
@@ -285,6 +431,16 @@ export async function syncToServer(
 ): Promise<SyncResult> {
   if (!email.trim()) return { success: false, message: "Work email is required" };
   if (!inviteCode.trim()) return { success: false, message: "Company invite code is required" };
+  // Defense-in-depth: only enterprise-mode users may sync to the server.
+  // Stale credentials left on a shared device must not silently submit data
+  // under a previous user's identity.
+  const mode = await getLoginMode();
+  if (mode !== "enterprise") {
+    return {
+      success: false,
+      message: "Sign in as a pilot member to sync to your team baseline.",
+    };
+  }
   if (
     metrics.hrv == null &&
     metrics.sleep_duration_minutes == null &&

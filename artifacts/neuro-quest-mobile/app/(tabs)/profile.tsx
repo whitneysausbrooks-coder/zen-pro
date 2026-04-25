@@ -71,6 +71,7 @@ const SETTINGS = [
   { id: "privacy", label: "Privacy Policy", icon: "shield", toggle: false },
   { id: "terms", label: "Terms of Use", icon: "file-text", toggle: false },
   { id: "support", label: "Contact Support", icon: "message-circle", toggle: false },
+  { id: "switch_account", label: "Switch Account / Sign Out", icon: "log-out", toggle: false },
   { id: "reset", label: "Reset All Data", icon: "trash-2", toggle: false },
   { id: "delete_account", label: "Delete Account", icon: "user-x", toggle: false, destructive: true },
 ];
@@ -267,6 +268,36 @@ export default function ProfileScreen() {
           }
         });
         break;
+      case "switch_account":
+        Alert.alert(
+          "Switch Account / Sign Out",
+          "This will sign you out of your current account on this device and clear your work email, invite code, and health-data choice. Your local progress (Neural Energy, streak, etc.) is kept. The next person can sign in fresh.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Sign Out",
+              style: "destructive",
+              onPress: async () => {
+                try {
+                  const { signOutAndReset } = await import("@/lib/health");
+                  await signOutAndReset();
+                  if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  // The root layout subscribes to the sign-out event and
+                  // automatically swaps back to the sign-in onboarding step,
+                  // so no explicit navigation is needed here.
+                  Alert.alert(
+                    "Signed Out",
+                    "You're signed out. Sign in as another user, or continue as an individual.",
+                  );
+                } catch (e: any) {
+                  if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                  Alert.alert("Error", `Could not sign out: ${e?.message || "Unknown error"}`);
+                }
+              },
+            },
+          ]
+        );
+        break;
       case "delete_account":
         Alert.alert(
           "Delete Account",
@@ -287,32 +318,36 @@ export default function ProfileScreen() {
                       style: "destructive",
                       onPress: async () => {
                         try {
-                          const { deleteAccount, clearStoredCredentials } = await import("@/lib/health");
+                          const { deleteAccount, signOutAndReset } = await import("@/lib/health");
                           const result = await deleteAccount();
-                          await clearStoredCredentials();
+                          // Use the same atomic teardown as Switch Account so
+                          // the device returns to a fully clean onboarding
+                          // state — no stale login mode or health choice.
+                          await signOutAndReset();
                           await AsyncStorage.multiRemove([
                             NEURAL_ENERGY_KEY, DONATIONS_KEY, SPINS_KEY, STREAK_KEY,
                             WINS_KEY, GRATITUDE_LOG_KEY, TOTAL_SPINS_USED_KEY,
                             "nq_morning_bloom_date", "nq_gratitude_streak",
                           ]);
                           if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          // No explicit navigation needed — the root layout
+                          // subscribes to the sign-out event triggered by
+                          // signOutAndReset and automatically returns to the
+                          // sign-in onboarding step.
                           if (result.serverDeleted) {
                             Alert.alert(
                               "Account Deleted",
                               result.message || "Your account and all associated data have been permanently deleted.",
-                              [{ text: "OK", onPress: () => router.replace("/onboarding" as any) }]
                             );
                           } else if (result.error) {
                             Alert.alert(
                               "Deletion Issue",
                               `Local data was cleared, but the server reported: ${result.error}\n\nPlease email admin@neuroquestllc.info to confirm full deletion.`,
-                              [{ text: "OK", onPress: () => router.replace("/onboarding" as any) }]
                             );
                           } else {
                             Alert.alert(
                               "Local Data Cleared",
                               result.message || "All local data has been cleared from this device.",
-                              [{ text: "OK", onPress: () => router.replace("/onboarding" as any) }]
                             );
                           }
                         } catch (e: any) {
