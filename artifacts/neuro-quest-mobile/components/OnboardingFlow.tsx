@@ -161,6 +161,7 @@ export function OnboardingFlow({ onComplete }: Props) {
       />
 
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.orb,
           {
@@ -171,6 +172,7 @@ export function OnboardingFlow({ onComplete }: Props) {
         ]}
       />
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.orbSmall,
           {

@@ -128,6 +128,7 @@ export function OnboardingSignIn({ onComplete }: Props) {
         locations={[0, 0.5, 1]}
       />
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.orb,
           {
