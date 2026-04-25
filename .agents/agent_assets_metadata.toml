@@ -383,3 +383,63 @@ id = "086RX5PAKY5rkg1EWEmtA"
 uri = "file://attached_assets/app_store_screenshots/final/10_zenpro.png"
 type = "image"
 title = "10. Zen Pro — Unlock Your Edge"
+
+[[outputs]]
+id = "wnrlTc7iCaIeZNj3IpZ72"
+uri = "file://attached_assets/app_store_screenshots/final_6_5/01_hero.png"
+type = "image"
+title = "1. Hero — 1242×2688"
+
+[[outputs]]
+id = "Vy7pXOTtPHR72Kiu3XMNz"
+uri = "file://attached_assets/app_store_screenshots/final_6_5/02_focus.png"
+type = "image"
+title = "2. Focus Test — 1242×2688"
+
+[[outputs]]
+id = "V-5HbgovJpCTDq8enay1R"
+uri = "file://attached_assets/app_store_screenshots/final_6_5/03_games.png"
+type = "image"
+title = "3. Brain Games — 1242×2688"
+
+[[outputs]]
+id = "tjJEHMG9ApqZlLX430liT"
+uri = "file://attached_assets/app_store_screenshots/final_6_5/04_health.png"
+type = "image"
+title = "4. Apple Health — 1242×2688"
+
+[[outputs]]
+id = "DV6JmTvIhKTDszlEjO4Ni"
+uri = "file://attached_assets/app_store_screenshots/final_6_5/05_compassion.png"
+type = "image"
+title = "5. Compassion — 1242×2688"
+
+[[outputs]]
+id = "jvmybpoRyuXq7TiuvIbsf"
+uri = "file://attached_assets/app_store_screenshots/final_6_5/06_mindful.png"
+type = "image"
+title = "6. Mindful Tasks — 1242×2688"
+
+[[outputs]]
+id = "XVr1UF2o51YE34oLIdQHO"
+uri = "file://attached_assets/app_store_screenshots/final_6_5/07_dashboard.png"
+type = "image"
+title = "7. Dashboard — 1242×2688"
+
+[[outputs]]
+id = "MBpAZp8L-NzOQNoOAPHX3"
+uri = "file://attached_assets/app_store_screenshots/final_6_5/08_streak.png"
+type = "image"
+title = "8. Streak — 1242×2688"
+
+[[outputs]]
+id = "icaYT9bzpAABWfluUz4le"
+uri = "file://attached_assets/app_store_screenshots/final_6_5/09_wheel.png"
+type = "image"
+title = "9. Compassion Wheel — 1242×2688"
+
+[[outputs]]
+id = "2oZKoog_6SYw1eTIDstHM"
+uri = "file://attached_assets/app_store_screenshots/final_6_5/10_zenpro.png"
+type = "image"
+title = "10. Zen Pro — 1242×2688"
