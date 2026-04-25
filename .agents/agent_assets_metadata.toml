@@ -30,6 +30,66 @@ uri = "file://exports/iap-images/05-spins-50.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "9_6-0vmTwiPYo0bqvS9xQ"
+uri = "file://attached_assets/app_store_screenshots/01_hero.png"
+type = "image"
+title = "Hero — Brand promise"
+
+[[generated]]
+id = "KKPwi2gUIc93hYYCoSV_u"
+uri = "file://attached_assets/app_store_screenshots/02_focus.png"
+type = "image"
+title = "Focus Test"
+
+[[generated]]
+id = "W96WLbS65uktm_YWTF6mm"
+uri = "file://attached_assets/app_store_screenshots/03_games.png"
+type = "image"
+title = "Brain games library"
+
+[[generated]]
+id = "S_1dj0wZVHjXNaEJ-YAXY"
+uri = "file://attached_assets/app_store_screenshots/04_health.png"
+type = "image"
+title = "Apple Health integration"
+
+[[generated]]
+id = "BI9HuogPh7EDZENgna6jM"
+uri = "file://attached_assets/app_store_screenshots/05_compassion.png"
+type = "image"
+title = "Compassion Impact"
+
+[[generated]]
+id = "b88H2Ajhj-U3Kvwn41F9x"
+uri = "file://attached_assets/app_store_screenshots/06_mindful.png"
+type = "image"
+title = "Daily Mindful Tasks"
+
+[[generated]]
+id = "_5m-g_obNPw9yhoX4F627"
+uri = "file://attached_assets/app_store_screenshots/07_dashboard.png"
+type = "image"
+title = "Resilience trends"
+
+[[generated]]
+id = "kwKsCgdS--1-Melk0a5eS"
+uri = "file://attached_assets/app_store_screenshots/08_streak.png"
+type = "image"
+title = "Streak celebration"
+
+[[generated]]
+id = "y0e7vSh8R3UzIv9pJ7fFc"
+uri = "file://attached_assets/app_store_screenshots/09_wheel.png"
+type = "image"
+title = "Compassion Wheel"
+
+[[generated]]
+id = "XFerKZdasynRDzg4HpFR2"
+uri = "file://attached_assets/app_store_screenshots/10_zenpro.png"
+type = "image"
+title = "Zen Pro premium"
+
 [[outputs]]
 id = "wpWIJfZp3S9ptbGnfeCYJ"
 uri = "file://APP_STORE_SUBMISSION.md"
@@ -263,3 +323,63 @@ id = "ypryJCoi8a758c6uKe1UC"
 uri = "file://APPLE_APP_REVIEW.md"
 type = "text"
 title = "Apple App Review Submission Packet (with full IAP catalog)"
+
+[[outputs]]
+id = "OEZDskNDYoK43UfuVmn-g"
+uri = "file://attached_assets/app_store_screenshots/final/01_hero.png"
+type = "image"
+title = "1. Hero — Train Your Brain. Transform Your Life."
+
+[[outputs]]
+id = "WkNFAz-bJ_qohZe2kcS7L"
+uri = "file://attached_assets/app_store_screenshots/final/02_focus.png"
+type = "image"
+title = "2. Focus Test — Sharpen Focus in 30 Seconds"
+
+[[outputs]]
+id = "PyafOT8xCrhQm4GgXGAds"
+uri = "file://attached_assets/app_store_screenshots/final/03_games.png"
+type = "image"
+title = "3. Brain Games — Cognitive Games, Daily Discipline"
+
+[[outputs]]
+id = "Lj8Z83MEufbLFf4D6OpP3"
+uri = "file://attached_assets/app_store_screenshots/final/04_health.png"
+type = "image"
+title = "4. Apple Health — Your Body. Your Brain. One Score."
+
+[[outputs]]
+id = "_pz_lJ7EvMwgkHxFbLu1g"
+uri = "file://attached_assets/app_store_screenshots/final/05_compassion.png"
+type = "image"
+title = "5. Compassion — Train Your Mind. Feed the World."
+
+[[outputs]]
+id = "P1Q--temDs_R49sft8KjF"
+uri = "file://attached_assets/app_store_screenshots/final/06_mindful.png"
+type = "image"
+title = "6. Mindful Tasks — Five Minutes Every Day"
+
+[[outputs]]
+id = "8rmcYcipZkPF4039W3P5N"
+uri = "file://attached_assets/app_store_screenshots/final/07_dashboard.png"
+type = "image"
+title = "7. Dashboard — See Your Resilience Rise"
+
+[[outputs]]
+id = "p9AfS5r81YC_0-0sc1sE7"
+uri = "file://attached_assets/app_store_screenshots/final/08_streak.png"
+type = "image"
+title = "8. Streak — Build the Streak. Become Unbreakable."
+
+[[outputs]]
+id = "6syzd0GgquwJEbbtC2iVK"
+uri = "file://attached_assets/app_store_screenshots/final/09_wheel.png"
+type = "image"
+title = "9. Compassion Wheel — Spin for Good. Win for All."
+
+[[outputs]]
+id = "086RX5PAKY5rkg1EWEmtA"
+uri = "file://attached_assets/app_store_screenshots/final/10_zenpro.png"
+type = "image"
+title = "10. Zen Pro — Unlock Your Edge"
