@@ -257,3 +257,9 @@ id = "siqbmnaEBhPiY8QMf_HIQ"
 uri = "file://exports/iap-images/05-spins-50.png"
 type = "image"
 title = "5 · 50 Extra Spins — $4.99 (BEST VALUE)"
+
+[[outputs]]
+id = "ypryJCoi8a758c6uKe1UC"
+uri = "file://APPLE_APP_REVIEW.md"
+type = "text"
+title = "Apple App Review Submission Packet"
