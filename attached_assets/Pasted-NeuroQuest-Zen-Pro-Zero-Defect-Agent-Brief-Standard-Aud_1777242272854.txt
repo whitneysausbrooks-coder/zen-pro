@@ -1,0 +1,133 @@
+NeuroQuest Zen Pro — Zero-Defect Agent Brief
+Standard: Audit-Ready · Apple Review Fail-Proof · Pilot-Launch Quality Priority:
+CRITICAL — TestFlight active, pilot users incoming
+CONTEXT
+NeuroQuest Zen Pro is an enterprise biometric burnout detection platform. The AI
+engine must personalize in real time using a Triple-Weight Algorithm (HRV 50% / Sleep
+35% / Strain 15%) with a 7-day Exponential Moving Average. Every data point captured
+at login and throughout the session is required for AI learning, personalization, task
+suggestions, and Neuro-Resilience Score accuracy. No data loss is acceptable.
+BUG REPORT + REQUIRED FIXES
+BUG 1 — CRITICAL: Individual Login Bypasses Authentication / Captures
+No Data
+Observed: Tapping “Individual” on the login selection screen allows entry into the app
+without collecting credentials. No user data is stored.
+Why this breaks everything: The AI personalization engine, Triple-Weight Algorithm,
+EMA trending, and task suggestion system are all user-identity-dependent. Without a
+verified user record, none of these systems can function. This is also an Apple Review
+risk (guideline 5.1.1 — data collection must be disclosed and properly handled).
+Required Fix:
+Individual login must route to a proper authentication screen (email + password
+minimum; biometric optional)
+On first launch: collect name, email, password, and optional company/role fields
+On return: validate credentials against stored record
+On successful auth: create or restore a persistent user session with UUID
+Store the following to local secure storage AND sync to backend/database:
+user_id (UUID)
+user_name , user_email
+account_type (individual / enterprise)
+login_timestamp
+session_token
+onboarding_complete flag
+Gate all app screens behind auth check — if no valid session, redirect to login
+BUG 2 — CRITICAL: First Post-Login Screen is Not Scrollable
+Observed: After login, the first main screen (dashboard/home) cannot scroll vertically.
+Required Fix:
+Wrap the entire screen content in a scrollable container
+ScrollView (React Native) or equivalent
+Ensure contentContainerStyle does not restrict height (do not use flex: 1 inside
+the scrollable content wrapper — use flexGrow: 1 instead)
+Test on smallest supported iPhone screen size (iPhone SE) and largest (iPhone 15
+Pro Max)
+Confirm all content is reachable without keyboard overlap
+BUG 3 — UX: No Way to Return to Login Screen After Selecting Account
+Type
+Observed: After tapping “Individual” on the account type screen, there is no back
+navigation. User is trapped.
+Required Fix:
+Add a “← Back to Login” button on every authentication sub-screen
+This button must appear in the top-left header area (standard iOS navigation
+pattern)
+On tap: pop the current screen and return to the login/account-type selection screen
+Ensure this also clears any partial session state so no data leaks between sessions
+Do NOT use hardware back button as the only escape — Apple requires accessible
+on-screen navigation
+DATA ARCHITECTURE REQUIREMENTS (Zero-Defect
+Standard)
+The following must be implemented and verified before pilot launch:
+User Profile Storage
+user_id (UUID, primary key)
+user_email (string, indexed)
+user_name (string)
+account_type (enum: individual | enterprise)
+created_at (timestamp)
+last_login (timestamp)
+onboarding_complete (boolean)
+wearable_connected (boolean)
+wearable_type (string, nullable)
+Biometric Session Data (per session)
+session_id (UUID)
+user_id (foreign key)
+timestamp (ISO 8601)
+hrv_score (float) — weighted 50%
+sleep_score (float) — weighted 35%
+strain_score (float) — weighted 15%
+neuro_resilience_score (float, computed)
+ema_7day (float, rolling EMA)
+data_source (manual | wearable | estimated)
+AI Personalization Data
+task_suggestions (array, timestamped)
+suggestion_accepted (boolean, per suggestion)
+user_feedback_rating (int 1–5, nullable)
+alert_triggered (boolean)
+alert_type (string: burnout_risk | recovery_needed | optimal)
+Storage Rules
+All sensitive user data must use encrypted local storage (SecureStore / Keychain)
+Biometric data must never be logged in plain text
+Sync to backend on every session close and on app foreground
+Offline-first: queue writes locally if no connection, flush on reconnect
+HIPAA-pathway: no PII in analytics events; use anonymized user_id only
+AI PERSONALIZATION ENGINE REQUIREMENTS
+The AI must be learning and improving every session. Implement the following:
+1. 2. 3. 4. 5. On login: Load user’s historical HRV, Sleep, Strain, and EMA data from database
+During session: Update EMA in real time as new biometric data arrives
+Task suggestions: Generate based on current Neuro-Resilience Score + 7-day
+trend
+Score trending down → suggest recovery tasks (breathwork, sleep hygiene)
+Score optimal → suggest challenge/growth tasks
+Score critical → trigger burnout risk alert + suggest immediate intervention
+Feedback loop: Store whether user accepted/dismissed suggestions — use this to
+refine future suggestions per user
+Model improvement: Log all inputs and outputs with timestamps so the model has
+clean training data for future fine-tuning
+APPLE REVIEW CHECKLIST (Fail-Proof)
+Before next TestFlight build, verify all of the following:
+No screen allows access to app content without authentication
+Login credentials are stored in iOS Keychain / SecureStore (never UserDefaults plain
+text)
+Privacy policy URL is reachable and accurate
+All health/biometric data collection is disclosed in the app’s privacy nutrition label
+No crashes on cold launch (test on real device, not just simulator)
+All screens scroll properly on iPhone SE (smallest viewport)
+Back navigation is available on every non-root screen
+No placeholder text, “Lorem ipsum,” or hardcoded test credentials in the build
+App does not request permissions it does not use
+HealthKit integration (if present) declares all data types in Info.plist
+ZERO-DEFECT DEFINITION FOR THIS PROJECT
+A zero-defect build means:
+Every user action has a defined, tested outcome
+No data is lost between sessions
+The AI has enough data to personalize from session 2 onward
+No screen is unreachable or unescapable
+The app behaves identically on all supported iOS versions and device sizes
+An Apple reviewer finds zero grounds for rejection
+Do not merge any fix without testing the full login → dashboard → logout → re-
+login flow end to end.
+PRIORITY ORDER
+1. 2. 3. 4. 5. BUG 1 — Auth & data capture (SHIP-BLOCKER)
+Data architecture / backend schema (SHIP-BLOCKER)
+BUG 2 — Scroll fix (HIGH)
+BUG 3 — Back navigation (HIGH)
+Apple Review checklist audit (HIGH)
+6. AI personalization engine wiring (HIGH, parallel to above)
+NeuroQuest LLC — Whitney Ausbrooks, Founder & CEO Standard: Audit-Ready · Zero-
