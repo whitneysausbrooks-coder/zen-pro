@@ -22,6 +22,7 @@ import {
   setLoginMode,
   clearStoredCredentials,
 } from "@/lib/health";
+import { registerIndividual } from "@/lib/userAuth";
 
 const { width, height } = Dimensions.get("window");
 const nd = Platform.OS !== "web";
@@ -34,8 +35,12 @@ interface Props {
   onComplete: () => void;
 }
 
+type Tab = "pilot" | "individual";
+
 export function OnboardingSignIn({ onComplete }: Props) {
   const insets = useSafeAreaInsets();
+  const [tab, setTab] = useState<Tab>("pilot");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -67,6 +72,11 @@ export function OnboardingSignIn({ onComplete }: Props) {
   });
 
   const validEmail = (s: string) => /\S+@\S+\.\S+/.test(s.trim());
+
+  const switchTab = (next: Tab) => {
+    setError(null);
+    setTab(next);
+  };
 
   const onEnterprise = useCallback(async () => {
     setError(null);
@@ -106,19 +116,43 @@ export function OnboardingSignIn({ onComplete }: Props) {
 
   const onIndividual = useCallback(async () => {
     setError(null);
+    const n = name.trim();
     const e = email.trim().toLowerCase();
-    if (e && !validEmail(e)) {
-      setError("Please enter a valid email or leave it blank.");
+    if (!n) {
+      setError("Please enter your name so the AI can personalize your baseline.");
       return;
     }
-    // Clear any prior enterprise credentials so individual mode never inherits
-    // a previous user's sync identity (data isolation).
-    await clearStoredCredentials();
-    if (e) await setStoredEmail(e);
-    await setLoginMode("individual");
-    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onComplete();
-  }, [email, onComplete]);
+    if (n.length < 2) {
+      setError("Name must be at least 2 characters.");
+      return;
+    }
+    if (!validEmail(e)) {
+      setError("Please enter a valid email so we can save your progress.");
+      return;
+    }
+    setBusy(true);
+    try {
+      // Clear any prior enterprise credentials so individual mode never inherits
+      // a previous user's sync identity (data isolation).
+      await clearStoredCredentials();
+      // Generate UUID, persist locally (SecureStore + AsyncStorage),
+      // sync to backend (best-effort). This gives the AI engine a stable
+      // identity to attach future biometric history to.
+      const result = await registerIndividual({ name: n, email: e });
+      if (!result.success) {
+        setError(result.message || "Couldn't save your account. Please try again.");
+        setBusy(false);
+        return;
+      }
+      await setStoredEmail(e);
+      await setLoginMode("individual");
+      if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onComplete();
+    } catch (err: any) {
+      setError(err?.message || "Couldn't save your account. Please try again.");
+      setBusy(false);
+    }
+  }, [name, email, onComplete]);
 
   return (
     <View style={styles.container}>
@@ -157,99 +191,184 @@ export function OnboardingSignIn({ onComplete }: Props) {
             <Text style={styles.eyebrow}>STEP 1 OF 2</Text>
             <Text style={styles.title}>Sign In</Text>
             <Text style={styles.subtitle}>
-              Pilot member? Use your work email and the invite code your admin shared.
-              Otherwise, continue as an individual.
+              {tab === "pilot"
+                ? "Pilot member? Use your work email and the invite code your admin shared."
+                : "Continue as an individual. We'll create your private AI baseline using only your name and email."}
             </Text>
 
-            <View style={styles.card}>
-              <Text style={styles.label}>Work email</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="you@yourcompany.com"
-                placeholderTextColor={Colors.whiteAlpha30}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                value={email}
-                onChangeText={(t) => {
-                  setEmail(t);
-                  setError(null);
-                }}
-                accessibilityLabel="Work email"
-                returnKeyType="next"
-              />
-
-              <Text style={[styles.label, { marginTop: 16 }]}>
-                Company invite code <Text style={styles.optional}>(pilot members)</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. SJK3M67C"
-                placeholderTextColor={Colors.whiteAlpha30}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                value={inviteCode}
-                onChangeText={(t) => {
-                  setInviteCode(t);
-                  setError(null);
-                }}
-                accessibilityLabel="Company invite code"
-                returnKeyType="done"
-              />
-
-              {error ? (
-                <Text style={styles.error} accessibilityLiveRegion="polite">
-                  {error}
-                </Text>
-              ) : null}
-
+            <View
+              style={styles.tabRow}
+              accessibilityRole="tablist"
+              accessibilityLabel="Account type"
+            >
               <Pressable
-                onPress={onEnterprise}
-                disabled={busy}
-                style={({ pressed }) => [
-                  styles.ctaWrap,
-                  pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Sign in as pilot member"
+                onPress={() => switchTab("pilot")}
+                style={[styles.tabBtn, tab === "pilot" && styles.tabBtnActive]}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: tab === "pilot" }}
+                accessibilityLabel="Pilot member"
               >
-                <LinearGradient
-                  colors={[Colors.neuralPurple, Colors.gold]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cta}
+                <Text
+                  style={[styles.tabText, tab === "pilot" && styles.tabTextActive]}
                 >
-                  {busy ? (
-                    <ActivityIndicator color={Colors.forestDeep} />
-                  ) : (
-                    <Text style={styles.ctaText}>Sign In as Pilot Member</Text>
-                  )}
-                </LinearGradient>
+                  Pilot Member
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => switchTab("individual")}
+                style={[styles.tabBtn, tab === "individual" && styles.tabBtnActive]}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: tab === "individual" }}
+                accessibilityLabel="Individual"
+              >
+                <Text
+                  style={[styles.tabText, tab === "individual" && styles.tabTextActive]}
+                >
+                  Individual
+                </Text>
               </Pressable>
             </View>
 
-            <View style={styles.divider}>
-              <View style={styles.line} />
-              <Text style={styles.or}>OR</Text>
-              <View style={styles.line} />
-            </View>
+            {tab === "pilot" ? (
+              <View style={styles.card}>
+                <Text style={styles.label}>Work email</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="you@yourcompany.com"
+                  placeholderTextColor={Colors.whiteAlpha30}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={(t) => {
+                    setEmail(t);
+                    setError(null);
+                  }}
+                  accessibilityLabel="Work email"
+                  returnKeyType="next"
+                />
 
-            <Pressable
-              onPress={onIndividual}
-              disabled={busy}
-              style={({ pressed }) => [
-                styles.ghostBtn,
-                pressed && { opacity: 0.7 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Continue as individual"
-            >
-              <Text style={styles.ghostText}>Continue as Individual</Text>
-            </Pressable>
+                <Text style={[styles.label, { marginTop: 16 }]}>
+                  Company invite code
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. SJK3M67C"
+                  placeholderTextColor={Colors.whiteAlpha30}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  value={inviteCode}
+                  onChangeText={(t) => {
+                    setInviteCode(t);
+                    setError(null);
+                  }}
+                  accessibilityLabel="Company invite code"
+                  returnKeyType="done"
+                />
+
+                {error ? (
+                  <Text style={styles.error} accessibilityLiveRegion="polite">
+                    {error}
+                  </Text>
+                ) : null}
+
+                <Pressable
+                  onPress={onEnterprise}
+                  disabled={busy}
+                  style={({ pressed }) => [
+                    styles.ctaWrap,
+                    pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign in as pilot member"
+                >
+                  <LinearGradient
+                    colors={[Colors.neuralPurple, Colors.gold]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.cta}
+                  >
+                    {busy ? (
+                      <ActivityIndicator color={Colors.forestDeep} />
+                    ) : (
+                      <Text style={styles.ctaText}>Sign In as Pilot Member</Text>
+                    )}
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.card}>
+                <Text style={styles.label}>Your name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Alex Rivera"
+                  placeholderTextColor={Colors.whiteAlpha30}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  value={name}
+                  onChangeText={(t) => {
+                    setName(t);
+                    setError(null);
+                  }}
+                  accessibilityLabel="Your name"
+                  returnKeyType="next"
+                  textContentType="name"
+                />
+
+                <Text style={[styles.label, { marginTop: 16 }]}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="you@email.com"
+                  placeholderTextColor={Colors.whiteAlpha30}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={(t) => {
+                    setEmail(t);
+                    setError(null);
+                  }}
+                  accessibilityLabel="Email"
+                  returnKeyType="done"
+                  textContentType="emailAddress"
+                />
+
+                {error ? (
+                  <Text style={styles.error} accessibilityLiveRegion="polite">
+                    {error}
+                  </Text>
+                ) : null}
+
+                <Pressable
+                  onPress={onIndividual}
+                  disabled={busy}
+                  style={({ pressed }) => [
+                    styles.ctaWrap,
+                    pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Continue as individual"
+                >
+                  <LinearGradient
+                    colors={[Colors.neuralPurple, Colors.gold]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.cta}
+                  >
+                    {busy ? (
+                      <ActivityIndicator color={Colors.forestDeep} />
+                    ) : (
+                      <Text style={styles.ctaText}>Continue as Individual</Text>
+                    )}
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            )}
 
             <Text style={styles.footnote}>
-              Your email is stored only on this device unless you sign in as a pilot
-              member. We never sell or share your data.
+              Your name and email are stored privately on this device, encrypted in the
+              iOS Keychain. We never sell or share your data. Pilot members also sync
+              an anonymized score to their team's aggregate baseline.
             </Text>
           </Animated.View>
         </ScrollView>
@@ -291,8 +410,36 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     marginTop: 12,
-    marginBottom: 24,
+    marginBottom: 18,
     paddingHorizontal: 4,
+  },
+  tabRow: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 100,
+    padding: 4,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(167,139,250,0.18)",
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 100,
+    alignItems: "center",
+  },
+  tabBtnActive: {
+    backgroundColor: "rgba(167,139,250,0.18)",
+  },
+  tabText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    color: Colors.whiteAlpha60,
+    letterSpacing: 0.3,
+  },
+  tabTextActive: {
+    color: Colors.white,
+    fontFamily: "Inter_600SemiBold",
   },
   card: {
     backgroundColor: "rgba(255,255,255,0.04)",
@@ -308,7 +455,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 8,
   },
-  optional: { color: Colors.whiteAlpha30, fontWeight: "400" },
   input: {
     color: Colors.white,
     backgroundColor: "rgba(255,255,255,0.06)",
@@ -333,32 +479,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 16,
     color: Colors.forestDeep,
-    letterSpacing: 0.3,
-  },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginVertical: 20,
-  },
-  line: { flex: 1, height: 1, backgroundColor: Colors.whiteAlpha20 },
-  or: {
-    color: Colors.whiteAlpha60,
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
-    letterSpacing: 1.5,
-  },
-  ghostBtn: {
-    paddingVertical: 16,
-    borderRadius: 100,
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: Colors.whiteAlpha30,
-  },
-  ghostText: {
-    color: Colors.white,
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 16,
     letterSpacing: 0.3,
   },
   footnote: {

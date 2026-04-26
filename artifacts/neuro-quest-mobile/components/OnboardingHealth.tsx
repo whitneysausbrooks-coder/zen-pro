@@ -15,7 +15,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Colors from "@/constants/colors";
 import {
   isHealthKitAvailable,
@@ -38,9 +38,10 @@ type Mode = "choose" | "manual" | "success";
 
 interface Props {
   onComplete: () => void;
+  onBack?: () => void;
 }
 
-export function OnboardingHealth({ onComplete }: Props) {
+export function OnboardingHealth({ onComplete, onBack }: Props) {
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<Mode>("choose");
   const [busy, setBusy] = useState(false);
@@ -207,6 +208,28 @@ export function OnboardingHealth({ onComplete }: Props) {
         ]}
       />
 
+      {onBack ? (
+        <Pressable
+          onPress={() => {
+            if (busy) return;
+            if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onBack();
+          }}
+          disabled={busy}
+          style={({ pressed }) => [
+            styles.backBtn,
+            { top: insets.top + 8 },
+            pressed && { opacity: 0.6 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Back to sign in"
+          hitSlop={12}
+        >
+          <Ionicons name="chevron-back" size={20} color={Colors.white} />
+          <Text style={styles.backText}>Back to Sign In</Text>
+        </Pressable>
+      ) : null}
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
@@ -214,7 +237,7 @@ export function OnboardingHealth({ onComplete }: Props) {
         <ScrollView
           contentContainerStyle={[
             styles.scroll,
-            { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 28 },
+            { paddingTop: insets.top + (onBack ? 64 : 40), paddingBottom: insets.bottom + 28 },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -468,6 +491,26 @@ const styles = StyleSheet.create({
     borderRadius: width * 0.45,
   },
   scroll: { paddingHorizontal: 28, gap: 18 },
+  backBtn: {
+    position: "absolute",
+    left: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 100,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    zIndex: 10,
+  },
+  backText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    color: Colors.white,
+    letterSpacing: 0.3,
+    marginLeft: 2,
+  },
   eyebrow: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 11,

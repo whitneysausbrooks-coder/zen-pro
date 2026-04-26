@@ -26,6 +26,12 @@ import { OnboardingFlow, ONBOARDING_KEY } from "@/components/OnboardingFlow";
 import { OnboardingSignIn } from "@/components/OnboardingSignIn";
 import { OnboardingHealth } from "@/components/OnboardingHealth";
 import { getLoginMode, getHealthChoice, onSignOut } from "@/lib/health";
+import {
+  clearIndividualAccount,
+  heartbeat,
+  reconcileLocalIdentity,
+  syncProfileToBackend,
+} from "@/lib/userAuth";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -73,15 +79,23 @@ export default function RootLayout() {
         }
       } catch {}
     }
-    AsyncStorage.getItem(ONBOARDING_KEY)
-      .then((val) => setOnboardingDone(val === "1"))
-      .catch(() => setOnboardingDone(true));
-    getLoginMode()
-      .then((mode) => setLoginDone(mode !== null))
-      .catch(() => setLoginDone(true));
-    getHealthChoice()
-      .then((choice) => setHealthDone(choice !== null))
-      .catch(() => setHealthDone(true));
+    // Reconcile any orphan identity state (UUID without profile or vice versa
+    // — possible after a reinstall because iOS Keychain survives uninstall
+    // but AsyncStorage doesn't) BEFORE we ask the rest of the app whether
+    // the user is logged in.
+    reconcileLocalIdentity()
+      .catch(() => {})
+      .finally(() => {
+        AsyncStorage.getItem(ONBOARDING_KEY)
+          .then((val) => setOnboardingDone(val === "1"))
+          .catch(() => setOnboardingDone(true));
+        getLoginMode()
+          .then((mode) => setLoginDone(mode !== null))
+          .catch(() => setLoginDone(true));
+        getHealthChoice()
+          .then((choice) => setHealthDone(choice !== null))
+          .catch(() => setHealthDone(true));
+      });
   }, []);
 
   useEffect(() => {
@@ -102,9 +116,22 @@ export default function RootLayout() {
     const unsub = onSignOut(() => {
       setLoginDone(false);
       setHealthDone(false);
+      // Wipe the individual identity on full sign-out so the next user on
+      // this device gets a fresh UUID + clean baseline.
+      clearIndividualAccount().catch(() => {});
     });
     return unsub;
   }, []);
+
+  // Once the user is fully signed in (login + health onboarding done), keep
+  // the backend warm with a heartbeat and re-sync the local profile in case
+  // the original registration call failed offline.
+  useEffect(() => {
+    if (loginDone && healthDone) {
+      syncProfileToBackend().catch(() => {});
+      heartbeat().catch(() => {});
+    }
+  }, [loginDone, healthDone]);
 
   if (!fontsLoaded && !fontError) return null;
   if (onboardingDone === null || loginDone === null || healthDone === null) return null;
@@ -118,6 +145,24 @@ export default function RootLayout() {
   const handleHealthComplete = () => {
     setHealthDone(true);
   };
+  // Bug 3 fix: user is on the Health screen and wants to back out (e.g. they
+  // signed in as the wrong account type, or want to switch from individual to
+  // pilot). Reset login + health, clear partial individual identity, and let
+  // the state machine drop them back at OnboardingSignIn cleanly.
+  const handleHealthBack = async () => {
+    try {
+      await clearIndividualAccount();
+      await AsyncStorage.multiRemove([
+        "nq_login_done",
+        "nq_health_choice",
+        "nq_enterprise_email",
+        "nq_enterprise_invite_code",
+        "nq_health_last_sync",
+      ]);
+    } catch {}
+    setHealthDone(false);
+    setLoginDone(false);
+  };
 
   return (
     <SafeAreaProvider>
@@ -130,7 +175,10 @@ export default function RootLayout() {
               ) : !loginDone ? (
                 <OnboardingSignIn onComplete={handleLoginComplete} />
               ) : !healthDone ? (
-                <OnboardingHealth onComplete={handleHealthComplete} />
+                <OnboardingHealth
+                  onComplete={handleHealthComplete}
+                  onBack={handleHealthBack}
+                />
               ) : (
                 <RootLayoutNav />
               )}

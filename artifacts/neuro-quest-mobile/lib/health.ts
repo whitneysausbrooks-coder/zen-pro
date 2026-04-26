@@ -1,5 +1,6 @@
 import { Platform, Linking } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getStoredUserId } from "./userAuth";
 
 export interface WearableMetrics {
   hrv: number | null;
@@ -74,10 +75,50 @@ export async function syncManualMetrics(
     return { success: false, message: "Enter at least one of HRV, sleep, or steps." };
   }
 
-  // Defense-in-depth: refuse server sync unless the user is in enterprise
-  // login mode. Prevents stale enterprise credentials from leaking under a
-  // new individual user on the same device.
   const mode = await getLoginMode();
+
+  // Individual mode: sync to the personal AI baseline endpoint, which records
+  // the session against this device's UUID and returns the freshly computed
+  // Neuro-Resilience Score + EMA-7 trend. No enterprise credentials needed.
+  if (mode === "individual") {
+    const userId = await getStoredUserId();
+    if (!userId) {
+      await setLastSyncAt();
+      return {
+        success: true,
+        message: "Saved on this device. We'll sync once your account finishes setup.",
+      };
+    }
+    try {
+      const res = await fetch(`${getApiBase()}/api/app-user/biometrics`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          hrv,
+          sleep_hours,
+          steps,
+          data_source: "manual",
+        }),
+      });
+      const resData = await res.json().catch(() => ({}));
+      if (!res.ok || !resData.success) {
+        return { success: false, message: resData.error || `Server returned ${res.status}` };
+      }
+      await setLastSyncAt();
+      return {
+        success: true,
+        neuro_resilience_score: resData.neuro_resilience_score,
+        classification: resData.classification,
+      };
+    } catch (e: any) {
+      return { success: false, message: e?.message || "Network error" };
+    }
+  }
+
+  // Defense-in-depth: refuse the enterprise sync path unless the user is in
+  // enterprise login mode. Prevents stale enterprise credentials from leaking
+  // under a new individual user on the same device.
   if (mode !== "enterprise") {
     await setLastSyncAt();
     return {

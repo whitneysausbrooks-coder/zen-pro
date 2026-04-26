@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { GlassCard } from "@/components/GlassCard";
+import { AiBaselineCard } from "@/components/AiBaselineCard";
 import Colors from "@/constants/colors";
 
 const BLOOM_KEY = "nq_morning_bloom_date";
@@ -464,6 +465,8 @@ export default function HomeScreen() {
               <Text style={styles.personalLabel}>Spins</Text>
             </GlassCard>
           </View>
+
+          <AiBaselineCard />
 
           {todayGratitude && (
             <GlassCard style={styles.gratitudeCard} borderColor="rgba(244,114,182,0.2)">
