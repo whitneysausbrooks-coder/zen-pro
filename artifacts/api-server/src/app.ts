@@ -6,8 +6,18 @@ import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxy
 import router from "./routes";
 import { WebhookHandlers } from "./webhookHandlers";
 import { processEnterpriseWebhook } from "./lib/enterpriseWebhook";
+import { applySecurity, JSON_BODY_LIMIT } from "./middlewares/security";
+import {
+  errorMonitoringErrorHandler,
+  errorMonitoringRequestHandler,
+} from "./lib/errorMonitoring";
 
 const app: Express = express();
+
+// Apply security headers + rate limiting + body-size guard FIRST so every
+// route (including Stripe webhooks) gets the protective headers.
+applySecurity(app);
+app.use(errorMonitoringRequestHandler);
 
 app.post(
   "/api/stripe/webhook",
@@ -64,11 +74,15 @@ app.post(
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: JSON_BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: JSON_BODY_LIMIT }));
 app.use(clerkMiddleware());
 
 app.use("/api", router);
+
+// Error-monitoring middleware MUST be mounted last so it sees errors
+// from any route or middleware mounted above.
+app.use(errorMonitoringErrorHandler);
 
 if (process.env.NODE_ENV === "production") {
   const distPath = path.resolve(path.dirname(process.argv[1] ?? "."), "public");

@@ -2,6 +2,7 @@ import app from "./app";
 import { startReconciliationScheduler } from "./lib/billingReconciliation";
 import { startDailyRecognitionScheduler } from "./lib/revenueRecognition";
 import { runMigrations } from "./lib/migrate";
+import { initErrorMonitoring } from "./lib/errorMonitoring";
 
 const rawPort = process.env["PORT"];
 
@@ -21,9 +22,10 @@ if (Number.isNaN(port) || port <= 0) {
 // /api/app-user/* traffic (load balancer health checks, eager mobile clients)
 // before tables exist, returning "relation does not exist" on first hit.
 async function start() {
+  initErrorMonitoring();
   try {
     await runMigrations();
-    console.log("Migrations applied (app_users tables)");
+    console.log("Migrations applied (app_users tables + sprint additions)");
   } catch (err) {
     console.error("Migration failed — refusing to start:", err);
     process.exit(1);

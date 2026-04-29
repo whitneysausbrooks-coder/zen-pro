@@ -1,6 +1,45 @@
 # Apple App Review Checklist — NQ Zen Pro 1.0
 
-Verified against Whitney's Zero-Defect brief on the date of this build.
+Verified against Whitney's Zero-Defect brief AND her ZenPro Developer Sprint
+Checklist on the date of this build.
+
+## Backend Hardening (ZenPro Sprint, April 29 2026)
+
+- [x] **Rate limiting on every `/api/*` endpoint.** 120 req/min per
+  user_id-or-IP, returns standard `RateLimit-*` headers + 429 with
+  `retry-after`. Source: `artifacts/api-server/src/middlewares/security.ts`.
+- [x] **Helmet security headers + HSTS in production.** `X-Frame-Options`,
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
+  `Strict-Transport-Security` (prod only). Confirmed via
+  `curl -I` smoke test.
+- [x] **JSON body size capped (32KB soft, 1MB hard).** Hostile payloads
+  rejected with 413 before they reach the parser.
+- [x] **Auth event log (login / logout / session_resume / timeout).**
+  Recorded to `app_user_auth_events` with `device_id`, `device_platform`,
+  `app_version`, `ip_address`, `user_agent`. Logout event fires BEFORE
+  local credentials are wiped so the audit trail attributes the action.
+  Source: `lib/userAuth.ts` → `recordAuthEvent`.
+- [x] **ToS / Privacy acceptance tracked with version + timestamp.** Backend
+  table `app_user_tos_acceptances`, idempotent on same version. Mobile
+  helper `acceptCurrentTos()` ready to wire to a UI modal once the
+  UI-change exception is approved (modal not yet shipped per the
+  "no UI changes" ground rule).
+- [x] **Wearable sync errors logged** to `wearable_sync_errors` so silent
+  HealthKit / future-SDK failures are visible in the admin dashboard.
+  Helper: `recordWearableSyncError`.
+- [x] **AI outcome feedback table** records pre/post resilience scores +
+  delta + `model_version` per recommendation, enabling per-user model
+  retraining downstream.
+- [x] **Crash / error monitoring adapter** ships in
+  `lib/errorMonitoring.ts`. Currently emits structured JSON to stdout for
+  Replit log aggregation; provider DSN can be wired without touching call
+  sites.
+- [x] **All secrets in environment variables** (verified in Replit Secrets
+  panel). No keys / tokens checked into the repo.
+- [x] **Input validation on every body** via `zod` schemas. Smoke-tested
+  rejection paths (action_taken empty → 400; pre_score > 100 → 400).
+
+
 
 ## Account / Identity
 

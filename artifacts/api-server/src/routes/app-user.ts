@@ -357,4 +357,231 @@ router.post("/app-user/:id/feedback", async (req, res) => {
   }
 });
 
+// ---------- ZenPro Sprint Checklist endpoints (April 2026) ----------
+
+const TOS_VERSION = "2026.04.29";
+const PRIVACY_VERSION = "2026.04.29";
+
+/** GET /api/app-user/:id/tos-status — has the user accepted the current legal docs? */
+router.get("/app-user/:id/tos-status", async (req, res) => {
+  const userId = req.params.id;
+  if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
+  try {
+    const r = await query<{ tos_version: string; privacy_version: string; accepted_at: string }>(
+      `SELECT tos_version, privacy_version, accepted_at
+         FROM app_user_tos_acceptances
+        WHERE app_user_id = $1
+        ORDER BY accepted_at DESC
+        LIMIT 1`,
+      [userId],
+    );
+    const row = r.rows[0] ?? null;
+    const current =
+      row?.tos_version === TOS_VERSION && row?.privacy_version === PRIVACY_VERSION;
+    return res.json({
+      success: true,
+      current_tos_version: TOS_VERSION,
+      current_privacy_version: PRIVACY_VERSION,
+      accepted: !!row && current,
+      last_acceptance: row,
+    });
+  } catch (err: any) {
+    console.error("app_user/tos-status failed:", err.message);
+    return res.status(500).json({ error: "Failed to load ToS status" });
+  }
+});
+
+/**
+ * POST /api/app-user/:id/tos-accept — record a user's acceptance of the
+ * current ToS + Privacy version. Idempotent: a duplicate accept on the same
+ * version is a no-op (no INSERT) so we don't bloat the table on every launch.
+ */
+const tosAcceptSchema = z.object({
+  tos_version: z.string().min(1).max(40),
+  privacy_version: z.string().min(1).max(40),
+});
+router.post("/app-user/:id/tos-accept", async (req, res) => {
+  const userId = req.params.id;
+  if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
+  const parsed = tosAcceptSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+  }
+  try {
+    const userExists = await query(`SELECT 1 FROM app_users WHERE id = $1`, [userId]);
+    if (userExists.rowCount === 0) return res.status(404).json({ error: "User not registered" });
+
+    const ip = (req.ip ?? req.headers["x-forwarded-for"] ?? null) as string | null;
+    const ua = (req.headers["user-agent"] ?? null) as string | null;
+    // ON CONFLICT DO NOTHING + the unique index from migrate.ts make this
+    // idempotent at the DB level (no SELECT-then-INSERT race). When a
+    // duplicate is suppressed, RETURNING yields zero rows.
+    const result = await query(
+      `INSERT INTO app_user_tos_acceptances
+        (app_user_id, tos_version, privacy_version, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (app_user_id, tos_version, privacy_version) DO NOTHING
+       RETURNING id`,
+      [userId, parsed.data.tos_version, parsed.data.privacy_version, ip, ua],
+    );
+    const inserted = (result.rowCount ?? 0) > 0;
+    if (inserted) {
+      await auditLog(userId, "tos_accepted", "app_user_tos_acceptances", {
+        tos_version: parsed.data.tos_version,
+        privacy_version: parsed.data.privacy_version,
+      });
+    }
+    return res.json({
+      success: true,
+      recorded: inserted,
+      ...(inserted ? {} : { reason: "already_accepted" }),
+    });
+  } catch (err: any) {
+    console.error("app_user/tos-accept failed:", err.message);
+    return res.status(500).json({ error: "Failed to record acceptance" });
+  }
+});
+
+/**
+ * POST /api/app-user/:id/auth-event — log a login / logout / session refresh
+ * event with device + version metadata. Lightweight; called from the mobile
+ * lifecycle hooks, not from the user.
+ */
+const authEventSchema = z.object({
+  event_type: z.enum([
+    "login",
+    "logout",
+    "session_resume",
+    "session_refresh",
+    "session_timeout",
+    "identity_reconciled",
+  ]),
+  device_id: z.string().max(120).nullable().optional(),
+  device_platform: z.string().max(40).nullable().optional(),
+  app_version: z.string().max(40).nullable().optional(),
+});
+router.post("/app-user/:id/auth-event", async (req, res) => {
+  const userId = req.params.id;
+  // For logout we still want to record even if the id format is suspect, so
+  // we don't drop tail-end events. But we do enforce a basic shape.
+  if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
+  const parsed = authEventSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+  }
+  try {
+    const ip = (req.ip ?? req.headers["x-forwarded-for"] ?? null) as string | null;
+    const ua = (req.headers["user-agent"] ?? null) as string | null;
+    await query(
+      `INSERT INTO app_user_auth_events
+        (app_user_id, event_type, device_id, device_platform, app_version, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        userId,
+        parsed.data.event_type,
+        parsed.data.device_id ?? null,
+        parsed.data.device_platform ?? null,
+        parsed.data.app_version ?? null,
+        ip,
+        ua,
+      ],
+    );
+    return res.json({ success: true });
+  } catch (err: any) {
+    console.error("app_user/auth-event failed:", err.message);
+    // Auth events must never block the user — return success-like 200 with a
+    // logged warning so the client doesn't retry-loop.
+    return res.status(200).json({ success: false, recorded: false });
+  }
+});
+
+/**
+ * POST /api/app-user/:id/sync-error — record a wearable SDK / API failure so
+ * silent device sync problems surface in the admin dashboard (G12).
+ */
+const syncErrorSchema = z.object({
+  device_source: z.string().min(1).max(40),
+  error_code: z.string().max(80).nullable().optional(),
+  error_message: z.string().min(1).max(500),
+  payload_excerpt: z.string().max(500).nullable().optional(),
+});
+router.post("/app-user/:id/sync-error", async (req, res) => {
+  const userId = req.params.id;
+  if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
+  const parsed = syncErrorSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+  }
+  try {
+    await query(
+      `INSERT INTO wearable_sync_errors
+        (app_user_id, device_source, error_code, error_message, payload_excerpt)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        userId,
+        parsed.data.device_source,
+        parsed.data.error_code ?? null,
+        parsed.data.error_message,
+        parsed.data.payload_excerpt ?? null,
+      ],
+    );
+    return res.json({ success: true });
+  } catch (err: any) {
+    console.error("app_user/sync-error failed:", err.message);
+    return res.status(200).json({ success: false, recorded: false });
+  }
+});
+
+/**
+ * POST /api/app-user/:id/outcome — record the downstream effect of an AI
+ * recommendation: what the user did, the pre/post resilience scores, and the
+ * delta. Drives the model retraining pipeline (4.3).
+ */
+const outcomeSchema = z.object({
+  personalization_id: z.number().int().positive().nullable().optional(),
+  action_taken: z.string().min(1).max(80),
+  pre_score: z.number().min(0).max(100).nullable().optional(),
+  post_score: z.number().min(0).max(100).nullable().optional(),
+  observed_window_hours: z.number().int().min(0).max(168).nullable().optional(),
+  model_version: z.string().max(40).nullable().optional(),
+});
+router.post("/app-user/:id/outcome", async (req, res) => {
+  const userId = req.params.id;
+  if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
+  const parsed = outcomeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+  }
+  try {
+    const userExists = await query(`SELECT 1 FROM app_users WHERE id = $1`, [userId]);
+    if (userExists.rowCount === 0) return res.status(404).json({ error: "User not registered" });
+
+    const pre = parsed.data.pre_score ?? null;
+    const post = parsed.data.post_score ?? null;
+    const delta = pre != null && post != null ? Math.round((post - pre) * 10) / 10 : null;
+
+    const r = await query<{ id: number }>(
+      `INSERT INTO ai_outcome_feedback
+        (app_user_id, personalization_id, action_taken, pre_score, post_score,
+         score_delta, observed_window_hours, model_version)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id`,
+      [
+        userId,
+        parsed.data.personalization_id ?? null,
+        parsed.data.action_taken,
+        pre,
+        post,
+        delta,
+        parsed.data.observed_window_hours ?? null,
+        parsed.data.model_version ?? null,
+      ],
+    );
+    return res.json({ success: true, outcome_id: r.rows[0]?.id, delta });
+  } catch (err: any) {
+    console.error("app_user/outcome failed:", err.message);
+    return res.status(500).json({ error: "Failed to record outcome" });
+  }
+});
+
 export default router;

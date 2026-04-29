@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
@@ -232,6 +233,9 @@ export async function registerIndividual(input: {
     // intentional — local-first; offline is acceptable.
   }
 
+  // Record the login auth event (1.7 / G6). Fire-and-forget.
+  void recordAuthEvent("login", user_id);
+
   return { success: true, profile };
 }
 
@@ -265,6 +269,217 @@ export async function heartbeat(): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: id }),
     });
+    // Record the session-resume event (1.7 / G6). Best-effort, never throws.
+    void recordAuthEvent("session_resume", id);
+  } catch {}
+}
+
+// ---------- ZenPro Sprint Checklist helpers (April 2026) ----------
+
+const CURRENT_TOS_VERSION = "2026.04.29";
+const CURRENT_PRIVACY_VERSION = "2026.04.29";
+const TOS_LOCAL_KEY = "nq_tos_acceptance";
+
+export type AuthEventType =
+  | "login"
+  | "logout"
+  | "session_resume"
+  | "session_refresh"
+  | "session_timeout"
+  | "identity_reconciled";
+
+interface DeviceMeta {
+  device_id: string | null;
+  device_platform: string;
+  app_version: string | null;
+}
+
+function getDeviceMeta(): DeviceMeta {
+  const installId =
+    (Constants.installationId as string | undefined) ??
+    (Constants.sessionId as string | undefined) ??
+    null;
+  return {
+    device_id: installId,
+    device_platform: Platform.OS,
+    app_version:
+      (Constants.expoConfig?.version as string | undefined) ??
+      (Constants.expoConfig?.runtimeVersion as string | undefined) ??
+      null,
+  };
+}
+
+/**
+ * Record an auth lifecycle event (login / logout / session resume).
+ * Always best-effort — never blocks the user flow.
+ */
+export async function recordAuthEvent(
+  eventType: AuthEventType,
+  explicitUserId?: string | null,
+): Promise<void> {
+  const id = explicitUserId ?? (await getStoredUserId());
+  if (!id) return;
+  const meta = getDeviceMeta();
+  try {
+    await fetch(`${getApiBase()}/api/app-user/${id}/auth-event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_type: eventType,
+        device_id: meta.device_id,
+        device_platform: meta.device_platform,
+        app_version: meta.app_version,
+      }),
+    });
+  } catch {}
+}
+
+export interface TosStatus {
+  current_tos_version: string;
+  current_privacy_version: string;
+  accepted: boolean;
+}
+
+/**
+ * Has the current user accepted the latest ToS + Privacy?
+ * Checks local cache first (instant boot), reconciles with backend in
+ * the background.
+ */
+export async function getTosStatus(): Promise<TosStatus> {
+  const id = await getStoredUserId();
+  // Local cache first so the app boot path is instant.
+  let local: TosStatus | null = null;
+  try {
+    const raw = await AsyncStorage.getItem(TOS_LOCAL_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as TosStatus;
+      if (
+        parsed.current_tos_version === CURRENT_TOS_VERSION &&
+        parsed.current_privacy_version === CURRENT_PRIVACY_VERSION
+      ) {
+        local = parsed;
+      }
+    }
+  } catch {}
+  if (!id) {
+    return (
+      local ?? {
+        current_tos_version: CURRENT_TOS_VERSION,
+        current_privacy_version: CURRENT_PRIVACY_VERSION,
+        accepted: false,
+      }
+    );
+  }
+  try {
+    const res = await fetch(`${getApiBase()}/api/app-user/${id}/tos-status`);
+    if (res.ok) {
+      const json = (await res.json()) as TosStatus & { success?: boolean };
+      const status: TosStatus = {
+        current_tos_version: json.current_tos_version,
+        current_privacy_version: json.current_privacy_version,
+        accepted: !!json.accepted,
+      };
+      try {
+        await AsyncStorage.setItem(TOS_LOCAL_KEY, JSON.stringify(status));
+      } catch {}
+      return status;
+    }
+  } catch {}
+  return (
+    local ?? {
+      current_tos_version: CURRENT_TOS_VERSION,
+      current_privacy_version: CURRENT_PRIVACY_VERSION,
+      accepted: false,
+    }
+  );
+}
+
+/**
+ * Record acceptance of the current ToS + Privacy versions for this user.
+ * Persists locally even if backend is unreachable so the user is never
+ * re-prompted on a flaky network.
+ */
+export async function acceptCurrentTos(): Promise<{ success: boolean }> {
+  const id = await getStoredUserId();
+  if (!id) return { success: false };
+  const status: TosStatus = {
+    current_tos_version: CURRENT_TOS_VERSION,
+    current_privacy_version: CURRENT_PRIVACY_VERSION,
+    accepted: true,
+  };
+  try {
+    await AsyncStorage.setItem(TOS_LOCAL_KEY, JSON.stringify(status));
+  } catch {}
+  try {
+    const res = await fetch(`${getApiBase()}/api/app-user/${id}/tos-accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tos_version: CURRENT_TOS_VERSION,
+        privacy_version: CURRENT_PRIVACY_VERSION,
+      }),
+    });
+    return { success: res.ok };
+  } catch {
+    // Local acceptance is enough for a returning offline user; backend
+    // will catch up on next online launch.
+    return { success: true };
+  }
+}
+
+/**
+ * Record a wearable / health-data sync failure (G12). Bounded payload
+ * sizes; never throws. Used by the HealthKit / Health Connect adapters.
+ */
+export async function recordWearableSyncError(args: {
+  device_source: string;
+  error_code?: string | null;
+  error_message: string;
+  payload_excerpt?: string | null;
+}): Promise<void> {
+  const id = await getStoredUserId();
+  if (!id) return;
+  try {
+    await fetch(`${getApiBase()}/api/app-user/${id}/sync-error`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        device_source: args.device_source.slice(0, 40),
+        error_code: args.error_code?.slice(0, 80) ?? null,
+        error_message: args.error_message.slice(0, 500),
+        payload_excerpt: args.payload_excerpt?.slice(0, 500) ?? null,
+      }),
+    });
+  } catch {}
+}
+
+/**
+ * Record the downstream outcome of an AI recommendation: what the user
+ * did + the pre/post resilience scores. Drives 4.3 (outcome feedback).
+ */
+export async function recordAiOutcome(args: {
+  personalization_id?: number | null;
+  action_taken: string;
+  pre_score?: number | null;
+  post_score?: number | null;
+  observed_window_hours?: number | null;
+  model_version?: string | null;
+}): Promise<void> {
+  const id = await getStoredUserId();
+  if (!id) return;
+  try {
+    await fetch(`${getApiBase()}/api/app-user/${id}/outcome`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        personalization_id: args.personalization_id ?? null,
+        action_taken: args.action_taken.slice(0, 80),
+        pre_score: args.pre_score ?? null,
+        post_score: args.post_score ?? null,
+        observed_window_hours: args.observed_window_hours ?? null,
+        model_version: args.model_version ?? null,
+      }),
+    });
   } catch {}
 }
 
@@ -277,11 +492,19 @@ export async function setOnboardingComplete(value: boolean): Promise<void> {
 /**
  * Clear all individual-account data. Used by the back-navigation flow when a
  * user retreats from the Health screen back to the Sign In screen, and by the
- * Profile sign-out flow.
+ * Profile sign-out flow. Records a logout auth event before clearing so the
+ * audit trail captures who signed out.
  */
 export async function clearIndividualAccount(): Promise<void> {
+  // Capture the user_id BEFORE we wipe so the auth event has an attribution.
+  const id = await getStoredUserId();
+  if (id) {
+    // Best-effort, fire-and-forget — must not block sign-out on network.
+    void recordAuthEvent("logout", id);
+  }
   await secureDelete(SECURE_USER_ID_KEY);
   try { await AsyncStorage.removeItem(PROFILE_KEY); } catch {}
+  try { await AsyncStorage.removeItem("nq_tos_acceptance"); } catch {}
 }
 
 export interface BaselineResponse {
