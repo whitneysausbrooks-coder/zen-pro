@@ -31,3 +31,4 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
+DATADOG_SITE = "us5.datadoghq.com"
