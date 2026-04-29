@@ -1,15 +1,19 @@
 /**
  * Production error-monitoring adapter (G17 — Crash / error monitoring).
  *
- * Today this is a structured-logging no-op. The interface is shaped so that
- * swapping in Sentry, Datadog, Bugsnag, or Honeycomb is a one-file change:
- * pick a provider, fill in `init()` + `captureException()` + the express
- * middlewares, and every existing call site keeps working.
+ * Whitney has approved Datadog as the provider. When `DATADOG_API_KEY` is
+ * present, exceptions and warnings are shipped to the Datadog Logs HTTP API
+ * (https://http-intake.logs.datadoghq.com/api/v2/logs). When absent, we fall
+ * back to structured-log mode so local dev and the smoke-test loop keep
+ * working without any external dependency.
  *
- * We deliberately avoid pulling in @sentry/node today because it transitively
- * requires @opentelemetry, which the mobile artifact's Metro bundler chokes on
- * inside the pnpm hoist tree. When you're ready to wire a real provider, do it
- * inside this file only.
+ * We deliberately avoid the official `dd-trace` SDK because it transitively
+ * pulls in @opentelemetry, which the mobile artifact's Metro bundler chokes
+ * on inside the pnpm hoist tree (the same crash class that ruled out
+ * `@sentry/node` in the previous push).
+ *
+ * Site selection: defaults to the US1 intake. Override with `DATADOG_SITE`
+ * (e.g. `datadoghq.eu`, `us3.datadoghq.com`).
  */
 import type { ErrorRequestHandler, RequestHandler } from "express";
 
@@ -20,51 +24,103 @@ export interface ErrorContext {
 }
 
 let initialized = false;
+let datadogApiKey: string | null = null;
+let datadogIntakeUrl: string | null = null;
+let serviceName = "neuroquest-api";
+
+const SERVICE_ENV = process.env["NODE_ENV"] === "production" ? "production" : "development";
 
 export function initErrorMonitoring(): void {
   if (initialized) return;
   initialized = true;
-  const dsn = process.env["SENTRY_DSN"] ?? process.env["ERROR_MONITORING_DSN"];
-  if (dsn) {
+
+  serviceName = process.env["DD_SERVICE"] ?? "neuroquest-api";
+  datadogApiKey = process.env["DATADOG_API_KEY"] ?? null;
+  const site = process.env["DATADOG_SITE"] ?? "datadoghq.com";
+  datadogIntakeUrl = `https://http-intake.logs.${site}/api/v2/logs`;
+
+  if (datadogApiKey) {
     console.log(
-      "[errorMonitoring] DSN detected but no provider wired — running in structured-log mode. " +
-        "See lib/errorMonitoring.ts to enable.",
+      `[errorMonitoring] Datadog enabled — service=${serviceName} env=${SERVICE_ENV} site=${site}`,
     );
   } else {
-    console.log("[errorMonitoring] no DSN configured — structured-log mode.");
+    console.log(
+      "[errorMonitoring] no DATADOG_API_KEY — structured-log mode (set the secret to enable Datadog).",
+    );
   }
+}
+
+interface DatadogLog {
+  ddsource: string;
+  ddtags: string;
+  hostname: string;
+  service: string;
+  message: string;
+  status: "error" | "warn" | "info";
+  user_id?: string | null;
+  route?: string | null;
+  stack?: string | null;
+  extra?: Record<string, unknown> | null;
+  timestamp: string;
+}
+
+/**
+ * Fire-and-forget POST to Datadog. Bounded by AbortController so a slow
+ * intake never blocks request handling. Failures are silent on purpose:
+ * monitoring outages must not cascade into application errors.
+ */
+function shipToDatadog(payload: DatadogLog): void {
+  if (!datadogApiKey || !datadogIntakeUrl) return;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 1500);
+  fetch(datadogIntakeUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "DD-API-KEY": datadogApiKey,
+    },
+    body: JSON.stringify([payload]),
+    signal: controller.signal,
+  })
+    .catch(() => {
+      // Intentionally silent — see comment above.
+    })
+    .finally(() => clearTimeout(timer));
+}
+
+function buildLog(
+  status: "error" | "warn" | "info",
+  message: string,
+  ctx: ErrorContext,
+  stack?: string,
+): DatadogLog {
+  return {
+    ddsource: "nodejs",
+    ddtags: `env:${SERVICE_ENV},service:${serviceName}`,
+    hostname: process.env["HOSTNAME"] ?? "replit",
+    service: serviceName,
+    message,
+    status,
+    user_id: ctx.user_id ?? null,
+    route: ctx.route ?? null,
+    stack: stack ?? null,
+    extra: ctx.extra ?? null,
+    timestamp: new Date().toISOString(),
+  };
 }
 
 export function captureException(err: unknown, ctx: ErrorContext = {}): void {
   const message = err instanceof Error ? err.message : String(err);
   const stack = err instanceof Error ? err.stack : undefined;
-  // Stringify so prod log aggregators (Replit, Datadog tail, etc.) can parse.
-  console.error(
-    JSON.stringify({
-      level: "error",
-      type: "exception",
-      message,
-      stack,
-      user_id: ctx.user_id ?? null,
-      route: ctx.route ?? null,
-      extra: ctx.extra ?? null,
-      timestamp: new Date().toISOString(),
-    }),
-  );
+  const log = buildLog("error", message, ctx, stack);
+  console.error(JSON.stringify({ ...log, type: "exception" }));
+  shipToDatadog(log);
 }
 
 export function captureMessage(message: string, ctx: ErrorContext = {}): void {
-  console.warn(
-    JSON.stringify({
-      level: "warn",
-      type: "message",
-      message,
-      user_id: ctx.user_id ?? null,
-      route: ctx.route ?? null,
-      extra: ctx.extra ?? null,
-      timestamp: new Date().toISOString(),
-    }),
-  );
+  const log = buildLog("warn", message, ctx);
+  console.warn(JSON.stringify({ ...log, type: "message" }));
+  shipToDatadog(log);
 }
 
 /** Express middleware: tag in-flight requests so captureException can attribute. */

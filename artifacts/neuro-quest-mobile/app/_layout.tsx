@@ -16,7 +16,7 @@ import { useFonts } from "expo-font";
 import { Audio } from "expo-av";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useCallback, useEffect, useState } from "react";
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -25,7 +25,9 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OnboardingFlow, ONBOARDING_KEY } from "@/components/OnboardingFlow";
 import { OnboardingSignIn } from "@/components/OnboardingSignIn";
 import { OnboardingHealth } from "@/components/OnboardingHealth";
-import { getLoginMode, getHealthChoice, onSignOut } from "@/lib/health";
+import { TosAcceptanceModal } from "@/components/TosAcceptanceModal";
+import { useIdleTimeout } from "@/hooks/useIdleTimeout";
+import { getLoginMode, getHealthChoice, onSignOut, signOutAndReset } from "@/lib/health";
 import {
   clearIndividualAccount,
   heartbeat,
@@ -37,11 +39,42 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
-function RootLayoutNav() {
+/**
+ * Inner navigator wrapped by an idle-timeout listener. The wrapping View
+ * captures every touch via `onStartShouldSetResponderCapture` (returning
+ * false so it doesn't intercept the gesture) and bumps the activity timer.
+ * After 10 minutes without activity the user is signed out and the state
+ * machine drops them back at the sign-in screen.
+ */
+function AuthenticatedShell() {
+  const handleTimeout = useCallback(() => {
+    // Wipe the credential bundle and trigger the onSignOut listeners so the
+    // root state machine returns to OnboardingSignIn.
+    signOutAndReset().catch(() => {});
+  }, []);
+
+  const { bumpActivity } = useIdleTimeout({
+    enabled: true,
+    timeoutMs: 10 * 60 * 1000,
+    onTimeout: handleTimeout,
+  });
+
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
+    <View
+      style={{ flex: 1 }}
+      onStartShouldSetResponderCapture={() => {
+        bumpActivity();
+        return false;
+      }}
+      onMoveShouldSetResponderCapture={() => {
+        bumpActivity();
+        return false;
+      }}
+    >
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+    </View>
   );
 }
 
@@ -59,6 +92,10 @@ export default function RootLayout() {
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const [loginDone, setLoginDone] = useState<boolean | null>(null);
   const [healthDone, setHealthDone] = useState<boolean | null>(null);
+  // 4th gate: the user must accept the current ToS + Privacy version before
+  // they can reach the tab tree. `null` = not yet checked, false = needs
+  // acceptance, true = accepted (advance to RootLayoutNav).
+  const [tosDone, setTosDone] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== "web") {
@@ -110,12 +147,13 @@ export default function RootLayout() {
   }, [fontsLoaded, fontError, onboardingDone, loginDone, healthDone]);
 
   // Reset to the sign-in onboarding step when the user signs out from
-  // Profile or finishes account deletion. Keeps device hand-off seamless
-  // without requiring an app restart.
+  // Profile, the idle timer fires, account deletion completes, or the ToS
+  // modal is declined. Keeps device hand-off seamless without an app restart.
   useEffect(() => {
     const unsub = onSignOut(() => {
       setLoginDone(false);
       setHealthDone(false);
+      setTosDone(null);
       // Wipe the individual identity on full sign-out so the next user on
       // this device gets a fresh UUID + clean baseline.
       clearIndividualAccount().catch(() => {});
@@ -162,6 +200,7 @@ export default function RootLayout() {
     } catch {}
     setHealthDone(false);
     setLoginDone(false);
+    setTosDone(null);
   };
 
   return (
@@ -179,8 +218,20 @@ export default function RootLayout() {
                   onComplete={handleHealthComplete}
                   onBack={handleHealthBack}
                 />
+              ) : !tosDone ? (
+                <TosAcceptanceModal
+                  onAccepted={() => setTosDone(true)}
+                  onDeclined={() => {
+                    // Decline = full sign-out: credentials are wiped by the
+                    // modal itself; we just have to reset the gate state so
+                    // the user lands on the sign-in screen.
+                    setTosDone(null);
+                    setHealthDone(false);
+                    setLoginDone(false);
+                  }}
+                />
               ) : (
-                <RootLayoutNav />
+                <AuthenticatedShell />
               )}
             </KeyboardProvider>
           </GestureHandlerRootView>

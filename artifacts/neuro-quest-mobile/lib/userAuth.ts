@@ -19,6 +19,11 @@ import * as Crypto from "expo-crypto";
 
 const SECURE_USER_ID_KEY = "nq_app_user_id";
 const PROFILE_KEY = "nq_app_user_profile";
+// Per-device shared secret returned by /api/app-user/register. Stored in
+// SecureStore (iOS Keychain / Android Keystore) alongside the user_id.
+const SECURE_DEVICE_SECRET_KEY = "nq_app_device_secret";
+const SECURE_DEVICE_ISSUED_AT_KEY = "nq_app_device_issued_at";
+const SECURE_DEVICE_ID_KEY = "nq_app_device_id";
 
 export type AccountType = "individual";
 
@@ -77,6 +82,164 @@ async function secureDelete(key: string): Promise<void> {
 
 export async function getStoredUserId(): Promise<string | null> {
   return secureGet(SECURE_USER_ID_KEY);
+}
+
+// ---------- Per-device signing credentials (auth-first follow-up #5) ----------
+
+interface DeviceCredentials {
+  device_id: string;
+  device_secret: string;
+  issued_at: string;
+}
+
+async function getOrMintDeviceId(): Promise<string> {
+  const existing = await secureGet(SECURE_DEVICE_ID_KEY);
+  if (existing) return existing;
+  const id =
+    (Constants.installationId as string | undefined) ??
+    (Constants.sessionId as string | undefined) ??
+    Crypto.randomUUID();
+  await secureSet(SECURE_DEVICE_ID_KEY, id);
+  return id;
+}
+
+export async function getDeviceCredentials(): Promise<DeviceCredentials | null> {
+  const [device_id, device_secret, issued_at] = await Promise.all([
+    secureGet(SECURE_DEVICE_ID_KEY),
+    secureGet(SECURE_DEVICE_SECRET_KEY),
+    secureGet(SECURE_DEVICE_ISSUED_AT_KEY),
+  ]);
+  if (!device_id || !device_secret || !issued_at) return null;
+  return { device_id, device_secret, issued_at };
+}
+
+async function setDeviceCredentials(creds: DeviceCredentials): Promise<void> {
+  await secureSet(SECURE_DEVICE_ID_KEY, creds.device_id);
+  await secureSet(SECURE_DEVICE_SECRET_KEY, creds.device_secret);
+  await secureSet(SECURE_DEVICE_ISSUED_AT_KEY, creds.issued_at);
+}
+
+async function clearDeviceCredentials(): Promise<void> {
+  await secureDelete(SECURE_DEVICE_SECRET_KEY);
+  await secureDelete(SECURE_DEVICE_ISSUED_AT_KEY);
+  // Keep SECURE_DEVICE_ID_KEY so the same install keeps a stable device_id
+  // across re-registrations. It's not sensitive on its own.
+}
+
+// ---------- HMAC-SHA256 (expo-crypto byte-level digest, no new deps) ----------
+
+function hexToBytes(hex: string): Uint8Array {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  return out;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  let hex = "";
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, "0");
+  }
+  return hex;
+}
+
+async function sha256Bytes(bytes: Uint8Array): Promise<Uint8Array> {
+  // expo-crypto >=11 supports Uint8Array input via Crypto.digest. Result is an
+  // ArrayBuffer of the raw 32-byte digest.
+  const result = await (Crypto as any).digest(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    bytes,
+  );
+  return new Uint8Array(result);
+}
+
+/**
+ * HMAC-SHA256 per RFC 2104. Key is hex-encoded (the device_secret is 64 hex
+ * chars = 32 bytes). Message is treated as UTF-8 bytes. Returns hex digest.
+ */
+async function hmacSha256(keyHex: string, message: string): Promise<string> {
+  const blockSize = 64;
+  let key = hexToBytes(keyHex);
+  if (key.length > blockSize) {
+    key = await sha256Bytes(key);
+  }
+  if (key.length < blockSize) {
+    const padded = new Uint8Array(blockSize);
+    padded.set(key);
+    key = padded;
+  }
+  const ipad = new Uint8Array(blockSize);
+  const opad = new Uint8Array(blockSize);
+  for (let i = 0; i < blockSize; i++) {
+    ipad[i] = key[i]! ^ 0x36;
+    opad[i] = key[i]! ^ 0x5c;
+  }
+  const msgBytes = new TextEncoder().encode(message);
+  const inner = new Uint8Array(blockSize + msgBytes.length);
+  inner.set(ipad);
+  inner.set(msgBytes, blockSize);
+  const innerHash = await sha256Bytes(inner);
+  const outer = new Uint8Array(blockSize + innerHash.length);
+  outer.set(opad);
+  outer.set(innerHash, blockSize);
+  const outerHash = await sha256Bytes(outer);
+  return bytesToHex(outerHash);
+}
+
+async function sha256HexOfString(s: string): Promise<string> {
+  const bytes = new TextEncoder().encode(s);
+  const hash = await sha256Bytes(bytes);
+  return bytesToHex(hash);
+}
+
+/**
+ * fetch() wrapper that adds the per-device signature headers. Falls back to
+ * a plain fetch when no device credentials have been minted yet (server side
+ * runs in soft mode so the request still succeeds — the gap will close in the
+ * next sprint when hard mode flips on).
+ */
+export async function signedFetch(
+  url: string,
+  init: RequestInit & { jsonBody?: unknown } = {},
+): Promise<Response> {
+  const creds = await getDeviceCredentials();
+  const method = (init.method ?? "GET").toUpperCase();
+  const bodyForSend =
+    init.jsonBody !== undefined ? JSON.stringify(init.jsonBody) : (init.body as any) ?? "";
+  const path = (() => {
+    try {
+      return new URL(url, "https://placeholder.local").pathname;
+    } catch {
+      return url;
+    }
+  })();
+  const headers: Record<string, string> = {
+    ...((init.headers as Record<string, string>) ?? {}),
+  };
+  if (init.jsonBody !== undefined) headers["Content-Type"] = "application/json";
+
+  if (creds) {
+    try {
+      const ts = new Date().toISOString();
+      const bodyHash = await sha256HexOfString(bodyForSend === "" ? "" : String(bodyForSend));
+      const message = `${method}\n${path}\n${ts}\n${bodyHash}`;
+      const signature = await hmacSha256(creds.device_secret, message);
+      headers["X-Device-Id"] = creds.device_id;
+      headers["X-Issued-At"] = creds.issued_at;
+      headers["X-Timestamp"] = ts;
+      headers["X-Signature"] = signature;
+    } catch {
+      // Signing failure is never fatal in soft mode — surface as missing.
+    }
+  }
+
+  return fetch(url, {
+    ...init,
+    method,
+    headers,
+    body: init.jsonBody !== undefined ? bodyForSend : init.body,
+  });
 }
 
 export async function getStoredProfile(): Promise<UserProfile | null> {
@@ -218,8 +381,17 @@ export async function registerIndividual(input: {
 
   // Best-effort backend sync. If it fails (offline / cold backend), the local
   // profile still exists and `syncProfileToBackend` can retry later.
+  // We always send `device_id` so the server can mint per-device signing
+  // credentials (returned in the response); on offline we proceed without
+  // them and the next online register call will populate the keychain.
+  let device_id: string;
   try {
-    await fetch(`${getApiBase()}/api/app-user/register`, {
+    device_id = await getOrMintDeviceId();
+  } catch {
+    device_id = "";
+  }
+  try {
+    const res = await fetch(`${getApiBase()}/api/app-user/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -227,8 +399,28 @@ export async function registerIndividual(input: {
         name,
         email,
         account_type: "individual",
+        device_id: device_id || undefined,
       }),
     });
+    if (res.ok) {
+      try {
+        const json = await res.json();
+        if (
+          json &&
+          typeof json.device_secret === "string" &&
+          typeof json.issued_at === "string" &&
+          device_id
+        ) {
+          await setDeviceCredentials({
+            device_id,
+            device_secret: json.device_secret,
+            issued_at: json.issued_at,
+          });
+        }
+      } catch {
+        // Older server responses without device creds → soft mode tolerated.
+      }
+    }
   } catch {
     // intentional — local-first; offline is acceptable.
   }
@@ -321,15 +513,14 @@ export async function recordAuthEvent(
   if (!id) return;
   const meta = getDeviceMeta();
   try {
-    await fetch(`${getApiBase()}/api/app-user/${id}/auth-event`, {
+    await signedFetch(`${getApiBase()}/api/app-user/${id}/auth-event`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      jsonBody: {
         event_type: eventType,
         device_id: meta.device_id,
         device_platform: meta.device_platform,
         app_version: meta.app_version,
-      }),
+      },
     });
   } catch {}
 }
@@ -371,7 +562,7 @@ export async function getTosStatus(): Promise<TosStatus> {
     );
   }
   try {
-    const res = await fetch(`${getApiBase()}/api/app-user/${id}/tos-status`);
+    const res = await signedFetch(`${getApiBase()}/api/app-user/${id}/tos-status`);
     if (res.ok) {
       const json = (await res.json()) as TosStatus & { success?: boolean };
       const status: TosStatus = {
@@ -410,20 +601,34 @@ export async function acceptCurrentTos(): Promise<{ success: boolean }> {
   try {
     await AsyncStorage.setItem(TOS_LOCAL_KEY, JSON.stringify(status));
   } catch {}
+  // Audit-rule (Whitney G7): every write goes to DB. We MUST receive a
+  // server 2xx before declaring acceptance successful — otherwise the user
+  // could enter the app without a row in `app_user_tos_acceptances` and
+  // legal would have no audit trail of consent.
   try {
-    const res = await fetch(`${getApiBase()}/api/app-user/${id}/tos-accept`, {
+    const res = await signedFetch(`${getApiBase()}/api/app-user/${id}/tos-accept`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      jsonBody: {
         tos_version: CURRENT_TOS_VERSION,
         privacy_version: CURRENT_PRIVACY_VERSION,
-      }),
+      },
     });
-    return { success: res.ok };
-  } catch {
-    // Local acceptance is enough for a returning offline user; backend
-    // will catch up on next online launch.
+    if (!res.ok) {
+      // Server rejected — roll back the optimistic local flag so we re-prompt.
+      try {
+        await AsyncStorage.removeItem(TOS_LOCAL_KEY);
+      } catch {}
+      return { success: false };
+    }
     return { success: true };
+  } catch {
+    // Network failure — we did NOT persist consent server-side. Roll back
+    // the local flag so the modal re-appears on next launch and we get
+    // another chance to record the acceptance to the DB.
+    try {
+      await AsyncStorage.removeItem(TOS_LOCAL_KEY);
+    } catch {}
+    return { success: false };
   }
 }
 
@@ -440,15 +645,14 @@ export async function recordWearableSyncError(args: {
   const id = await getStoredUserId();
   if (!id) return;
   try {
-    await fetch(`${getApiBase()}/api/app-user/${id}/sync-error`, {
+    await signedFetch(`${getApiBase()}/api/app-user/${id}/sync-error`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      jsonBody: {
         device_source: args.device_source.slice(0, 40),
         error_code: args.error_code?.slice(0, 80) ?? null,
         error_message: args.error_message.slice(0, 500),
         payload_excerpt: args.payload_excerpt?.slice(0, 500) ?? null,
-      }),
+      },
     });
   } catch {}
 }
@@ -468,17 +672,16 @@ export async function recordAiOutcome(args: {
   const id = await getStoredUserId();
   if (!id) return;
   try {
-    await fetch(`${getApiBase()}/api/app-user/${id}/outcome`, {
+    await signedFetch(`${getApiBase()}/api/app-user/${id}/outcome`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      jsonBody: {
         personalization_id: args.personalization_id ?? null,
         action_taken: args.action_taken.slice(0, 80),
         pre_score: args.pre_score ?? null,
         post_score: args.post_score ?? null,
         observed_window_hours: args.observed_window_hours ?? null,
         model_version: args.model_version ?? null,
-      }),
+      },
     });
   } catch {}
 }
@@ -503,6 +706,7 @@ export async function clearIndividualAccount(): Promise<void> {
     void recordAuthEvent("logout", id);
   }
   await secureDelete(SECURE_USER_ID_KEY);
+  await clearDeviceCredentials();
   try { await AsyncStorage.removeItem(PROFILE_KEY); } catch {}
   try { await AsyncStorage.removeItem("nq_tos_acceptance"); } catch {}
 }

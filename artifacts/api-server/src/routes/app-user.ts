@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { query, auditLog } from "../lib/db";
+import { mintDeviceCredentials, requireDeviceSignature } from "../lib/deviceAuth";
 
 const router: IRouter = Router();
 
@@ -11,6 +12,10 @@ const registerSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   email: z.string().trim().email("Invalid email").max(254),
   account_type: z.enum(["individual"]).default("individual"),
+  // Optional: when present, server mints per-device signing credentials and
+  // returns them in the response. Older mobile builds that omit this still
+  // succeed (soft-mode tolerated).
+  device_id: z.string().min(1).max(120).optional(),
 });
 
 /**
@@ -43,7 +48,19 @@ router.post("/app-user/register", async (req, res) => {
       [user_id, normEmail, name, account_type],
     );
     await auditLog(user_id, "app_user_registered", "app_users", { account_type });
-    return res.json({ success: true, user: result.rows[0] });
+    // Mint per-device signing credentials when the client provided a device_id
+    // and SERVER_DEVICE_KEY is configured. Returned alongside the user record
+    // so the mobile client can store them in the keychain on the same trip.
+    const deviceCreds = parsed.data.device_id
+      ? mintDeviceCredentials({ user_id, device_id: parsed.data.device_id })
+      : null;
+    return res.json({
+      success: true,
+      user: result.rows[0],
+      ...(deviceCreds
+        ? { device_secret: deviceCreds.device_secret, issued_at: deviceCreds.issued_at }
+        : {}),
+    });
   } catch (err: any) {
     console.error("app_user/register failed:", err.message);
     await auditLog(null, "app_user_register_failed", "app_users", { error: err.message });
@@ -363,7 +380,7 @@ const TOS_VERSION = "2026.04.29";
 const PRIVACY_VERSION = "2026.04.29";
 
 /** GET /api/app-user/:id/tos-status — has the user accepted the current legal docs? */
-router.get("/app-user/:id/tos-status", async (req, res) => {
+router.get("/app-user/:id/tos-status", requireDeviceSignature, async (req, res) => {
   const userId = req.params.id;
   if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
   try {
@@ -400,7 +417,7 @@ const tosAcceptSchema = z.object({
   tos_version: z.string().min(1).max(40),
   privacy_version: z.string().min(1).max(40),
 });
-router.post("/app-user/:id/tos-accept", async (req, res) => {
+router.post("/app-user/:id/tos-accept", requireDeviceSignature, async (req, res) => {
   const userId = req.params.id;
   if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
   const parsed = tosAcceptSchema.safeParse(req.body);
@@ -460,7 +477,7 @@ const authEventSchema = z.object({
   device_platform: z.string().max(40).nullable().optional(),
   app_version: z.string().max(40).nullable().optional(),
 });
-router.post("/app-user/:id/auth-event", async (req, res) => {
+router.post("/app-user/:id/auth-event", requireDeviceSignature, async (req, res) => {
   const userId = req.params.id;
   // For logout we still want to record even if the id format is suspect, so
   // we don't drop tail-end events. But we do enforce a basic shape.
@@ -505,7 +522,7 @@ const syncErrorSchema = z.object({
   error_message: z.string().min(1).max(500),
   payload_excerpt: z.string().max(500).nullable().optional(),
 });
-router.post("/app-user/:id/sync-error", async (req, res) => {
+router.post("/app-user/:id/sync-error", requireDeviceSignature, async (req, res) => {
   const userId = req.params.id;
   if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
   const parsed = syncErrorSchema.safeParse(req.body);
@@ -545,7 +562,7 @@ const outcomeSchema = z.object({
   observed_window_hours: z.number().int().min(0).max(168).nullable().optional(),
   model_version: z.string().max(40).nullable().optional(),
 });
-router.post("/app-user/:id/outcome", async (req, res) => {
+router.post("/app-user/:id/outcome", requireDeviceSignature, async (req, res) => {
   const userId = req.params.id;
   if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
   const parsed = outcomeSchema.safeParse(req.body);
