@@ -152,6 +152,7 @@ function AppRoutes() {
           <Route path="/sponsor"     component={Sponsor} />
           <Route path="/admin"       component={AdminPanel} />
           <Route path="/admin-dashboard" component={AdminDashboard} />
+          <Route path="/owner-dashboard" component={AdminDashboard} />
           <Route path="/company-admin" component={CompanyAdminPage} />
           <Route path="/elon"        component={ElonPage} />
           <Route path="/payment"     component={PaymentPage} />
