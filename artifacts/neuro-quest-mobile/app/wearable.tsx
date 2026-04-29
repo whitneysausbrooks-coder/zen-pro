@@ -19,7 +19,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { GlassCard } from "@/components/GlassCard";
 import Colors from "@/constants/colors";
 import {
-  isHealthKitAvailable,
+  isHealthConnectAvailable,
+  isHealthAvailable,
+  healthProviderLabel,
   getStoredEmail,
   setStoredEmail,
   getStoredInviteCode,
@@ -116,10 +118,10 @@ export default function WearableScreen() {
   }, []);
 
   const onConnect = useCallback(async () => {
-    if (!isHealthKitAvailable) {
+    if (!isHealthAvailable) {
       Alert.alert(
-        "iPhone required",
-        "Apple Health connection is only available on iOS. Open NeuroQuest on your iPhone to connect."
+        "Phone required",
+        "Connecting your watch is only available in the mobile app. Open NeuroQuest on your iPhone or Android phone to connect."
       );
       return;
     }
@@ -130,8 +132,8 @@ export default function WearableScreen() {
       if (Platform.OS === "ios") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
       Alert.alert(
-        "Couldn't open Apple Health",
-        "Apple Health didn't respond. You can grant access manually in Settings.",
+        `Couldn't open ${healthProviderLabel}`,
+        `${healthProviderLabel} didn't respond. You can grant access manually in Settings.`,
         [
           { text: "Open Settings", onPress: () => openAppSettings() },
           { text: "OK", style: "cancel" },
@@ -246,18 +248,21 @@ export default function WearableScreen() {
         <GlassCard style={styles.card}>
           <View style={styles.row}>
             <MaterialCommunityIcons name="heart-pulse" size={28} color="#A78BFA" />
-            <Text style={styles.cardTitle}>Apple Health</Text>
+            <Text style={styles.cardTitle}>{healthProviderLabel}</Text>
           </View>
           <Text style={styles.cardSub}>
-            Read your HRV, sleep, and step data from Apple Health to power your personal Neuro-Resilience Score.
+            Read your HRV, sleep, and step data from {healthProviderLabel} to power your personal Neuro-Resilience Score.
             Your individual data is never shown to your employer.
+            {isHealthConnectAvailable
+              ? "\n\nWorks with Galaxy Watch (via Samsung Health), Pixel Watch, Wear OS watches, and any Android wearable that syncs to Health Connect."
+              : ""}
           </Text>
 
           {showWebNote ? (
             <View style={styles.note}>
               <Feather name="info" size={14} color="#A78BFA" />
               <Text style={styles.noteText}>
-                Apple Health is iPhone-only. Open NeuroQuest on your iPhone to connect.
+                Connecting your watch is only available in the mobile app. Open NeuroQuest on your iPhone or Android phone.
               </Text>
             </View>
           ) : null}
@@ -317,12 +322,14 @@ export default function WearableScreen() {
           </Text>
           <Pressable
             onPress={onConnect}
-            disabled={busy || !isHealthKitAvailable}
-            style={[styles.primaryBtn, (!isHealthKitAvailable || busy) && styles.btnDisabled]}
+            disabled={busy || !isHealthAvailable}
+            style={[styles.primaryBtn, (!isHealthAvailable || busy) && styles.btnDisabled]}
           >
             <Feather name="heart" size={16} color="#fff" />
             <Text style={styles.primaryBtnText}>
-              {healthRequested ? "Apple Health requested ✓ — tap Sync below" : "Connect Apple Health"}
+              {healthRequested
+                ? `${healthProviderLabel} requested ✓ — tap Sync below`
+                : `Connect ${healthProviderLabel}`}
             </Text>
           </Pressable>
         </GlassCard>
@@ -469,7 +476,9 @@ export default function WearableScreen() {
           <Text style={styles.cardSub}>
             • Your individual scores are visible only to you{"\n"}
             • HR sees aggregate trends only when 5+ teammates participate{"\n"}
-            • You can disconnect anytime in iOS Settings → Privacy → Health{"\n"}
+            • You can disconnect anytime in {isHealthConnectAvailable
+              ? "Settings → Apps → Health Connect → Permissions"
+              : "iOS Settings → Privacy → Health"}{"\n"}
             • We never read location, messages, or workouts
           </Text>
         </GlassCard>

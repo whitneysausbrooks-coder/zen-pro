@@ -24,6 +24,7 @@ import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GlassCard } from "@/components/GlassCard";
 import { LegalScreen } from "@/components/LegalScreen";
 import Colors from "@/constants/colors";
+import { healthProviderLabel } from "@/lib/health";
 
 const { width } = Dimensions.get("window");
 const nd = Platform.OS !== "web";
@@ -673,13 +674,13 @@ export default function ProfileScreen() {
           onPress={() => router.push("/wearable")}
           style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
           accessibilityRole="button"
-          accessibilityLabel="Connect Apple Health"
+          accessibilityLabel={`Connect ${healthProviderLabel}`}
         >
           <GlassCard style={styles.settingsCard} borderColor="rgba(167,139,250,0.25)">
             <View style={styles.settingRow}>
               <MaterialCommunityIcons name="heart-pulse" size={20} color="#A78BFA" />
               <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>Connect Apple Health</Text>
+                <Text style={styles.settingLabel}>Connect {healthProviderLabel}</Text>
                 <Text style={{ color: Colors.whiteAlpha60, fontSize: 12, marginTop: 2 }}>
                   Sync HRV, sleep, and steps
                 </Text>

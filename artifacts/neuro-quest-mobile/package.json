@@ -57,10 +57,12 @@
     "@expo-google-fonts/playfair-display": "^0.4.2",
     "@kingstinct/react-native-healthkit": "^14.0.0",
     "expo-av": "~16.0.8",
+    "expo-build-properties": "~1.0.10",
     "expo-clipboard": "^8.0.8",
     "expo-crypto": "~15.0.8",
     "expo-iap": "^4.2.1",
     "expo-secure-store": "~15.0.8",
+    "react-native-health-connect": "^3.5.0",
     "react-native-nitro-modules": "^0.35.5"
   }
 }

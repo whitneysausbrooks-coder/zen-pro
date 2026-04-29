@@ -6,7 +6,7 @@ export const wearableDataSchema = z.object({
   hrv: z.number().min(0).max(300).nullable().optional(),
   sleep_duration: z.number().min(0).max(1440).nullable().optional(),
   steps: z.number().int().min(0).max(200000).nullable().optional(),
-  source: z.enum(["apple_health", "google_fit", "fitbit", "garmin", "whoop", "oura", "manual"]).default("manual"),
+  source: z.enum(["apple_health", "health_connect", "google_fit", "fitbit", "garmin", "whoop", "oura", "manual"]).default("manual"),
   recorded_at: z.string().datetime().optional(),
 }).refine(
   (data) => data.hrv != null || data.sleep_duration != null || data.steps != null,

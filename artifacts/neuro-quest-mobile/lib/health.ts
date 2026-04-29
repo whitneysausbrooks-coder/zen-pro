@@ -23,7 +23,7 @@ const LOGIN_DONE_KEY = "nq_login_done";
 const HEALTH_CHOICE_KEY = "nq_health_choice";
 
 export type LoginMode = "enterprise" | "individual";
-export type HealthChoice = "apple_health" | "manual" | "skipped";
+export type HealthChoice = "apple_health" | "health_connect" | "manual" | "skipped";
 
 export async function getLoginMode(): Promise<LoginMode | null> {
   try {
@@ -43,7 +43,9 @@ export async function setLoginMode(mode: LoginMode): Promise<void> {
 export async function getHealthChoice(): Promise<HealthChoice | null> {
   try {
     const v = await AsyncStorage.getItem(HEALTH_CHOICE_KEY);
-    return v === "apple_health" || v === "manual" || v === "skipped" ? v : null;
+    return v === "apple_health" || v === "health_connect" || v === "manual" || v === "skipped"
+      ? v
+      : null;
   } catch {
     return null;
   }
@@ -170,12 +172,30 @@ export async function syncManualMetrics(
 }
 
 export const isHealthKitAvailable = Platform.OS === "ios";
+export const isHealthConnectAvailable = Platform.OS === "android";
+/**
+ * True on iOS (HealthKit) and Android (Health Connect). False on web.
+ * Use this for UI gating instead of `isHealthKitAvailable` so Samsung,
+ * Pixel, and other Android wearables (Galaxy Watch, Wear OS, Fitbit-on-
+ * Android, etc.) can connect via Health Connect.
+ */
+export const isHealthAvailable = isHealthKitAvailable || isHealthConnectAvailable;
+/**
+ * Human-readable name of the native health provider for the current OS.
+ * iOS → "Apple Health"; Android → "Health Connect"; web → "Apple Health"
+ * (web only ever shows the iPhone-required note, so the iOS label is fine).
+ */
+export const healthProviderLabel: "Apple Health" | "Health Connect" =
+  isHealthConnectAvailable ? "Health Connect" : "Apple Health";
 
 /**
  * Open the iOS Settings page for this app, where the user can grant or
  * revoke HealthKit permissions. iOS HealthKit's authorization API is
  * intentionally opaque — we cannot detect denial directly, so we offer
  * this one-tap path to Settings whenever a sync returns no data.
+ *
+ * On Android, opens the OS Settings (the user can find Health Connect
+ * under Settings → Apps → Health Connect → Permissions).
  */
 export async function openAppSettings(): Promise<void> {
   try {
@@ -317,7 +337,7 @@ const SLEEP_TYPE = "HKCategoryTypeIdentifierSleepAnalysis";
  * Tries the @kingstinct/react-native-healthkit v14 object signature first,
  * falling back to the legacy positional-array signature if needed.
  */
-export async function requestHealthPermissions(): Promise<boolean> {
+async function requestHealthKitPermissions(): Promise<boolean> {
   if (!isHealthKitAvailable) return false;
   try {
     const HealthKit: any = require("@kingstinct/react-native-healthkit");
@@ -334,6 +354,63 @@ export async function requestHealthPermissions(): Promise<boolean> {
     console.warn("HealthKit permission error:", e);
     return false;
   }
+}
+
+/**
+ * Request Android Health Connect read permissions for HRV, sleep, and steps.
+ * Health Connect is the unified Android health data store — Samsung Health,
+ * Fitbit-on-Android, Google Fit, Whoop-on-Android, and Pixel Watch all
+ * write into Health Connect, so a single grant covers Galaxy Watch,
+ * Wear OS, and most Android wearables.
+ */
+async function requestHealthConnectPermissions(): Promise<boolean> {
+  if (!isHealthConnectAvailable) return false;
+  try {
+    const HC: any = require("react-native-health-connect");
+    const initialized = await HC.initialize();
+    if (!initialized) {
+      console.warn("Health Connect: initialize() returned false");
+      return false;
+    }
+    if (typeof HC.getSdkStatus === "function") {
+      const status = await HC.getSdkStatus();
+      const SDK_AVAILABLE = HC.SdkAvailabilityStatus?.SDK_AVAILABLE ?? 3;
+      if (status !== SDK_AVAILABLE) {
+        console.warn("Health Connect SDK not available; status:", status);
+        return false;
+      }
+    }
+    const requested = [
+      { accessType: "read" as const, recordType: "HeartRateVariabilityRmssd" as const },
+      { accessType: "read" as const, recordType: "SleepSession" as const },
+      { accessType: "read" as const, recordType: "Steps" as const },
+    ];
+    const granted = await HC.requestPermission(requested);
+    if (!Array.isArray(granted) || granted.length === 0) return false;
+    // Health Connect returns the subset of permissions the user actually
+    // granted. Treat the request as successful only when ALL three reads
+    // are granted — partial grants should still surface as "not connected"
+    // so the no-data error message can guide the user back to Settings.
+    const grantedTypes = new Set(
+      granted
+        .map((g: any) => String(g?.recordType ?? ""))
+        .filter((t: string) => t.length > 0),
+    );
+    return requested.every((r) => grantedTypes.has(r.recordType));
+  } catch (e) {
+    console.warn("Health Connect permission error:", e);
+    return false;
+  }
+}
+
+/**
+ * Public entry point: request native health permissions on whichever
+ * platform we're running on. Returns false on web (no native health).
+ */
+export async function requestHealthPermissions(): Promise<boolean> {
+  if (isHealthKitAvailable) return requestHealthKitPermissions();
+  if (isHealthConnectAvailable) return requestHealthConnectPermissions();
+  return false;
 }
 
 /**
@@ -375,11 +452,35 @@ function isAsleepSample(s: any): boolean {
 }
 
 /**
+ * Merge a list of [start,end] millisecond intervals, returning total
+ * non-overlapping duration in ms. Used by both HealthKit and Health
+ * Connect sleep readers to avoid double-counting overlapping stage
+ * samples (e.g. Apple Watch reports core/deep/REM concurrently).
+ */
+function totalNonOverlappingMs(intervals: [number, number][]): number {
+  intervals.sort((a, b) => a[0] - b[0]);
+  let totalMs = 0;
+  let cursorStart = 0;
+  let cursorEnd = 0;
+  for (const [s, e] of intervals) {
+    if (s > cursorEnd) {
+      totalMs += cursorEnd - cursorStart;
+      cursorStart = s;
+      cursorEnd = e;
+    } else if (e > cursorEnd) {
+      cursorEnd = e;
+    }
+  }
+  totalMs += cursorEnd - cursorStart;
+  return totalMs;
+}
+
+/**
  * Read the most recent 24h of HRV, sleep, and step data from HealthKit.
  * Sleep intervals are merged (de-overlapped) to avoid double-counting
  * staged sleep data (Apple Watch reports core/deep/REM as overlapping samples).
  */
-export async function readLatestMetrics(): Promise<WearableMetrics> {
+async function readLatestMetricsFromHealthKit(): Promise<WearableMetrics> {
   const now = new Date();
 
   if (!isHealthKitAvailable) {
@@ -431,22 +532,8 @@ export async function readLatestMetrics(): Promise<WearableMetrics> {
         const end = new Date(s.endDate).getTime();
         return [start, end] as [number, number];
       })
-      .filter(([s, e]) => Number.isFinite(s) && Number.isFinite(e) && e > s)
-      .sort((a, b) => a[0] - b[0]);
-
-    let totalMs = 0;
-    let cursorStart = 0;
-    let cursorEnd = 0;
-    for (const [s, e] of intervals) {
-      if (s > cursorEnd) {
-        totalMs += cursorEnd - cursorStart;
-        cursorStart = s;
-        cursorEnd = e;
-      } else if (e > cursorEnd) {
-        cursorEnd = e;
-      }
-    }
-    totalMs += cursorEnd - cursorStart;
+      .filter(([s, e]) => Number.isFinite(s) && Number.isFinite(e) && e > s);
+    const totalMs = totalNonOverlappingMs(intervals);
     if (totalMs > 0) sleepMinutes = Math.round(totalMs / 60000);
   } catch (e) {
     console.warn("Sleep read error:", e);
@@ -461,9 +548,135 @@ export async function readLatestMetrics(): Promise<WearableMetrics> {
 }
 
 /**
- * Send the latest HealthKit metrics to the NeuroQuest server.
+ * Health Connect SleepSession stage codes. We treat all "asleep" stages
+ * (light/deep/REM/asleep-unspecified) as sleep time. Awake (1) and
+ * out-of-bed/unknown stages are excluded.
+ *   1 = AWAKE, 2 = SLEEPING, 3 = OUT_OF_BED, 4 = LIGHT,
+ *   5 = DEEP, 6 = REM, 0 = UNKNOWN, 7 = AWAKE_IN_BED
+ */
+const HC_ASLEEP_STAGES = new Set([2, 4, 5, 6]);
+
+/**
+ * Read the most recent 24h of HRV, sleep, and step data from Android
+ * Health Connect. Mirrors the HealthKit reader: HRV is averaged across
+ * RMSSD samples, steps are summed, sleep stages are merged across all
+ * sessions to avoid double-counting overlapping stage records.
+ */
+async function readLatestMetricsFromHealthConnect(): Promise<WearableMetrics> {
+  const now = new Date();
+  if (!isHealthConnectAvailable) {
+    return {
+      hrv: null,
+      sleep_duration_minutes: null,
+      steps: null,
+      recorded_at: now.toISOString(),
+    };
+  }
+
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  let hrv: number | null = null;
+  let sleepMinutes: number | null = null;
+  let steps: number | null = null;
+
+  try {
+    const HC: any = require("react-native-health-connect");
+    await HC.initialize();
+    const timeRangeFilter = {
+      operator: "between",
+      startTime: yesterday.toISOString(),
+      endTime: now.toISOString(),
+    };
+
+    try {
+      const result = await HC.readRecords("HeartRateVariabilityRmssd", { timeRangeFilter });
+      const records: any[] = result?.records ?? [];
+      const values = records
+        .map((r) => Number(r?.heartRateVariabilityMillis ?? r?.value))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (values.length) {
+        hrv = values.reduce((a, b) => a + b, 0) / values.length;
+      }
+    } catch (e) {
+      console.warn("Health Connect HRV read error:", e);
+    }
+
+    try {
+      const result = await HC.readRecords("Steps", { timeRangeFilter });
+      const records: any[] = result?.records ?? [];
+      if (records.length) {
+        steps = records.reduce((sum: number, r: any) => sum + Number(r?.count ?? 0), 0);
+      }
+    } catch (e) {
+      console.warn("Health Connect Steps read error:", e);
+    }
+
+    try {
+      const result = await HC.readRecords("SleepSession", { timeRangeFilter });
+      const records: any[] = result?.records ?? [];
+      const intervals: [number, number][] = [];
+      for (const session of records) {
+        const stages: any[] = Array.isArray(session?.stages) ? session.stages : [];
+        if (stages.length) {
+          for (const st of stages) {
+            const stageType = Number(st?.stage ?? 0);
+            if (HC_ASLEEP_STAGES.has(stageType)) {
+              const start = new Date(st?.startTime).getTime();
+              const end = new Date(st?.endTime).getTime();
+              if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+                intervals.push([start, end]);
+              }
+            }
+          }
+        } else {
+          // No staging info — count entire session as sleep.
+          const start = new Date(session?.startTime).getTime();
+          const end = new Date(session?.endTime).getTime();
+          if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+            intervals.push([start, end]);
+          }
+        }
+      }
+      const totalMs = totalNonOverlappingMs(intervals);
+      if (totalMs > 0) sleepMinutes = Math.round(totalMs / 60000);
+    } catch (e) {
+      console.warn("Health Connect Sleep read error:", e);
+    }
+  } catch (e) {
+    console.warn("Health Connect read error:", e);
+  }
+
+  return {
+    hrv: hrv != null ? Math.round(hrv * 100) / 100 : null,
+    sleep_duration_minutes: sleepMinutes,
+    steps: steps != null ? Math.round(steps) : null,
+    recorded_at: now.toISOString(),
+  };
+}
+
+/**
+ * Public entry point: read the most recent 24h of HRV, sleep, and step
+ * data from whichever native health provider is available on this OS.
+ * iOS → HealthKit (Apple Watch + iPhone). Android → Health Connect
+ * (Galaxy Watch via Samsung Health, Pixel Watch, Wear OS, Fitbit-on-
+ * Android, etc.). Web → all-null sentinel.
+ */
+export async function readLatestMetrics(): Promise<WearableMetrics> {
+  if (isHealthKitAvailable) return readLatestMetricsFromHealthKit();
+  if (isHealthConnectAvailable) return readLatestMetricsFromHealthConnect();
+  return {
+    hrv: null,
+    sleep_duration_minutes: null,
+    steps: null,
+    recorded_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Send the latest native-health metrics to the NeuroQuest server.
  * Identity is verified by BOTH the user's work email AND their company
- * invite code, which only legitimate pilot members possess.
+ * invite code, which only legitimate pilot members possess. The data
+ * source ("apple_health" or "health_connect") is auto-derived from the
+ * current platform so server-side audit logs reflect the true origin.
  */
 export async function syncToServer(
   email: string,
@@ -487,13 +700,18 @@ export async function syncToServer(
     metrics.sleep_duration_minutes == null &&
     metrics.steps == null
   ) {
+    const noDataMsg = isHealthConnectAvailable
+      ? "We couldn't read any health data. This usually means Health Connect permissions weren't fully granted, or your watch hasn't synced HRV, sleep, or steps to Health Connect recently. Open Settings → Apps → Health Connect to grant access, or wear your watch overnight and try again."
+      : "We couldn't read any health data. This usually means Apple Health permissions weren't fully granted, or your device hasn't recorded HRV, sleep, or steps recently. Open Settings to grant access, or wear your Apple Watch overnight and try again.";
     return {
       success: false,
-      message:
-        "We couldn't read any health data. This usually means Apple Health permissions weren't fully granted, or your device hasn't recorded HRV, sleep, or steps recently. Open Settings to grant access, or wear your Apple Watch overnight and try again.",
+      message: noDataMsg,
     };
   }
 
+  // Auto-derive the data source from the platform so server-side audit
+  // logs reflect the true origin (Apple Health vs Android Health Connect).
+  const dataSource = isHealthConnectAvailable ? "health_connect" : "apple_health";
   try {
     const res = await fetch(`${getApiBase()}/api/wearable/sync`, {
       method: "POST",
@@ -501,7 +719,7 @@ export async function syncToServer(
       body: JSON.stringify({
         email: email.trim().toLowerCase(),
         invite_code: inviteCode.trim().toUpperCase(),
-        source: "apple_health",
+        source: dataSource,
         hrv: metrics.hrv,
         sleep_duration: metrics.sleep_duration_minutes,
         steps: metrics.steps,

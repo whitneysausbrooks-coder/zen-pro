@@ -72,7 +72,7 @@ The project is structured as a pnpm workspace monorepo using TypeScript, segrega
 - **Tenant Branding:** Company-specific dashboard customization via API (logo_url, primary_color, secondary_color, accent_color, custom_domain, welcome_message).
 - **Team Heatmap:** Aggregates anonymized NeuroResilienceScores by department, providing risk levels, score distributions, biometric averages, and trends. Includes automatic burnout alerts for critical/high-risk departments.
 - **Wearable Engagement Widget (Company Admin Dashboard):** Displays tiered k-anonymity privacy model for wearable engagement metrics.
-- **Mobile Apple Health (HealthKit) Integration:** Expo mobile app integrates with HealthKit to read HRV, Sleep Analysis, and Step Count. Uses an email + invite_code identity model for enterprise users.
+- **Mobile Native Health Integration (iOS + Android):** Expo mobile app reads HRV, Sleep, and Step Count from Apple HealthKit on iOS (Apple Watch + iPhone) and from Android Health Connect on Android (Galaxy Watch via Samsung Health, Pixel Watch, Wear OS, and any Android wearable that writes to Health Connect). Platform is auto-detected via `isHealthAvailable` / `healthProviderLabel` in `lib/health.ts`; the data source ("apple_health" vs "health_connect") is auto-stamped on every server sync. Uses an email + invite_code identity model for enterprise users.
 
 **Individual Account Stack:**
 - **Identity-Only Auth (no password):** Individual users provide name + email; mobile app generates a stable UUID v4 and persists it securely.
@@ -98,4 +98,5 @@ The project is structured as a pnpm workspace monorepo using TypeScript, segrega
 -   **Stripe:** Payment gateway.
 -   **Clerk:** User authentication (SSO, Organizations, enterprise identity).
 -   **Web Push API (VAPID):** Push notifications.
--   **Apple HealthKit (via `@kingstinct/react-native-healthkit`):** Mobile wearable data integration.
+-   **Apple HealthKit (via `@kingstinct/react-native-healthkit`):** iOS mobile wearable data integration (Apple Watch).
+-   **Android Health Connect (via `react-native-health-connect`):** Android mobile wearable data integration (Galaxy Watch, Pixel Watch, Wear OS — anything that writes to Health Connect).

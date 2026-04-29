@@ -1294,7 +1294,7 @@ router.post("/wearable/sync", async (req, res) => {
   const schema = z.object({
     email: z.string().email().max(255),
     invite_code: z.string().min(4).max(32),
-    source: z.enum(["apple_health", "google_fit", "fitbit", "garmin", "whoop", "oura", "manual"]).default("apple_health"),
+    source: z.enum(["apple_health", "health_connect", "google_fit", "fitbit", "garmin", "whoop", "oura", "manual"]).default("apple_health"),
     hrv: z.number().min(0).max(300).nullable().optional(),
     sleep_duration: z.number().min(0).max(1440).nullable().optional(),
     steps: z.number().int().min(0).max(200000).nullable().optional(),

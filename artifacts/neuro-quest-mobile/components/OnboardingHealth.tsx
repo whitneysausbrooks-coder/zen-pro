@@ -18,7 +18,9 @@ import * as Haptics from "expo-haptics";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Colors from "@/constants/colors";
 import {
-  isHealthKitAvailable,
+  isHealthConnectAvailable,
+  isHealthAvailable,
+  healthProviderLabel,
   requestHealthPermissions,
   readLatestMetrics,
   syncToServer,
@@ -88,9 +90,9 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
 
   const onAppleHealth = useCallback(async () => {
     setError(null);
-    if (!isHealthKitAvailable) {
+    if (!isHealthAvailable) {
       setError(
-        "Apple Health is iPhone-only. Tap 'Add Manually' to enter your data, or open NeuroQuest on your iPhone.",
+        "Open NeuroQuest on your iPhone or Android phone to connect your watch, or tap 'Add Manually' to enter your data.",
       );
       return;
     }
@@ -99,7 +101,7 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
       const granted = await requestHealthPermissions();
       if (!granted) {
         setError(
-          "Apple Health didn't respond. You can grant access in Settings, or add manually below.",
+          `${healthProviderLabel} didn't respond. You can grant access in Settings, or add manually below.`,
         );
         setBusy(false);
         return;
@@ -108,6 +110,7 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
       const email = (await getStoredEmail()) || "";
       const code = await getStoredInviteCode();
       const mode = await getLoginMode();
+      const choice = isHealthConnectAvailable ? "health_connect" : "apple_health";
       // Only sync to server when user signed in as enterprise pilot member.
       // Individual users keep their data on-device — never assume an old
       // enterprise identity left behind from a prior account on this device.
@@ -118,20 +121,20 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
           setBusy(false);
           return;
         }
-        await setHealthChoice("apple_health");
+        await setHealthChoice(choice);
         showSuccess(result);
       } else {
-        await setHealthChoice("apple_health");
+        await setHealthChoice(choice);
         showSuccess({
           success: true,
           message:
             mode === "enterprise"
-              ? "Apple Health connected. Sign in is needed to sync to your team baseline."
-              : "Apple Health connected. Your data stays on this device.",
+              ? `${healthProviderLabel} connected. Sign in is needed to sync to your team baseline.`
+              : `${healthProviderLabel} connected. Your data stays on this device.`,
         });
       }
     } catch (e: any) {
-      setError(e?.message || "Couldn't connect to Apple Health.");
+      setError(e?.message || `Couldn't connect to ${healthProviderLabel}.`);
     } finally {
       setBusy(false);
     }
@@ -251,7 +254,7 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
             </Text>
             <Text style={styles.subtitle}>
               {mode === "choose" &&
-                "NeuroQuest learns your personal baseline from your HRV, sleep, and steps. Connect Apple Health for automatic syncing, or add a quick snapshot now."}
+                `NeuroQuest learns your personal baseline from your HRV, sleep, and steps. Connect ${healthProviderLabel} for automatic syncing, or add a quick snapshot now.`}
               {mode === "manual" &&
                 "Enter what you know — even one number is enough to start your AI baseline."}
               {mode === "success" &&
@@ -268,7 +271,7 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
                     pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
                   ]}
                   accessibilityRole="button"
-                  accessibilityLabel="Connect Apple Health"
+                  accessibilityLabel={`Connect ${healthProviderLabel}`}
                 >
                   <View
                     style={[styles.choiceIcon, { borderColor: Colors.mindfulBlue }]}
@@ -279,17 +282,17 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
                       color={Colors.mindfulBlue}
                     />
                   </View>
-                  <Text style={styles.choiceTitle}>Connect Apple Health</Text>
+                  <Text style={styles.choiceTitle}>Connect {healthProviderLabel}</Text>
                   <Text style={styles.choiceBody}>
                     Read HRV, sleep, and step data automatically — no typing.
-                    {!isHealthKitAvailable ? "\n(iPhone only)" : ""}
+                    {!isHealthAvailable ? "\n(iPhone or Android only)" : ""}
                   </Text>
                   {busy ? (
                     <ActivityIndicator color={Colors.mindfulBlue} style={{ marginTop: 8 }} />
                   ) : (
                     <View style={styles.choiceCta}>
                       <Text style={styles.choiceCtaText}>
-                        {isHealthKitAvailable ? "Connect" : "iPhone only"}
+                        {isHealthAvailable ? "Connect" : "iPhone or Android only"}
                       </Text>
                       <Feather name="arrow-right" size={16} color={Colors.mindfulBlue} />
                     </View>
@@ -331,13 +334,13 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
                 <Pressable onPress={onSkip} disabled={busy} style={styles.skipBtn}>
                   <Text style={styles.skip}>Skip for now</Text>
                 </Pressable>
-                {!isHealthKitAvailable ? null : (
+                {!isHealthAvailable ? null : (
                   <Pressable
                     onPress={() => openAppSettings()}
                     style={({ pressed }) => [pressed && { opacity: 0.7 }]}
                   >
                     <Text style={styles.settingsLink}>
-                      Trouble with Apple Health? Open Settings →
+                      Trouble with {healthProviderLabel}? Open Settings →
                     </Text>
                   </Pressable>
                 )}
