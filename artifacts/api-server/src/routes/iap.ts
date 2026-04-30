@@ -4,6 +4,10 @@ import { z } from "zod";
 import { query, withTransaction } from "../lib/db";
 import { verifyDeviceSignature } from "../lib/deviceAuth";
 import { captureMessage } from "../lib/errorMonitoring";
+import {
+  verifyAppleNotification,
+  verifyAppleTransaction,
+} from "../lib/appleNotificationVerifier";
 
 const router: IRouter = Router();
 
@@ -284,52 +288,83 @@ router.get("/iap/entitlements", async (req, res) => {
   });
 });
 
+/**
+ * App Store Server Notifications V2 webhook.
+ *
+ * Apple POSTs subscription/refund/revoke events here as a JWS-signed envelope.
+ * We MUST cryptographically verify the signature before mutating state, since
+ * the endpoint is public and an attacker could otherwise forge a REFUND or
+ * EXPIRED notification to flip a stranger's entitlement state.
+ *
+ * verifyAppleNotification() validates the x5c chain against the bundled
+ * Apple Root CA G3, verifies the JWS signature, asserts the bundleId matches,
+ * and only then returns the decoded payload. The decoded payload includes a
+ * pre-verified signedTransactionInfo which we re-verify via the same path
+ * before reading transaction fields.
+ */
 router.post("/iap/webhook", async (req, res) => {
   const notification = req.body;
   const signedPayload = notification?.signedPayload;
-  if (!signedPayload) {
+  if (!signedPayload || typeof signedPayload !== "string") {
     return res.status(400).json({ error: "Missing signedPayload" });
   }
-  try {
-    const [, payloadB64] = signedPayload.split(".");
-    const decoded = JSON.parse(Buffer.from(payloadB64, "base64").toString("utf8"));
-    const notificationType = decoded.notificationType;
-    const data = decoded.data;
-    if (!data?.signedTransactionInfo) {
-      return res.json({ ok: true, ignored: "no transaction" });
-    }
-    const [, txB64] = data.signedTransactionInfo.split(".");
-    const tx = JSON.parse(Buffer.from(txB64, "base64").toString("utf8"));
 
-    if (
-      notificationType === "EXPIRED" ||
-      notificationType === "REFUND" ||
-      notificationType === "REVOKE"
-    ) {
-      await query(
-        `UPDATE iap_entitlements SET status = 'expired', updated_at = NOW()
-         WHERE product_id = $1 AND user_id IN
-           (SELECT user_id FROM iap_transactions WHERE original_transaction_id = $2)`,
-        [tx.productId, tx.originalTransactionId],
-      );
-    }
-    if (
-      notificationType === "DID_RENEW" ||
-      notificationType === "SUBSCRIBED"
-    ) {
-      const expiresMs = tx.expiresDate;
-      await query(
-        `UPDATE iap_entitlements SET status = 'active', expires_at = to_timestamp($1::bigint / 1000.0), updated_at = NOW()
-         WHERE product_id = $2 AND user_id IN
-           (SELECT user_id FROM iap_transactions WHERE original_transaction_id = $3)`,
-        [expiresMs, tx.productId, tx.originalTransactionId],
-      );
-    }
-    return res.json({ ok: true, notificationType });
-  } catch (e: any) {
-    console.error("IAP webhook parse failed:", e.message);
-    return res.status(400).json({ error: "Invalid payload" });
+  const verified = await verifyAppleNotification(signedPayload);
+  if (!verified.ok) {
+    captureMessage("iap_webhook:signature_invalid", {
+      route: "POST /iap/webhook",
+      extra: { reason: verified.reason.slice(0, 200) },
+    });
+    return res.status(401).json({ error: "Signature verification failed" });
   }
+
+  const decoded = verified.decoded;
+  const notificationType = decoded.notificationType;
+  const data = decoded.data;
+  const signedTx = data?.signedTransactionInfo;
+  if (!signedTx) {
+    return res.json({ ok: true, ignored: "no transaction" });
+  }
+
+  // Re-verify the inner transaction JWS using the same Apple-rooted chain
+  // (in the same environment that verified the outer envelope). This catches
+  // a maliciously-replaced inner payload even if the outer envelope happened
+  // to verify.
+  const txResult = await verifyAppleTransaction(signedTx, verified.environment);
+  if (!txResult.ok) {
+    captureMessage("iap_webhook:tx_signature_invalid", {
+      route: "POST /iap/webhook",
+      extra: { reason: txResult.reason.slice(0, 200), notificationType },
+    });
+    return res.status(401).json({ error: "Transaction signature invalid" });
+  }
+  const tx = txResult.tx;
+
+  if (
+    notificationType === "EXPIRED" ||
+    notificationType === "REFUND" ||
+    notificationType === "REVOKE"
+  ) {
+    await query(
+      `UPDATE iap_entitlements SET status = 'expired', updated_at = NOW()
+       WHERE product_id = $1 AND user_id IN
+         (SELECT user_id FROM iap_transactions WHERE original_transaction_id = $2)`,
+      [tx.productId, tx.originalTransactionId],
+    );
+  }
+  if (
+    notificationType === "DID_RENEW" ||
+    notificationType === "SUBSCRIBED"
+  ) {
+    const expiresMs = tx.expiresDate;
+    await query(
+      `UPDATE iap_entitlements SET status = 'active', expires_at = to_timestamp($1::bigint / 1000.0), updated_at = NOW()
+       WHERE product_id = $2 AND user_id IN
+         (SELECT user_id FROM iap_transactions WHERE original_transaction_id = $3)`,
+      [expiresMs, tx.productId, tx.originalTransactionId],
+    );
+  }
+  return res.json({ ok: true, notificationType, environment: verified.environment });
 });
 
 export default router;
