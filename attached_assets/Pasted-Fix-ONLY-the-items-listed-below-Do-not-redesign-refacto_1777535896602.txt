@@ -1,0 +1,142 @@
+Fix ONLY the items listed below. Do not redesign, refactor, restyle, rename, move files, change navigation structure, change UI, change colors, change copy, or adjust any unrelated features. This is a surgical enterprise-ready bug fix.
+
+ABSOLUTE RULE:
+Do not touch anything else. Fix only auth/login, database persistence, back-to-login button, share button, missing profile screen/route, and broken home button.
+
+1. LOGIN + AUTH MUST COME FIRST
+
+Make sure the app always checks authentication before allowing access to protected screens.
+
+Requirements:
+- App opens to login/auth if user is not authenticated.
+- Authenticated users may enter the app.
+- User auth session must persist securely.
+- User account/profile data must be stored in the database.
+- Do not allow profile, home, dashboard, health, watch, or algorithm screens unless auth is valid.
+- Add safe loading state while auth status is being checked.
+- Add error handling for failed login/signup.
+
+2. DATABASE STORAGE
+
+Make sure every authenticated user has a database profile record.
+
+Store:
+- userId
+- email
+- displayName if available
+- createdAt
+- updatedAt
+- authProvider
+- onboardingStatus
+- baselineStatus
+- healthConsentStatus
+- watchConnectedStatus
+
+Do not store health/watch data unless user has clearly granted permission.
+
+3. ADD “BACK TO LOGIN” BUTTON ON SCREEN ONE
+
+On the first frontend screen, add a clear “Back to Login” button.
+
+Requirements:
+- Button returns user to login screen.
+- It must not break existing navigation.
+- It must not affect any other buttons.
+- It must be visible and tappable on mobile.
+
+4. FIX SHARE BUTTON ON PROFILE SCREEN
+
+The share button on the profile screen is not working.
+
+Fix only that button.
+
+Requirements:
+- Use the platform-native share feature.
+- Add fallback error handling.
+- Confirm it works on iOS and Android.
+- Do not change the profile design unless required to make the button function.
+
+5. PROFILE SCREEN IS MISSING
+
+Find why the profile screen is missing.
+
+Fix only:
+- Missing route
+- Missing import
+- Broken navigation link
+- Incorrect file path
+- Auth blocking issue
+
+Do not redesign the profile screen.
+
+6. HOME BUTTON DOES NOT WORK
+
+Fix the home button only.
+
+Requirements:
+- Home button should navigate to the correct home/dashboard screen.
+- Preserve current navigation structure.
+- Do not rename tabs or routes unless absolutely required.
+- Do not change unrelated buttons.
+
+7. ENTERPRISE-READY WATCH + HEALTH DATA COMPATIBILITY
+
+Do not fully build this unless already partially present.
+
+Only prepare safe compatibility checks:
+
+- Add protected placeholders/interfaces for future Apple HealthKit, Google Fit, Fitbit, Garmin, and wearable data.
+- Health data access must require explicit user consent.
+- No health data should be collected before consent.
+- Add clear database fields for consent status only.
+- Do not store sensitive health data yet unless backend security, encryption, and consent are fully implemented.
+
+8. OPENAI + TRIPLE WEIGHT ALGORITHM SAFETY
+
+Do not send private health data, user identity, or raw wearable data to OpenAI automatically.
+
+Prepare the system so that after a 7-day baseline:
+- The app can calculate the Triple Weight Algorithm internally.
+- Only anonymized, consent-approved, minimal insights may be sent to AI.
+- Add a consent gate before any AI analysis.
+- Add a privacy-safe function placeholder:
+
+analyzeTripleWeightBaseline({
+  anonymizedUserId,
+  baselineSummary,
+  consentConfirmed
+})
+
+Rules:
+- No raw health data to OpenAI.
+- No personally identifying information to OpenAI.
+- No automatic learning/collection without user consent.
+- Keep algorithm logic owned by the app/backend.
+- AI may provide insights only after consent and baseline completion.
+
+9. TEST EVERYTHING
+
+Test only these flows:
+
+- New user opens app → login appears first
+- Existing user stays logged in
+- User profile creates/saves in database
+- Back to Login button works
+- Share button works
+- Profile screen appears
+- Home button works
+- Protected screens block unauthenticated users
+- Health/watch placeholders do not collect data without consent
+- Triple Weight AI function does not run before consent and 7-day baseline
+
+10. FINAL RESPONSE
+
+After fixing, report only:
+
+- Files changed
+- Bugs fixed
+- Confirmation that nothing unrelated was changed
+- Any remaining setup needed for auth/database/health integrations/OpenAI
+- Test results
+
+This must be enterprise-ready, privacy-safe, and surgical. Fix only these issues and do not break or adjust anything else.
