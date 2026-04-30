@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { z } from "zod";
 import { query, withTransaction } from "../lib/db";
+import { verifyDeviceSignature } from "../lib/deviceAuth";
+import { captureMessage } from "../lib/errorMonitoring";
 
 const router: IRouter = Router();
 
@@ -33,6 +35,44 @@ function requireUserId(req: any, res: any): string | null {
     return null;
   }
   return userId;
+}
+
+/**
+ * Accept either a Clerk session (web) OR a device-signed request (mobile).
+ *
+ * Clerk path is tried first so existing web behavior is unchanged. If no Clerk
+ * session is present, falls back to the per-device HMAC handshake established
+ * in lib/deviceAuth.ts: the mobile client sends X-Device-Id, X-Issued-At,
+ * X-Timestamp, X-Signature plus an X-User-Id header naming the app_users.id
+ * the signature is bound to. The server re-derives the device_secret from
+ * (SERVER_DEVICE_KEY, user_id, device_id, issued_at) and verifies the HMAC.
+ *
+ * On success we return the user_id (a Clerk userId for web callers, an
+ * app_users.id UUID for mobile callers). Both are stored unchanged in
+ * iap_entitlements.user_id (text column) so each install gets its own
+ * entitlement scope. Cross-device sync is a separate future feature
+ * (see /auth/claim-profile bridge).
+ */
+function requireUserOrDevice(req: any, res: any): string | null {
+  const auth = getAuth(req);
+  const clerkUserId = (auth?.sessionClaims?.userId || auth?.userId) as string | undefined;
+  if (clerkUserId) return clerkUserId;
+
+  const headerUserId = req.headers["x-user-id"];
+  const deviceUserId = Array.isArray(headerUserId) ? headerUserId[0] : headerUserId;
+  if (typeof deviceUserId === "string" && deviceUserId.length > 0) {
+    const result = verifyDeviceSignature(req, deviceUserId);
+    if (result.status === "ok") {
+      return deviceUserId;
+    }
+    captureMessage(`iap_device_auth:${result.status}`, {
+      route: `${req.method} ${req.path}`,
+      extra: { reason: result.reason ?? null, user_id_provided: deviceUserId.slice(0, 8) },
+    });
+  }
+
+  res.status(401).json({ error: "Unauthorized" });
+  return null;
 }
 
 async function verifyAppleReceipt(receiptData: string) {
@@ -71,7 +111,7 @@ const ValidateSchema = z.object({
 });
 
 router.post("/iap/validate", async (req, res) => {
-  const userId = requireUserId(req, res);
+  const userId = requireUserOrDevice(req, res);
   if (!userId) return;
 
   const parsed = ValidateSchema.safeParse(req.body);
@@ -175,7 +215,7 @@ router.post("/iap/validate", async (req, res) => {
 });
 
 router.post("/iap/restore", async (req, res) => {
-  const userId = requireUserId(req, res);
+  const userId = requireUserOrDevice(req, res);
   if (!userId) return;
 
   const parsed = z.object({ receipt: z.string().min(10) }).safeParse(req.body);
@@ -222,7 +262,7 @@ router.post("/iap/restore", async (req, res) => {
 });
 
 router.get("/iap/entitlements", async (req, res) => {
-  const userId = requireUserId(req, res);
+  const userId = requireUserOrDevice(req, res);
   if (!userId) return;
 
   const ents = await query(

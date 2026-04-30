@@ -7,6 +7,32 @@ import {
   finishTransaction,
   getAvailablePurchases,
 } from "expo-iap";
+import { signedFetch, getStoredUserId } from "./userAuth";
+
+/**
+ * Build the auth headers for an IAP server call.
+ *
+ * Mobile is identified to /api/iap/* by the per-device HMAC handshake
+ * (X-Device-Id / X-Issued-At / X-Timestamp / X-Signature added by signedFetch)
+ * plus an explicit X-User-Id naming the app_users.id the signature is bound
+ * to. The server re-derives the device_secret from those inputs and verifies
+ * the HMAC before accepting the request — same scheme as the rest of the
+ * /api/app-user/* surface.
+ *
+ * The optional Bearer token path is preserved for any future Clerk-on-mobile
+ * callers (see web Pro management) but is not used by the current mobile build.
+ */
+async function buildAuthHeaders(authToken?: string): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {};
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+  try {
+    const userId = await getStoredUserId();
+    if (userId) headers["X-User-Id"] = userId;
+  } catch {
+    // best-effort — server will 401 cleanly if the user has no identity yet
+  }
+  return headers;
+}
 
 export const PRODUCT_IDS = {
   subscriptions: ["pro.neuroquestzen.app.zenpro.monthly"],
@@ -80,19 +106,17 @@ async function validateOnServer(params: {
   purchaseTimeMs?: number;
   authToken?: string;
 }) {
-  const res = await fetch(`${getApiBase()}/api/iap/validate`, {
+  const authHeaders = await buildAuthHeaders(params.authToken);
+  const res = await signedFetch(`${getApiBase()}/api/iap/validate`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(params.authToken ? { Authorization: `Bearer ${params.authToken}` } : {}),
-    },
-    body: JSON.stringify({
+    headers: authHeaders,
+    jsonBody: {
       platform: "ios",
       productId: params.productId,
       transactionId: params.transactionId,
       receipt: params.receipt,
       purchaseTimeMs: params.purchaseTimeMs,
-    }),
+    },
   });
   if (!res.ok) throw new Error(`Validation failed (${res.status})`);
   return res.json();
@@ -163,21 +187,20 @@ export async function restorePurchases(
   const latestReceipt = extractReceipt(purchases?.[0]);
   if (!latestReceipt) return { ok: true, restored: [] };
 
-  const res = await fetch(`${getApiBase()}/api/iap/restore`, {
+  const authHeaders = await buildAuthHeaders(authToken);
+  const res = await signedFetch(`${getApiBase()}/api/iap/restore`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-    },
-    body: JSON.stringify({ receipt: latestReceipt }),
+    headers: authHeaders,
+    jsonBody: { receipt: latestReceipt },
   });
   if (!res.ok) throw new Error(`Restore failed (${res.status})`);
   return res.json();
 }
 
 export async function fetchEntitlements(authToken?: string) {
-  const res = await fetch(`${getApiBase()}/api/iap/entitlements`, {
-    headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+  const authHeaders = await buildAuthHeaders(authToken);
+  const res = await signedFetch(`${getApiBase()}/api/iap/entitlements`, {
+    headers: authHeaders,
   });
   if (!res.ok) throw new Error(`Entitlements fetch failed (${res.status})`);
   return res.json() as Promise<{
