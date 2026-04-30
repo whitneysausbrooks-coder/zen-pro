@@ -7,7 +7,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "pro.neuroquestzen.app"
+        "EXPO_PUBLIC_DOMAIN": "neuroquestzen.pro"
       },
       "ios": {
         "buildConfiguration": "Release",
@@ -18,7 +18,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "pro.neuroquestzen.app"
+        "EXPO_PUBLIC_DOMAIN": "neuroquestzen.pro"
       },
       "ios": {
         "simulator": true

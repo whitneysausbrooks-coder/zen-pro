@@ -443,3 +443,9 @@ id = "2oZKoog_6SYw1eTIDstHM"
 uri = "file://attached_assets/app_store_screenshots/final_6_5/10_zenpro.png"
 type = "image"
 title = "10. Zen Pro — 1242×2688"
+
+[[outputs]]
+id = "VkdWNPZ5J5hN_juCIwkzn"
+uri = "file://enterprise-pilot-templates/12_Unified_Onboarding_Packet_2026-04-29.md"
+type = "text"
+title = "Unified Onboarding Packet — Owner + HR Admin + Employee (2026-04-29)"
