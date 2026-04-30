@@ -455,3 +455,9 @@ id = "pShX-d1OjhsqmTQThk2-w"
 uri = "file://APP_STORE_REVIEW_PACKET.md"
 type = "text"
 title = "Build #9 — App Store Review Packet (read before submitting)"
+
+[[outputs]]
+id = "MZ1N24JW0xlz4eRK1n3DL"
+uri = "file://COMPANY_ONBOARDING_PLAYBOOK.md"
+type = "text"
+title = "Company Onboarding Playbook — step-by-step"
