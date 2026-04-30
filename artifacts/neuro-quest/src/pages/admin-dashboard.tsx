@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import {
   LineChart,
   Line,
@@ -224,11 +225,35 @@ function TrendLineChart({ data }: { data: TrendDay[] }) {
     );
   }
 
-  const chartData = data.map((d) => ({
-    day: new Date(d.day).toLocaleDateString("en", { month: "short", day: "numeric" }),
-    WRI: parseFloat(d.avg_wri),
-    "Burnout Risk": parseFloat(d.avg_burnout_risk),
-  }));
+  // Recharts crashes (silently blanks the SVG) when a series value is NaN,
+  // null, or undefined. The aggregate endpoints occasionally return strings
+  // like "" or null when a day has no synced data. Coerce defensively and
+  // drop rows where BOTH series are unparseable so the chart still renders.
+  const safeNum = (v: unknown): number | null => {
+    if (v == null) return null;
+    const n = typeof v === "number" ? v : parseFloat(String(v));
+    return Number.isFinite(n) ? n : null;
+  };
+  const chartData = data
+    .map((d) => {
+      const wri = safeNum(d.avg_wri);
+      const burnout = safeNum(d.avg_burnout_risk);
+      return {
+        day: new Date(d.day).toLocaleDateString("en", { month: "short", day: "numeric" }),
+        WRI: wri,
+        "Burnout Risk": burnout,
+        _hasAny: wri !== null || burnout !== null,
+      };
+    })
+    .filter((row) => row._hasAny);
+
+  if (chartData.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[200px] text-white/25 text-sm">
+        No trend data available for the last 7 days
+      </div>
+    );
+  }
 
   return (
     <ResponsiveContainer width="100%" height={220}>
@@ -365,6 +390,7 @@ function RiskFactorsPanel({ factors }: { factors: RiskFactor[] }) {
 
 export default function AdminDashboard() {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [billing, setBilling] = useState<BillingData | null>(null);
   const [seatStatus, setSeatStatus] = useState<SeatStatus | null>(null);
@@ -438,7 +464,15 @@ export default function AdminDashboard() {
         setDashboard(await dashRes.json());
       } else if (dashRes.status === 401) {
         setDashboard(null);
-        alert("Invalid API key");
+        // Was a blocking window.alert(), which on Safari/iPad steals focus
+        // and looks like a crash to executive demo viewers. Replace with
+        // a non-blocking toast that explains the next step.
+        toast({
+          title: "Invalid API key",
+          description:
+            "We couldn't authenticate that admin key. Double-check it and paste it again, or contact NeuroQuest support.",
+          variant: "destructive",
+        });
       }
 
       if (billingRes.ok) setBilling(await billingRes.json());

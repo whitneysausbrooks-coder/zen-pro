@@ -30,6 +30,7 @@ import {
   getStoredInviteCode,
   getLoginMode,
   openAppSettings,
+  friendlyServerError,
   type SyncResult,
 } from "@/lib/health";
 
@@ -100,8 +101,12 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
     try {
       const granted = await requestHealthPermissions();
       if (!granted) {
+        // On iOS, Apple intentionally hides the granted/denied result from
+        // apps, so a `false` here can mean "you said No" OR "you said Yes
+        // but turned every individual toggle off". Phrase the message so
+        // it's accurate in both cases without blaming the OS.
         setError(
-          `${healthProviderLabel} didn't respond. You can grant access in Settings, or add manually below.`,
+          `Couldn't read from ${healthProviderLabel}. Open Settings → Health → Data Access to enable HRV, Sleep, and Steps for NeuroQuest, or tap "Add Manually" below.`,
         );
         setBusy(false);
         return;
@@ -134,7 +139,7 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
         });
       }
     } catch (e: any) {
-      setError(e?.message || `Couldn't connect to ${healthProviderLabel}.`);
+      setError(friendlyServerError(e?.message, 0));
     } finally {
       setBusy(false);
     }
@@ -175,7 +180,7 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
       await setHealthChoice("manual");
       showSuccess(result);
     } catch (e: any) {
-      setError(e?.message || "Network error.");
+      setError(friendlyServerError(e?.message, 0));
     } finally {
       setBusy(false);
     }

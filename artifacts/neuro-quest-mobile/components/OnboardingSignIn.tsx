@@ -33,17 +33,33 @@ function getApiBase(): string {
 
 interface Props {
   onComplete: () => void;
+  /**
+   * Optional. When supplied, shows a back chevron in the top-left that
+   * returns the user to the splash/carousel. The parent is responsible
+   * for clearing `nq_onboarding_complete` and rerunning the gate state
+   * machine — we only fire the callback. Omitting this prop hides the
+   * chevron and matches the original "no back affordance" behaviour.
+   */
+  onBack?: () => void | Promise<void>;
 }
 
 type Tab = "pilot" | "individual";
 
-export function OnboardingSignIn({ onComplete }: Props) {
+export function OnboardingSignIn({ onComplete, onBack }: Props) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("pilot");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [busy, setBusy] = useState(false);
+  // Reverse-race guard (architect-flagged, follow-up to busy gating):
+  // user taps Back, the async reset is still in flight, and they tap a
+  // submit CTA before unmount. Setting this to true the moment Back is
+  // pressed lets every submit handler bail immediately and prevents a
+  // late `onComplete()` from re-corrupting parent gate flags. Tracked as
+  // a ref so the latest value is visible inside in-flight async closures
+  // without requiring a re-render.
+  const isResettingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -90,6 +106,7 @@ export function OnboardingSignIn({ onComplete }: Props) {
       setError("Enter the company invite code your admin shared.");
       return;
     }
+    if (isResettingRef.current) return;
     setBusy(true);
     try {
       const res = await fetch(
@@ -103,9 +120,20 @@ export function OnboardingSignIn({ onComplete }: Props) {
         setBusy(false);
         return;
       }
+      // Reverse-race guard: Back was tapped while we were awaiting the
+      // network. Bail without writing identity or calling onComplete so
+      // the parent reset stays consistent.
+      if (isResettingRef.current) {
+        setBusy(false);
+        return;
+      }
       await setStoredEmail(e);
       await setStoredInviteCode(c);
       await setLoginMode("enterprise");
+      if (isResettingRef.current) {
+        setBusy(false);
+        return;
+      }
       if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onComplete();
     } catch (err: any) {
@@ -130,6 +158,7 @@ export function OnboardingSignIn({ onComplete }: Props) {
       setError("Please enter a valid email so we can save your progress.");
       return;
     }
+    if (isResettingRef.current) return;
     setBusy(true);
     try {
       // Clear any prior enterprise credentials so individual mode never inherits
@@ -144,8 +173,20 @@ export function OnboardingSignIn({ onComplete }: Props) {
         setBusy(false);
         return;
       }
+      // Reverse-race guard (see onPilot for rationale): Back was tapped
+      // while registerIndividual was in flight. Drop the result instead
+      // of overwriting cleared credentials and firing onComplete after
+      // the parent already reset the gate.
+      if (isResettingRef.current) {
+        setBusy(false);
+        return;
+      }
       await setStoredEmail(e);
       await setLoginMode("individual");
+      if (isResettingRef.current) {
+        setBusy(false);
+        return;
+      }
       if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onComplete();
     } catch (err: any) {
@@ -188,6 +229,35 @@ export function OnboardingSignIn({ onComplete }: Props) {
           <Animated.View
             style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
           >
+            {onBack ? (
+              <Pressable
+                onPress={async () => {
+                  // Architect-flagged race: if the user taps Back while a
+                  // sign-in submit is in flight, the late submit can still
+                  // call onComplete and corrupt the gate flags after we've
+                  // already reset onboarding state. Hard-guard at both the
+                  // disabled flag AND the click handler so taps during
+                  // submit are no-ops even if RN coalesces presses.
+                  if (busy || isResettingRef.current) return;
+                  isResettingRef.current = true;
+                  if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  try {
+                    await onBack();
+                  } catch {
+                    // swallow — parent owns the reset; nothing to recover here
+                  }
+                }}
+                disabled={busy}
+                style={[styles.backBtn, busy && styles.backBtnDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Back to intro"
+                accessibilityState={{ disabled: busy }}
+                hitSlop={12}
+              >
+                <Text style={styles.backChevron}>‹</Text>
+                <Text style={styles.backLabel}>Back</Text>
+              </Pressable>
+            ) : null}
             <Text style={styles.eyebrow}>STEP 1 OF 2</Text>
             <Text style={styles.title}>Sign In</Text>
             <Text style={styles.subtitle}>
@@ -388,6 +458,30 @@ const styles = StyleSheet.create({
     borderRadius: width * 0.45,
   },
   scroll: { paddingHorizontal: 28, gap: 18 },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingVertical: 6,
+    paddingRight: 10,
+    marginBottom: 8,
+  },
+  backBtnDisabled: {
+    opacity: 0.4,
+  },
+  backChevron: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 26,
+    color: Colors.white,
+    marginRight: 4,
+    marginTop: -3,
+  },
+  backLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: Colors.white,
+    opacity: 0.85,
+  },
   eyebrow: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 11,

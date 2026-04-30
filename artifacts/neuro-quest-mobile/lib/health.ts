@@ -25,6 +25,84 @@ const HEALTH_CHOICE_KEY = "nq_health_choice";
 export type LoginMode = "enterprise" | "individual";
 export type HealthChoice = "apple_health" | "health_connect" | "manual" | "skipped";
 
+/**
+ * Sanitize whatever the backend returns into a friendly, pilot-grade
+ * message. Pilot testers MUST NEVER see strings like "HMAC mismatch",
+ * "401 unauthorized", "device_signature:invalid", "validation failed",
+ * raw stack-trace fragments, or `Server returned 500`. Those are real
+ * symptoms we've seen surface in soft-mode rollout logs.
+ *
+ * Strategy: a tiny allowlist for messages we *want* to pass through
+ * verbatim (rate-limit, seat-cap, invite-not-found — these are
+ * actionable for the user). Everything else collapses to a friendly
+ * generic plus an optional 5xx variant so support can still ask the
+ * user what code they saw without us leaking internals.
+ */
+export function friendlyServerError(rawError: unknown, status?: number): string {
+  const raw = typeof rawError === "string" ? rawError.trim() : "";
+  const lower = raw.toLowerCase();
+
+  // STEP 1 — technical-keyword scrub runs FIRST. Any string mentioning
+  // these terms gets a friendly rewrite even if it would otherwise look
+  // benign. This closes the leak vector where a backend message starts
+  // with "Please include …" or "Couldn't validate JWT signature".
+  if (
+    lower.includes("hmac") ||
+    lower.includes("signature") ||
+    lower.includes("device_") ||
+    lower.includes("jwt") ||
+    lower.includes("token") ||
+    lower.includes("unauthorized") ||
+    lower.includes("forbidden") ||
+    lower === "401" ||
+    lower === "403"
+  ) {
+    return "We couldn't verify this device. Please sign out and back in, then try again.";
+  }
+  if (
+    lower.includes("validation") ||
+    lower.includes("invalid") ||
+    lower.includes("malformed") ||
+    lower.includes("schema") ||
+    lower.includes("zod") ||
+    lower.includes("parse")
+  ) {
+    return "Something in that request looked off. Please try again or use Add Manually.";
+  }
+  if (status && status >= 500) {
+    return "Our servers had a hiccup. Please try again in a moment.";
+  }
+  if (
+    status === 0 ||
+    lower.includes("network") ||
+    lower.includes("offline") ||
+    lower.includes("timeout") ||
+    lower.includes("etimedout") ||
+    lower.includes("econnrefused") ||
+    lower.includes("fetch failed")
+  ) {
+    return "Network error. Please check your connection and try again.";
+  }
+
+  // STEP 2 — narrow, EXACT allowlist of pilot-safe actionable messages.
+  // Curated to match strings the backend is known to emit. Anything
+  // outside this set collapses to the generic message below — it is
+  // strictly safer to be slightly less specific than to leak internals.
+  const pilotSafeExact = new Set<string>([
+    "Too many requests. Please wait a moment.",
+    "Invite code not recognized. Double-check it with your admin.",
+    "This invite code has already been used.",
+    "Your team is at its seat cap. Please contact your admin.",
+    "Email already enrolled.",
+    "No recent biometric data was found.",
+  ]);
+  if (raw && pilotSafeExact.has(raw)) {
+    return raw;
+  }
+
+  return "Something went wrong on our end. Please try again, or use Add Manually below.";
+}
+
 export async function getLoginMode(): Promise<LoginMode | null> {
   try {
     const v = await AsyncStorage.getItem(LOGIN_DONE_KEY);
@@ -105,7 +183,7 @@ export async function syncManualMetrics(
       });
       const resData = await res.json().catch(() => ({}));
       if (!res.ok || !resData.success) {
-        return { success: false, message: resData.error || `Server returned ${res.status}` };
+        return { success: false, message: friendlyServerError(resData.error, res.status) };
       }
       await setLastSyncAt();
       return {
@@ -114,7 +192,7 @@ export async function syncManualMetrics(
         classification: resData.classification,
       };
     } catch (e: any) {
-      return { success: false, message: e?.message || "Network error" };
+      return { success: false, message: friendlyServerError(e?.message, 0) };
     }
   }
 
@@ -158,7 +236,7 @@ export async function syncManualMetrics(
     });
     const resData = await res.json().catch(() => ({}));
     if (!res.ok || !resData.success) {
-      return { success: false, message: resData.error || `Server returned ${res.status}` };
+      return { success: false, message: friendlyServerError(resData.error, res.status) };
     }
     await setLastSyncAt();
     return {
@@ -167,7 +245,7 @@ export async function syncManualMetrics(
       classification: resData.classification,
     };
   } catch (e: any) {
-    return { success: false, message: e?.message || "Network error" };
+    return { success: false, message: friendlyServerError(e?.message, 0) };
   }
 }
 
@@ -728,7 +806,7 @@ export async function syncToServer(
     });
     const data = await res.json();
     if (!res.ok || !data.success) {
-      return { success: false, message: data.error || `Server returned ${res.status}` };
+      return { success: false, message: friendlyServerError(data.error, res.status) };
     }
     await setLastSyncAt();
     return {
@@ -737,7 +815,7 @@ export async function syncToServer(
       classification: data.classification,
     };
   } catch (e: any) {
-    return { success: false, message: e?.message || "Network error" };
+    return { success: false, message: friendlyServerError(e?.message, 0) };
   }
 }
 

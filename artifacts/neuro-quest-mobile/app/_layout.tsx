@@ -202,6 +202,32 @@ export default function RootLayout() {
     setLoginDone(false);
     setTosDone(null);
   };
+  // Pilot-feedback fix: user lands on Sign In and realizes they want to see
+  // the splash/carousel again (or didn't actually mean to start). Wipe any
+  // half-entered identity, drop the onboarding-complete flag, and let the
+  // gate state machine flow back to OnboardingFlow. Mirrors handleHealthBack.
+  const handleSignInBack = async () => {
+    try {
+      await clearIndividualAccount();
+      await AsyncStorage.multiRemove([
+        ONBOARDING_KEY,
+        "nq_login_done",
+        "nq_health_choice",
+        "nq_enterprise_email",
+        "nq_enterprise_invite_code",
+        "nq_health_last_sync",
+      ]);
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        try {
+          window.localStorage.removeItem(ONBOARDING_KEY);
+        } catch {}
+      }
+    } catch {}
+    setHealthDone(false);
+    setLoginDone(false);
+    setTosDone(null);
+    setOnboardingDone(false);
+  };
 
   return (
     <SafeAreaProvider>
@@ -212,7 +238,10 @@ export default function RootLayout() {
               {!onboardingDone ? (
                 <OnboardingFlow onComplete={handleOnboardingComplete} />
               ) : !loginDone ? (
-                <OnboardingSignIn onComplete={handleLoginComplete} />
+                <OnboardingSignIn
+                  onComplete={handleLoginComplete}
+                  onBack={handleSignInBack}
+                />
               ) : !healthDone ? (
                 <OnboardingHealth
                   onComplete={handleHealthComplete}

@@ -157,7 +157,15 @@ export function TosAcceptanceModal({ onAccepted, onDeclined }: Props) {
             <Text style={styles.versionValue}>v{versions.privacy}</Text>
           </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? (
+            <Text
+              style={styles.error}
+              accessibilityLiveRegion="polite"
+              accessibilityRole="alert"
+            >
+              {error}
+            </Text>
+          ) : null}
 
           <Pressable
             onPress={handleAccept}
@@ -168,13 +176,23 @@ export function TosAcceptanceModal({ onAccepted, onDeclined }: Props) {
               phase === "submitting" && styles.btnDisabled,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Accept updated terms and privacy policy"
+            accessibilityLabel={
+              error
+                ? "Retry recording your acceptance of the updated terms"
+                : "Accept updated terms and privacy policy"
+            }
             accessibilityState={{ disabled: phase === "submitting" }}
           >
             {phase === "submitting" ? (
               <ActivityIndicator color={Colors.black} />
             ) : (
-              <Text style={styles.acceptText}>Accept &amp; Continue</Text>
+              // After a failed attempt, the same primary CTA acts as the
+              // retry. Relabel it so the user knows tapping again will try
+              // the network call once more — the prior label "Accept &
+              // Continue" suggested the failure was permanent.
+              <Text style={styles.acceptText}>
+                {error ? "Try Again" : "Accept & Continue"}
+              </Text>
             )}
           </Pressable>
 
