@@ -138,6 +138,12 @@ function computeEmpathyIndex(data: LiveData) {
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  const handleGoHome = useCallback(() => {
+    if (nd) Haptics.selectionAsync();
+    router.replace("/");
+  }, [router]);
+
   const [data, setData] = useState<LiveData>({
     neuralEnergy: 0,
     totalDonated: 0,
@@ -454,6 +460,17 @@ export default function ProfileScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        <Pressable
+          onPress={handleGoHome}
+          accessibilityRole="button"
+          accessibilityLabel="Go back to home"
+          style={({ pressed }) => [styles.homeButton, pressed && { opacity: 0.7 }]}
+          hitSlop={10}
+        >
+          <Ionicons name="chevron-back" size={18} color={Colors.gold} />
+          <Text style={styles.homeButtonText}>Home</Text>
+        </Pressable>
+
         <Animated.View style={{ opacity: isLoading ? 0 : fadeIn }}>
         <GlassCard style={styles.profileCard} borderColor={Colors.goldAlpha20} elevated>
           <LinearGradient
@@ -767,6 +784,25 @@ const styles = StyleSheet.create({
     height: 1.5,
     borderRadius: 0.75,
     backgroundColor: Colors.whiteAlpha60,
+  },
+  homeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(212,175,55,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(212,175,55,0.18)",
+    marginBottom: 4,
+  },
+  homeButtonText: {
+    color: Colors.gold,
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: 0.3,
+    marginLeft: 4,
   },
   nebulaGlow: {
     position: "absolute",

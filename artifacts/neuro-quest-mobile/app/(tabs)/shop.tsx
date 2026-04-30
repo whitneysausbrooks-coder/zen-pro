@@ -1,5 +1,7 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -23,6 +25,8 @@ import {
   restorePurchases,
 } from "@/lib/iap";
 
+const SPINS_KEY = "nq_spins_left";
+
 const PRODUCT_MAP: Record<string, string> = {
   pro: "pro.neuroquestzen.app.zenpro.monthly",
   daily: "pro.neuroquestzen.app.daypass",
@@ -30,6 +34,19 @@ const PRODUCT_MAP: Record<string, string> = {
   "spins-15": "pro.neuroquestzen.app.spins.15",
   "spins-50": "pro.neuroquestzen.app.spins.50",
 };
+
+const SPIN_PACK_AMOUNTS: Record<string, number> = {
+  "spins-5": 5,
+  "spins-15": 15,
+  "spins-50": 50,
+};
+
+async function creditSpinsAsync(amount: number) {
+  try {
+    const current = parseInt((await AsyncStorage.getItem(SPINS_KEY)) || "0", 10) || 0;
+    await AsyncStorage.setItem(SPINS_KEY, String(current + amount));
+  } catch {}
+}
 
 const nd = Platform.OS !== "web";
 
@@ -90,9 +107,15 @@ const ENTERPRISE_BENEFITS = [
 
 export default function ShopScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [selectedPlan, setSelectedPlan] = useState("pro");
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
+
+  const handleGoHome = useCallback(() => {
+    if (nd) Haptics.selectionAsync();
+    router.replace("/");
+  }, [router]);
 
   useEffect(() => {
     if (Platform.OS === "ios") {
@@ -122,11 +145,17 @@ export default function ShopScreen() {
     try {
       setPurchasing(planKey);
       const result = await purchaseProduct(productId);
+      const spinAmount = SPIN_PACK_AMOUNTS[planKey];
+      if (!result.duplicate && spinAmount) {
+        await creditSpinsAsync(spinAmount);
+      }
       if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         "Purchase Successful",
         result.duplicate
           ? "This transaction has already been applied to your account."
+          : spinAmount
+          ? `${spinAmount} spins added to your account. Thank you for supporting mental health charities!`
           : "Your purchase has been confirmed. Thank you for supporting mental health charities!",
         [{ text: "OK" }]
       );
@@ -198,6 +227,17 @@ export default function ShopScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        <Pressable
+          onPress={handleGoHome}
+          accessibilityRole="button"
+          accessibilityLabel="Go back to home"
+          style={({ pressed }) => [styles.homeButton, pressed && { opacity: 0.7 }]}
+          hitSlop={10}
+        >
+          <Ionicons name="chevron-back" size={18} color={Colors.gold} />
+          <Text style={styles.homeButtonText}>Home</Text>
+        </Pressable>
+
         <View style={styles.header}>
           <Text style={styles.eyebrow}>ELEVATE YOUR PRACTICE</Text>
           <Text style={styles.title}>Invest in Your Mind</Text>
@@ -567,6 +607,25 @@ const styles = StyleSheet.create({
     width: 1,
     height: 36,
     backgroundColor: Colors.whiteAlpha10,
+  },
+  homeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(212,175,55,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(212,175,55,0.18)",
+    marginBottom: 4,
+  },
+  homeButtonText: {
+    color: Colors.gold,
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: 0.3,
+    marginLeft: 4,
   },
   planCard: {
     padding: 24,

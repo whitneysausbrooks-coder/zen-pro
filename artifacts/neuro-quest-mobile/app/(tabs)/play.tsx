@@ -23,6 +23,7 @@ import { HoldAndWinSlot, HoldWinResult } from "@/components/HoldAndWinSlot";
 import { DiamondJackpotSlot, DiamondResult } from "@/components/DiamondJackpotSlot";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import Colors from "@/constants/colors";
+import { initIAP, purchaseProduct } from "@/lib/iap";
 
 const { width: screenW } = Dimensions.get("window");
 const nd = Platform.OS !== "web";
@@ -32,16 +33,19 @@ const SPINS_KEY = "nq_spins_left";
 const WINS_KEY = "nq_total_wins";
 const DONATIONS_KEY = "nq_micro_donations";
 const TOTAL_SPINS_USED_KEY = "nq_total_spins_used";
+const LAST_SPIN_REFILL_KEY = "nq_last_spin_refill";
 
 const WHEEL_SPIN_COST = 10;
 const DONATION_RATE = 0.30;
+const DAILY_FREE_SPINS = 5;
+const REFILL_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 type ResultState = "idle" | "win" | "lose";
 
 const SPIN_PACKS = [
-  { id: "pack_5", spins: 5, price: "$0.99", priceNum: 0.99, label: "Starter" },
-  { id: "pack_15", spins: 15, price: "$1.99", priceNum: 1.99, label: "Popular", badge: "POPULAR" },
-  { id: "pack_50", spins: 50, price: "$4.99", priceNum: 4.99, label: "Pro", badge: "BEST VALUE" },
+  { id: "pack_5", spins: 5, price: "$0.99", priceNum: 0.99, label: "Starter", productId: "pro.neuroquestzen.app.spins.5" },
+  { id: "pack_15", spins: 15, price: "$1.99", priceNum: 1.99, label: "Popular", badge: "POPULAR", productId: "pro.neuroquestzen.app.spins.15" },
+  { id: "pack_50", spins: 50, price: "$4.99", priceNum: 4.99, label: "Pro", badge: "BEST VALUE", productId: "pro.neuroquestzen.app.spins.50" },
 ];
 
 const DONATION_CAUSES = [
@@ -74,20 +78,34 @@ export default function PlayScreen() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [ne, s, w, d] = await Promise.all([
+        const [ne, s, w, d, lastRefill] = await Promise.all([
           AsyncStorage.getItem(NE_KEY),
           AsyncStorage.getItem(SPINS_KEY),
           AsyncStorage.getItem(WINS_KEY),
           AsyncStorage.getItem(DONATIONS_KEY),
+          AsyncStorage.getItem(LAST_SPIN_REFILL_KEY),
         ]);
         if (ne !== null) {
           const parsed = parseInt(ne, 10);
           setNeuralEnergy(Number.isNaN(parsed) ? 100 : parsed);
         }
+
+        let currentSpins = 5;
         if (s !== null) {
           const parsed = parseInt(s, 10);
-          setSpinsLeft(Number.isNaN(parsed) ? 5 : parsed);
+          if (!Number.isNaN(parsed)) currentSpins = parsed;
         }
+
+        const lastRefillMs = lastRefill ? parseInt(lastRefill, 10) : 0;
+        const now = Date.now();
+        if (!Number.isFinite(lastRefillMs) || now - lastRefillMs >= REFILL_INTERVAL_MS) {
+          const refilled = Math.max(currentSpins, DAILY_FREE_SPINS);
+          currentSpins = refilled;
+          await AsyncStorage.setItem(SPINS_KEY, String(refilled));
+          await AsyncStorage.setItem(LAST_SPIN_REFILL_KEY, String(now));
+        }
+        setSpinsLeft(currentSpins);
+
         if (w !== null) {
           const parsed = parseInt(w, 10);
           if (!Number.isNaN(parsed)) setTotalWins(parsed);
@@ -101,6 +119,11 @@ export default function PlayScreen() {
       Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: nd }).start();
     };
     load();
+
+    if (Platform.OS === "ios") {
+      initIAP().catch(() => {});
+    }
+
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
@@ -282,26 +305,19 @@ export default function PlayScreen() {
     [showResult, trackDonation, incrementSpinCount, persistNE]
   );
 
+  const creditSpins = useCallback(async (amount: number) => {
+    const current = parseInt((await AsyncStorage.getItem(SPINS_KEY)) || "0", 10) || 0;
+    const next = current + amount;
+    setSpinsLeft(next);
+    await AsyncStorage.setItem(SPINS_KEY, String(next));
+  }, []);
+
   const handleBuySpinPack = useCallback((pack: typeof SPIN_PACKS[0]) => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
-      `${pack.spins} Extra Spins — ${pack.price}`,
-      `Purchase ${pack.spins} bonus spins for ${pack.price}. ${Math.round(pack.priceNum * DONATION_RATE * 100) / 100 > 0 ? `$${(pack.priceNum * DONATION_RATE).toFixed(2)} of this purchase goes to charity.` : ""}\n\nThis purchase will be processed securely through the App Store.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: `Buy ${pack.price}`,
-          style: "default",
-          onPress: () => {
-            if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert(
-              "Purchase Pending",
-              "In-app purchases will be available when the app launches on the App Store. Thank you for your interest!",
-              [{ text: "OK" }]
-            );
-          },
-        },
-      ]
+      "Free Daily Spins",
+      `You receive ${DAILY_FREE_SPINS} fresh spins every 24 hours — no purchase needed.\n\nIn-app spin packs will be available in an upcoming update. Thank you for your patience!`,
+      [{ text: "Got it" }]
     );
   }, []);
 

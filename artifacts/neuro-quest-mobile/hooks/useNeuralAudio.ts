@@ -1,4 +1,4 @@
-import { Audio } from "expo-av";
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 
@@ -111,7 +111,17 @@ export const NEURAL_PRESETS: NeuralPreset[] = [
   },
 ];
 
-type AudioContextType = typeof globalThis extends { AudioContext: infer T } ? T : any;
+const NATIVE_AUDIO_SOURCES: Record<string, number> = {
+  alpha_flow: require("../assets/audio/alpha_flow.wav"),
+  deep_focus: require("../assets/audio/deep_focus.wav"),
+  theta_meditation: require("../assets/audio/theta_meditation.wav"),
+  gamma_cognition: require("../assets/audio/gamma_cognition.wav"),
+  solfeggio_528: require("../assets/audio/solfeggio_528.wav"),
+  solfeggio_432: require("../assets/audio/solfeggio_432.wav"),
+  solfeggio_396: require("../assets/audio/solfeggio_396.wav"),
+  brown_noise: require("../assets/audio/brown_noise.wav"),
+  pink_noise: require("../assets/audio/pink_noise.wav"),
+};
 
 interface AudioNodes {
   ctx: any;
@@ -124,6 +134,26 @@ interface AudioNodes {
   noiseSource?: AudioBufferSourceNode;
 }
 
+let nativeAudioModeConfigured = false;
+
+async function ensureNativeAudioMode() {
+  if (nativeAudioModeConfigured) return;
+  try {
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+      interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+      interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+    });
+    nativeAudioModeConfigured = true;
+  } catch (e) {
+    console.warn("setAudioModeAsync failed", e);
+  }
+}
+
 export function useNeuralAudio() {
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.3);
@@ -132,6 +162,7 @@ export function useNeuralAudio() {
   const nodesRef = useRef<AudioNodes | null>(null);
   const ctxRef = useRef<any>(null);
   const nativeSoundRef = useRef<Audio.Sound | null>(null);
+  const loadTokenRef = useRef(0);
 
   const isWeb = Platform.OS === "web";
 
@@ -181,6 +212,40 @@ export function useNeuralAudio() {
     return buffer;
   }, []);
 
+  const stop = useCallback(() => {
+    loadTokenRef.current++;
+
+    if (nodesRef.current) {
+      const { osc1, osc2, gain, noiseSource } = nodesRef.current;
+      try {
+        gain.gain.linearRampToValueAtTime(0, gain.context.currentTime + 0.5);
+        setTimeout(() => {
+          try {
+            osc1?.stop();
+            osc2?.stop();
+            noiseSource?.stop();
+            osc1?.disconnect();
+            osc2?.disconnect();
+            noiseSource?.disconnect();
+            gain.disconnect();
+          } catch {}
+        }, 600);
+      } catch {}
+      nodesRef.current = null;
+    }
+
+    const sound = nativeSoundRef.current;
+    if (sound) {
+      nativeSoundRef.current = null;
+      sound.stopAsync().catch(() => {}).finally(() => {
+        sound.unloadAsync().catch(() => {});
+      });
+    }
+
+    setActivePreset(null);
+    setIsPlaying(false);
+  }, []);
+
   const play = useCallback(
     (presetId: string) => {
       const preset = NEURAL_PRESETS.find((p) => p.id === presetId);
@@ -188,14 +253,47 @@ export function useNeuralAudio() {
 
       stop();
 
-      const ctx = getContext();
-      if (!ctx) {
-        if (!isWeb) {
+      if (!isWeb) {
+        const source = NATIVE_AUDIO_SOURCES[presetId];
+        if (!source) {
           setNativeUnavailable(true);
           setTimeout(() => setNativeUnavailable(false), 3000);
+          return;
         }
+
+        const myToken = ++loadTokenRef.current;
+        setActivePreset(presetId);
+        setIsPlaying(true);
+
+        (async () => {
+          try {
+            await ensureNativeAudioMode();
+            const { sound } = await Audio.Sound.createAsync(
+              source,
+              { shouldPlay: true, isLooping: true, volume },
+              null,
+              false
+            );
+            if (loadTokenRef.current !== myToken) {
+              await sound.unloadAsync().catch(() => {});
+              return;
+            }
+            nativeSoundRef.current = sound;
+          } catch (e) {
+            console.warn("Failed to load neural audio", presetId, e);
+            if (loadTokenRef.current === myToken) {
+              setActivePreset(null);
+              setIsPlaying(false);
+              setNativeUnavailable(true);
+              setTimeout(() => setNativeUnavailable(false), 3000);
+            }
+          }
+        })();
         return;
       }
+
+      const ctx = getContext();
+      if (!ctx) return;
 
       if (ctx.state === "suspended") {
         ctx.resume();
@@ -264,31 +362,8 @@ export function useNeuralAudio() {
       setActivePreset(presetId);
       setIsPlaying(true);
     },
-    [volume, getContext, generateBrownNoise, generatePinkNoise]
+    [volume, isWeb, getContext, generateBrownNoise, generatePinkNoise, stop]
   );
-
-  const stop = useCallback(() => {
-    if (nodesRef.current) {
-      const { osc1, osc2, gain, noiseSource } = nodesRef.current;
-      try {
-        gain.gain.linearRampToValueAtTime(0, gain.context.currentTime + 0.5);
-        setTimeout(() => {
-          try {
-            osc1?.stop();
-            osc2?.stop();
-            noiseSource?.stop();
-            osc1?.disconnect();
-            osc2?.disconnect();
-            noiseSource?.disconnect();
-            gain.disconnect();
-          } catch {}
-        }, 600);
-      } catch {}
-      nodesRef.current = null;
-    }
-    setActivePreset(null);
-    setIsPlaying(false);
-  }, []);
 
   const updateVolume = useCallback(
     (newVol: number) => {
@@ -298,6 +373,10 @@ export function useNeuralAudio() {
         try {
           gain.gain.linearRampToValueAtTime(newVol, gain.context.currentTime + 0.1);
         } catch {}
+      }
+      const sound = nativeSoundRef.current;
+      if (sound) {
+        sound.setVolumeAsync(newVol).catch(() => {});
       }
     },
     []
