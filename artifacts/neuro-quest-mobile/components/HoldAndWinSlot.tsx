@@ -536,6 +536,9 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
           accessibilityRole="alert"
         >
           <Text
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
             style={[
               s.resultText,
               payout > 0
