@@ -156,4 +156,18 @@ export async function runMigrations(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_ai_outcome_feedback_user_time
     ON ai_outcome_feedback(app_user_id, recorded_at DESC)
   `);
+
+  // ---- Build #8 (April 30, 2026) — Enterprise profile fields ----
+  // Additive ALTERs only. Existing columns (`name`, `onboarding_complete`,
+  // `wearable_connected`) are preserved; new explicit status columns are added
+  // alongside per the Build #8 spec so downstream consumers can query state
+  // without inferring it from booleans. All defaults are safe — pre-existing
+  // rows are unaffected.
+  await query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS display_name varchar`);
+  await query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS auth_provider varchar NOT NULL DEFAULT 'local'`);
+  await query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS onboarding_status varchar NOT NULL DEFAULT 'pending'`);
+  await query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS baseline_status varchar NOT NULL DEFAULT 'pending'`);
+  await query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS health_consent_status varchar NOT NULL DEFAULT 'not_granted'`);
+  await query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS watch_connected_status varchar NOT NULL DEFAULT 'not_connected'`);
+  await query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`);
 }

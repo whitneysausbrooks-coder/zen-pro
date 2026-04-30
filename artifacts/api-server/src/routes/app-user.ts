@@ -37,14 +37,18 @@ router.post("/app-user/register", async (req, res) => {
 
   try {
     const result = await query(
-      `INSERT INTO app_users (id, email, name, account_type, last_login)
-       VALUES ($1, $2, $3, $4, now())
+      `INSERT INTO app_users (id, email, name, display_name, account_type, last_login, updated_at)
+       VALUES ($1, $2, $3, $3, $4, now(), now())
        ON CONFLICT (id) DO UPDATE
          SET email = EXCLUDED.email,
              name = EXCLUDED.name,
-             last_login = now()
-       RETURNING id, email, name, account_type, created_at, last_login,
-                 onboarding_complete, wearable_connected, wearable_type`,
+             display_name = COALESCE(app_users.display_name, EXCLUDED.display_name),
+             last_login = now(),
+             updated_at = now()
+       RETURNING id, email, name, display_name, account_type, created_at, updated_at, last_login,
+                 onboarding_complete, onboarding_status, baseline_status,
+                 health_consent_status, watch_connected_status,
+                 auth_provider, wearable_connected, wearable_type`,
       [user_id, normEmail, name, account_type],
     );
     await auditLog(user_id, "app_user_registered", "app_users", { account_type });
@@ -79,7 +83,7 @@ router.post("/app-user/heartbeat", async (req, res) => {
   }
   try {
     const r = await query(
-      `UPDATE app_users SET last_login = now() WHERE id = $1 RETURNING id`,
+      `UPDATE app_users SET last_login = now(), updated_at = now() WHERE id = $1 RETURNING id`,
       [userId],
     );
     if (r.rowCount === 0) return res.status(404).json({ error: "User not found" });

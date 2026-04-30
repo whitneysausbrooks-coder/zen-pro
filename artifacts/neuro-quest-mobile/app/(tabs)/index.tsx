@@ -350,9 +350,37 @@ export default function HomeScreen() {
     } else {
       try {
         await Share.share({ message: msg, title: "My NeuroQuest Impact" });
-      } catch {}
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : "Please try again.";
+        Alert.alert("Couldn't share", errMsg);
+      }
     }
   }, [totalDonated, neuralEnergy, streakCount, empathyIndex]);
+
+  // Back to Login — confirm, then sign out and reset to OnboardingSignIn via root state machine.
+  const handleBackToLogin = useCallback(() => {
+    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      "Back to login?",
+      "Sign out and return to the login screen?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign out",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { signOutAndReset } = await import("@/lib/health");
+              await signOutAndReset();
+            } catch (err) {
+              const m = err instanceof Error ? err.message : "Please try again.";
+              Alert.alert("Couldn't sign out", m);
+            }
+          },
+        },
+      ]
+    );
+  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.black }}>
@@ -402,6 +430,16 @@ export default function HomeScreen() {
                 : `NeuroQuest${"\n"}Wellness Hub`}</Text>
             </View>
             <View style={styles.topRight}>
+              <Pressable
+                onPress={handleBackToLogin}
+                style={styles.shareBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Back to login"
+                accessibilityHint="Sign out and return to the login screen"
+                hitSlop={8}
+              >
+                <Feather name="log-out" size={18} color={Colors.gold} />
+              </Pressable>
               <Pressable onPress={handleShare} style={styles.shareBtn} accessibilityRole="button" accessibilityLabel="Share your impact">
                 <Feather name="share" size={18} color={Colors.gold} />
               </Pressable>

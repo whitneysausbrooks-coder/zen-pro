@@ -740,3 +740,88 @@ export async function syncToServer(
     return { success: false, message: e?.message || "Network error" };
   }
 }
+
+// ============================================================================
+// Build #8 — Future wearable provider placeholders (Fitbit, Garmin, etc.)
+// ============================================================================
+//
+// PURPOSE: Define a typed contract that future wearable providers must
+// satisfy. None of the stubs below collect health data, request OS
+// permissions, or initiate any network call. They throw `not_implemented`
+// if invoked.
+//
+// CONSENT GATE (enforced by all real implementations):
+//   1. Provider may NOT request any OS permission until the user has
+//      tapped a consent button in the UI for that specific provider.
+//   2. Provider may NOT cache, log, or transmit any sample until consent
+//      is recorded server-side via /api/app-user (health_consent_status
+//      column).
+//   3. Provider must respect data-minimization: only HRV / sleep / steps
+//      are in scope for the Triple-Weight Algorithm.
+//
+// To wire up a real provider in a future build:
+//   - implement WearableProvider against the real SDK,
+//   - update lib/health.ts to dispatch to it after consent is confirmed,
+//   - add a row to app_users.watch_connected_status reflecting the choice.
+// ============================================================================
+
+export type WearableProviderId = "apple_health" | "health_connect" | "fitbit" | "garmin" | "manual";
+
+export interface WearableSample {
+  hrv?: number;
+  sleepHours?: number;
+  steps?: number;
+  recordedAt: string;
+}
+
+export interface WearableProvider {
+  readonly id: WearableProviderId;
+  readonly displayName: string;
+  /** True if the underlying SDK is available on this OS / platform build. */
+  isAvailable(): Promise<boolean>;
+  /** Must NOT be called until user has explicitly consented for THIS provider. */
+  requestPermissions(): Promise<boolean>;
+  /** Latest 7d window. Returns [] if not consented. Never throws on no-data. */
+  fetchRecentSamples(): Promise<WearableSample[]>;
+}
+
+function notImplemented(id: WearableProviderId): never {
+  throw new Error(`Wearable provider "${id}" is not implemented in this build.`);
+}
+
+export const FitbitProviderStub: WearableProvider = {
+  id: "fitbit",
+  displayName: "Fitbit",
+  async isAvailable() {
+    return false;
+  },
+  async requestPermissions() {
+    notImplemented("fitbit");
+  },
+  async fetchRecentSamples() {
+    notImplemented("fitbit");
+  },
+};
+
+export const GarminProviderStub: WearableProvider = {
+  id: "garmin",
+  displayName: "Garmin",
+  async isAvailable() {
+    return false;
+  },
+  async requestPermissions() {
+    notImplemented("garmin");
+  },
+  async fetchRecentSamples() {
+    notImplemented("garmin");
+  },
+};
+
+/** Registry of all known providers. Real implementations go in lib/health.ts above. */
+export const WEARABLE_PROVIDERS: Record<WearableProviderId, WearableProvider | null> = {
+  apple_health: null, // implemented inline above (queryHRVMetric, etc.)
+  health_connect: null, // implemented inline above
+  fitbit: FitbitProviderStub,
+  garmin: GarminProviderStub,
+  manual: null, // syncManualMetrics
+};

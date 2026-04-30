@@ -1,11 +1,17 @@
 import { BlurView } from "expo-blur";
-import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import { Platform, StyleSheet } from "react-native";
 import Colors from "@/constants/colors";
+
+// NOTE (Build #8): unstable-native-tabs overflows >5 tabs into a hidden "More"
+// stack on iOS UITabBar, which made Profile appear missing and broke
+// router.replace("/") for Home on iOS 26 testers. We always render
+// ClassicTabLayout to keep all 6 tabs visible and routable. NativeTabLayout
+// is retained as dead code for future re-enable when expo-router's native
+// tabs supports >5 entries reliably.
 
 function NativeTabLayout() {
   return (
@@ -131,8 +137,8 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout />;
-  }
+  // Always use ClassicTabLayout — see top-of-file note re: iOS 26 6-tab overflow.
+  // NativeTabLayout retained for future use; reference it to keep TS happy.
+  void NativeTabLayout;
   return <ClassicTabLayout />;
 }

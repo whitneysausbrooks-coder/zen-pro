@@ -94,8 +94,15 @@ async function shareText(message: string, title: string) {
     }
   } else {
     try {
-      await Share.share({ message, title });
-    } catch {}
+      const result = await Share.share({ message, title });
+      // result.action === "dismissedAction" is a normal user-dismiss, not an error.
+      if (result.action === Share.sharedAction || result.action === Share.dismissedAction) {
+        return;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Please try again.";
+      Alert.alert("Couldn't share", msg);
+    }
   }
 }
 
