@@ -701,8 +701,8 @@ export async function syncToServer(
     metrics.steps == null
   ) {
     const noDataMsg = isHealthConnectAvailable
-      ? "We couldn't read any health data. This usually means Health Connect permissions weren't fully granted, or your watch hasn't synced HRV, sleep, or steps to Health Connect recently. Open Settings → Apps → Health Connect to grant access, or wear your watch overnight and try again."
-      : "We couldn't read any health data. This usually means Apple Health permissions weren't fully granted, or your device hasn't recorded HRV, sleep, or steps recently. Open Settings to grant access, or wear your Apple Watch overnight and try again.";
+      ? "No recent HRV, sleep, or step data found in Health Connect for the last 24 hours. If you just granted permissions, that's fine — Health Connect simply doesn't have anything to share yet. Tap \"Add Manually\" below to enter your own values, or wear your watch overnight and reopen the app tomorrow."
+      : "No recent HRV, sleep, or step data found in Apple Health for the last 24 hours. If you just granted permissions, that's fine — Apple Health simply doesn't have anything to share yet (Apple intentionally hides which permissions you granted, so we can't tell the difference). Tap \"Add Manually\" below to enter your own values, or wear your Apple Watch overnight and reopen the app tomorrow.";
     return {
       success: false,
       message: noDataMsg,
