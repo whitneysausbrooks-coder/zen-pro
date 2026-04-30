@@ -449,3 +449,9 @@ id = "VkdWNPZ5J5hN_juCIwkzn"
 uri = "file://enterprise-pilot-templates/12_Unified_Onboarding_Packet_2026-04-29.md"
 type = "text"
 title = "Unified Onboarding Packet — Owner + HR Admin + Employee (2026-04-29)"
+
+[[outputs]]
+id = "pShX-d1OjhsqmTQThk2-w"
+uri = "file://APP_STORE_REVIEW_PACKET.md"
+type = "text"
+title = "Build #9 — App Store Review Packet (read before submitting)"
