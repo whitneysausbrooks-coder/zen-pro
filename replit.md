@@ -160,3 +160,20 @@ To prevent this, `play.tsx` `handleBuySpinPack` now displays a "Free Daily Spins
 - Or add a parallel auth path on the IAP routes that accepts the device-signed HMAC headers (`X-Device-Id`, `X-Issued-At`, `X-Timestamp`, `X-Signature`) and resolves to an `app_users.id`.
 
 After auth is wired, also follow the architect's recommendations: post-purchase server-truth balance fetch (call `fetchEntitlements()` after `purchaseProduct`, set local `SPINS_KEY` to `spin_balance`), reconcile entitlements on app foreground/start, and replace any silent `catch {}` around credit writes with explicit error surfacing.
+### 2026-04-30 (later) — Owner dashboard headcount + TOS modal wedge fixes
+Three surgical fixes applied after Whitney triage. All three TS-clean. Architect re-review: PASS, no severe issues.
+
+1. **Owner dashboard "Employees Enrolled = 0" bug.** `/enterprise/company/:companyId/dashboard` and `/enterprise/company/:companyId/metrics` were both computing `total_employees` from the `resilience_scores` JOIN, so a freshly onboarded company (e.g. Kaylee's Creatives 5/10 seats filled, no syncs yet) showed 0. Fixed both endpoints to do a separate `COUNT(*) FROM enterprise_users WHERE company_id = $1` and expose `enrolled_employees` plus the existing `total_employees` (now equal to enrolled). Added `employees_with_data` field for the score-joined sub-cohort. Averages still divide by `employees_with_data` to avoid dilution. Frontend `admin-dashboard.tsx` now shows "X have synced data" subtitle when employees_with_data < total_employees.
+
+2. **TOS modal wedge ("We couldn't record your acceptance").** Whitney's TestFlight Build #9/#11 phone was stuck on the consent gate. Production logs showed every signed request hitting `device_signature:invalid` / `hmac_mismatch` (still passing through soft-mode middleware) but **no** `POST /tos-accept` ever reached the server — meaning `signedFetch` was throwing client-side before send. Fixed `getTosStatus()` and `acceptCurrentTos()` in `lib/userAuth.ts` to do a two-pass fetch: signed first, plain `fetch()` fallback against the same URL on failure. Both paths hit the same audited route, so `app_user_tos_acceptances` row is still written either way. The unsigned fallback does not weaken security versus current posture (`requireDeviceSignature` already accepts unsigned in soft mode); when `DEVICE_AUTH_HARD_MODE=1` is eventually flipped, both paths will 401 equally. Requires Build #12 to ship.
+
+3. **Health "no recent data" misleading error message.** `lib/health.ts:706-708` rewritten to say "no recent data — use Add Manually" instead of falsely blaming permissions. Root cause was a dead Apple Watch on Whitney's account (no HRV/sleep recorded), not a HealthKit permission issue. Requires Build #12.
+
+### Build #11 → submission status
+Build #11 finished on EAS (ipa: 8aRXiyg1Mje8JkrtDzpcnU.ipa) with pointerEvents fixes + Neural Hold result text changes. Two `eas submit` attempts to ASC ERRORED in 13s with null error/logs. Whitney needs to screenshot the EAS submission detail page so we can see the actual submission failure reason. Do **not** retry submit until cause is known (canRetry=false on errored). Build #12 should bundle the three fixes above before next submit attempt.
+
+### Pre-hard-mode action items (logged, not yet done)
+Architect's three forward-looking recommendations for before flipping `DEVICE_AUTH_HARD_MODE=1`:
+- Add regression tests for the headcount split (enrolled-with-no-scores, partial-sync cohort)
+- Add telemetry counters for signed vs unsigned fallback usage on `/tos-status` and `/tos-accept` to detect stale-key populations before cutover
+- Ship a credential-rotation/remint path for stale `device_secret` to prevent future consent-gate regressions

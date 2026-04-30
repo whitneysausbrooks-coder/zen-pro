@@ -623,9 +623,10 @@ router.get("/enterprise/company/:companyId/metrics", async (req, res) => {
   }
 
   try {
+    // Score-based aggregates (only counts users who have synced data).
     const result = await query(
       `SELECT
-         COUNT(DISTINCT rs.user_id) as total_employees,
+         COUNT(DISTINCT rs.user_id) as employees_with_data,
          ROUND(AVG(rs.wri)::numeric, 2) as avg_wri,
          ROUND(AVG(rs.burnout_risk)::numeric, 2) as avg_burnout_risk,
          ROUND(AVG(rs.eri)::numeric, 2) as avg_eri,
@@ -645,13 +646,28 @@ router.get("/enterprise/company/:companyId/metrics", async (req, res) => {
       [companyId]
     );
 
+    // Headcount must come from the seat roster, not the score join, so
+    // a company with seats filled but no synced data still reports
+    // accurate enrollment.
+    const enrolledQ = await query(
+      `SELECT COUNT(*)::int AS count FROM enterprise_users WHERE company_id = $1`,
+      [companyId],
+    );
+    const enrolledEmployees: number = enrolledQ.rows[0]?.count ?? 0;
+
     await auditLog(null, "company_metrics_viewed", "companies", { company_id: companyId });
 
+    const base = result.rows[0] || {
+      employees_with_data: 0, avg_wri: 0, avg_burnout_risk: 0,
+      high_risk_count: 0, moderate_risk_count: 0, low_risk_count: 0,
+    };
     return res.json({
       company_id: companyId,
-      metrics: result.rows[0] || {
-        total_employees: 0, avg_wri: 0, avg_burnout_risk: 0,
-        high_risk_count: 0, moderate_risk_count: 0, low_risk_count: 0,
+      metrics: {
+        ...base,
+        // Backward-compatible alias for older clients.
+        total_employees: enrolledEmployees,
+        enrolled_employees: enrolledEmployees,
       },
     });
   } catch (err: any) {
@@ -711,9 +727,20 @@ router.get("/enterprise/company/:companyId/dashboard", async (req, res) => {
     );
 
     const rows = latestScores.rows;
-    const totalEmployees = rows.length;
-    const avgWri = totalEmployees > 0 ? rows.reduce((s: number, r: any) => s + parseFloat(r.wri), 0) / totalEmployees : 0;
-    const avgBurnoutRisk = totalEmployees > 0 ? rows.reduce((s: number, r: any) => s + parseFloat(r.burnout_risk), 0) / totalEmployees : 0;
+    const employeesWithData = rows.length;
+    // Source of truth for "Employees Enrolled" is the seat roster, NOT the
+    // resilience_scores join. Otherwise a freshly-onboarded company with
+    // 5 seats filled but nobody synced yet incorrectly shows "0 enrolled".
+    const enrolledQ = await query(
+      `SELECT COUNT(*)::int AS count FROM enterprise_users WHERE company_id = $1`,
+      [companyId],
+    );
+    const enrolledEmployees: number = enrolledQ.rows[0]?.count ?? 0;
+    // Averages must still divide by the number of employees who actually
+    // contributed data — averaging a sum over the full enrolled headcount
+    // when half the cohort hasn't synced would dilute the metric to noise.
+    const avgWri = employeesWithData > 0 ? rows.reduce((s: number, r: any) => s + parseFloat(r.wri), 0) / employeesWithData : 0;
+    const avgBurnoutRisk = employeesWithData > 0 ? rows.reduce((s: number, r: any) => s + parseFloat(r.burnout_risk), 0) / employeesWithData : 0;
 
     const trend14d = await query(
       `SELECT
@@ -760,7 +787,11 @@ router.get("/enterprise/company/:companyId/dashboard", async (req, res) => {
     const executive = {
       avg_wri: Math.round(avgWri * 100) / 100,
       avg_burnout_risk: Math.round(avgBurnoutRisk * 100) / 100,
-      total_employees: totalEmployees,
+      // `total_employees` now means seat-roster headcount so the
+      // "Employees Enrolled" card never shows 0 for a fresh cohort.
+      // `employees_with_data` is the sub-cohort that has actually synced.
+      total_employees: enrolledEmployees,
+      employees_with_data: employeesWithData,
       burnout_severity: burnoutAnalysis.severity,
       burnout_alert: burnoutAnalysis.alert,
       trend_7d: trend7d.rows,

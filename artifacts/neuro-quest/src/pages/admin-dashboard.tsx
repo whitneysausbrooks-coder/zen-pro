@@ -37,6 +37,7 @@ interface DashboardData {
   avg_wri: number;
   avg_burnout_risk: number;
   total_employees: number;
+  employees_with_data?: number;
   burnout_severity: "low" | "moderate" | "high" | "critical";
   burnout_alert: string | null;
   trend_7d: TrendDay[];
@@ -683,6 +684,12 @@ export default function AdminDashboard() {
                 <MetricCard
                   label="Employees Enrolled"
                   value={dashboard.total_employees}
+                  subtitle={
+                    dashboard.employees_with_data !== undefined &&
+                    dashboard.employees_with_data < dashboard.total_employees
+                      ? `${dashboard.employees_with_data} have synced data`
+                      : "Across this company"
+                  }
                   color="#A78BFA"
                 />
                 {dashboard.view === "manager" && dashboard.high_risk_employees !== undefined ? (

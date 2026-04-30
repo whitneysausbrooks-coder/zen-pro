@@ -561,9 +561,15 @@ export async function getTosStatus(): Promise<TosStatus> {
       }
     );
   }
-  try {
-    const res = await signedFetch(`${getApiBase()}/api/app-user/${id}/tos-status`);
-    if (res.ok) {
+  // Two-pass fetch: signed first (preferred), unsigned fallback if signed
+  // fails. The server runs the signature middleware in soft mode, so an
+  // unsigned request is accepted just as well — this prevents devices with
+  // a stale or corrupted device_secret from getting permanently wedged on
+  // the consent gate.
+  const url = `${getApiBase()}/api/app-user/${id}/tos-status`;
+  const tryParse = async (res: Response): Promise<TosStatus | null> => {
+    if (!res.ok) return null;
+    try {
       const json = (await res.json()) as TosStatus & { success?: boolean };
       const status: TosStatus = {
         current_tos_version: json.current_tos_version,
@@ -574,7 +580,17 @@ export async function getTosStatus(): Promise<TosStatus> {
         await AsyncStorage.setItem(TOS_LOCAL_KEY, JSON.stringify(status));
       } catch {}
       return status;
+    } catch {
+      return null;
     }
+  };
+  try {
+    const signed = await tryParse(await signedFetch(url));
+    if (signed) return signed;
+  } catch {}
+  try {
+    const unsigned = await tryParse(await fetch(url));
+    if (unsigned) return unsigned;
   } catch {}
   return (
     local ?? {
@@ -605,31 +621,48 @@ export async function acceptCurrentTos(): Promise<{ success: boolean }> {
   // server 2xx before declaring acceptance successful — otherwise the user
   // could enter the app without a row in `app_user_tos_acceptances` and
   // legal would have no audit trail of consent.
+  //
+  // Two-pass write: signed first, unsigned fallback. The server runs the
+  // signature middleware in soft mode and still records the acceptance,
+  // so we don't want a stale device_secret to permanently block consent.
+  // Both code paths go through the same /tos-accept route so the audit
+  // row is written either way.
+  const url = `${getApiBase()}/api/app-user/${id}/tos-accept`;
+  const body = JSON.stringify({
+    tos_version: CURRENT_TOS_VERSION,
+    privacy_version: CURRENT_PRIVACY_VERSION,
+  });
+  let serverOk = false;
   try {
-    const res = await signedFetch(`${getApiBase()}/api/app-user/${id}/tos-accept`, {
+    const res = await signedFetch(url, {
       method: "POST",
       jsonBody: {
         tos_version: CURRENT_TOS_VERSION,
         privacy_version: CURRENT_PRIVACY_VERSION,
       },
     });
-    if (!res.ok) {
-      // Server rejected — roll back the optimistic local flag so we re-prompt.
-      try {
-        await AsyncStorage.removeItem(TOS_LOCAL_KEY);
-      } catch {}
-      return { success: false };
-    }
-    return { success: true };
-  } catch {
-    // Network failure — we did NOT persist consent server-side. Roll back
-    // the local flag so the modal re-appears on next launch and we get
-    // another chance to record the acceptance to the DB.
+    if (res.ok) serverOk = true;
+  } catch {}
+  if (!serverOk) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+      if (res.ok) serverOk = true;
+    } catch {}
+  }
+  if (!serverOk) {
+    // Both paths failed — roll back the optimistic local flag so the
+    // modal re-appears on next launch and we get another chance to
+    // persist the consent server-side.
     try {
       await AsyncStorage.removeItem(TOS_LOCAL_KEY);
     } catch {}
     return { success: false };
   }
+  return { success: true };
 }
 
 /**
