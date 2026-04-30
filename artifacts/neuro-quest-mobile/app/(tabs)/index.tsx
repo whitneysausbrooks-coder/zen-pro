@@ -388,30 +388,31 @@ export default function HomeScreen() {
         colors={[Colors.celestialPurple, Colors.forestDeep, Colors.celestialBlue, Colors.black, Colors.black]}
         locations={[0, 0.15, 0.35, 0.6, 1]}
         style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
 
-      <Animated.View style={[styles.starField, { opacity: star1Op }]}>
+      <Animated.View pointerEvents="none" style={[styles.starField, { opacity: star1Op }]}>
         <View style={[styles.star, { top: 60, left: 30 }]} />
         <View style={[styles.star, { top: 120, right: 50 }]} />
         <View style={[styles.starSmall, { top: 200, left: 100 }]} />
         <View style={[styles.star, { top: 340, right: 90 }]} />
         <View style={[styles.starSmall, { top: 80, left: width * 0.6 }]} />
       </Animated.View>
-      <Animated.View style={[styles.starField, { opacity: star2Op }]}>
+      <Animated.View pointerEvents="none" style={[styles.starField, { opacity: star2Op }]}>
         <View style={[styles.starSmall, { top: 150, left: 60 }]} />
         <View style={[styles.star, { top: 250, right: 30 }]} />
         <View style={[styles.starSmall, { top: 400, left: 40 }]} />
         <View style={[styles.star, { top: 100, left: width * 0.45 }]} />
       </Animated.View>
-      <Animated.View style={[styles.starField, { opacity: star3Op }]}>
+      <Animated.View pointerEvents="none" style={[styles.starField, { opacity: star3Op }]}>
         <View style={[styles.starTiny, { top: 90, right: 100 }]} />
         <View style={[styles.starTiny, { top: 180, left: 150 }]} />
         <View style={[styles.star, { top: 300, left: 20 }]} />
         <View style={[styles.starTiny, { top: 50, left: width * 0.3 }]} />
       </Animated.View>
 
-      <View style={styles.nebulaGlow1} />
-      <View style={styles.nebulaGlow2} />
+      <View pointerEvents="none" style={styles.nebulaGlow1} />
+      <View pointerEvents="none" style={styles.nebulaGlow2 } />
 
       <ScrollView
         style={{ flex: 1 }}

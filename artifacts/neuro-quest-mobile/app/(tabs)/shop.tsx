@@ -237,8 +237,9 @@ export default function ShopScreen() {
         colors={[Colors.celestialPurple, Colors.forestDeep, Colors.celestialBlue, Colors.black, Colors.black]}
         locations={[0, 0.12, 0.3, 0.55, 1]}
         style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
-      <View style={styles.nebulaGlow} />
+      <View pointerEvents="none" style={styles.nebulaGlow} />
 
       <ScrollView
         contentContainerStyle={[

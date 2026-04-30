@@ -410,13 +410,14 @@ export default function PlayScreen() {
         colors={[Colors.celestialPurple, Colors.forestDeep, Colors.celestialBlue, Colors.black, Colors.black]}
         locations={[0, 0.12, 0.3, 0.55, 1]}
         style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
-      <View style={styles.nebulaGlow} />
-      <View style={styles.starA} />
-      <View style={styles.starB} />
-      <View style={styles.starC} />
-      <View style={styles.starD} />
-      <View style={styles.starE} />
+      <View pointerEvents="none" style={styles.nebulaGlow} />
+      <View pointerEvents="none" style={styles.starA} />
+      <View pointerEvents="none" style={styles.starB} />
+      <View pointerEvents="none" style={styles.starC} />
+      <View pointerEvents="none" style={styles.starD} />
+      <View pointerEvents="none" style={styles.starE} />
 
       <ScrollView
         contentContainerStyle={[

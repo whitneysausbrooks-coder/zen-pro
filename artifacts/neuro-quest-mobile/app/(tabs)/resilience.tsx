@@ -288,6 +288,7 @@ export default function ResilienceScreen() {
         <LinearGradient
           colors={["#1a1a2e", "#16213e", "#0f0f23"]}
           style={StyleSheet.absoluteFill}
+          pointerEvents="none"
         />
         <View style={styles.breathContainer}>
           <Pressable
@@ -328,6 +329,7 @@ export default function ResilienceScreen() {
         colors={["#1a1a2e", "#16213e", "#0f0f23"]}
         locations={[0, 0.35, 0.7]}
         style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
       <ScrollView
         style={styles.scroll}

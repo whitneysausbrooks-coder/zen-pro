@@ -283,17 +283,19 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
       if (outcome === "triple") {
         resultMultiplier = MULTIPLIERS[matchSymbol] || 3;
         donationCents = Math.round(tier.cost * resultMultiplier);
+        const net = donationCents - tier.cost;
         setResultText(
-          `TRIPLE WIN! ${matchSymbol}${matchSymbol}${matchSymbol} — +${donationCents} NE!`
+          `TRIPLE WIN! ${matchSymbol}${matchSymbol}${matchSymbol} — +${donationCents} NE (net +${net})`
         );
       } else if (outcome === "pair") {
         resultMultiplier = 0.5;
         donationCents = Math.round(tier.cost * resultMultiplier);
+        const net = donationCents - tier.cost;
         setResultText(
-          `Pair! ${matchSymbol}${matchSymbol} — +${donationCents} NE`
+          `Pair ${matchSymbol}${matchSymbol} — half stake back +${donationCents} NE (net ${net})`
         );
       } else {
-        setResultText("No match — try again!");
+        setResultText(`No match — lost ${tier.cost} NE`);
       }
 
       setPayout(donationCents);

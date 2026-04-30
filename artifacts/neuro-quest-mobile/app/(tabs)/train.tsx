@@ -432,6 +432,7 @@ export default function TrainScreen() {
           colors={[Colors.forestDeep, Colors.forestMid, Colors.black, Colors.black]}
           locations={[0, 0.25, 0.5, 1]}
           style={StyleSheet.absoluteFill}
+          pointerEvents="none"
         />
         <View style={[styles.gameContainer, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 }]}>
           {activeGame === "stroop" && <StroopGame onClose={() => setActiveGame(null)} />}
@@ -455,11 +456,12 @@ export default function TrainScreen() {
         colors={[Colors.celestialBlue, Colors.forestDeep, Colors.celestialPurple, Colors.black, Colors.black]}
         locations={[0, 0.15, 0.3, 0.55, 1]}
         style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
-      <View style={styles.nebulaGlow} />
-      <View style={styles.starA} />
-      <View style={styles.starB} />
-      <View style={styles.starC} />
+      <View pointerEvents="none" style={styles.nebulaGlow} />
+      <View pointerEvents="none" style={styles.starA} />
+      <View pointerEvents="none" style={styles.starB} />
+      <View pointerEvents="none" style={styles.starC} />
 
       <ScrollView
         contentContainerStyle={[

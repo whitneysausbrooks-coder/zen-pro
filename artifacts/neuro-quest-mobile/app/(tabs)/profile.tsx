@@ -449,16 +449,17 @@ export default function ProfileScreen() {
         colors={[Colors.celestialPurple, Colors.forestDeep, Colors.celestialBlue, Colors.black, Colors.black]}
         locations={[0, 0.15, 0.3, 0.55, 1]}
         style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
 
-      <Animated.View style={[styles.starField, { opacity: starOp }]}>
+      <Animated.View pointerEvents="none" style={[styles.starField, { opacity: starOp }]}>
         <View style={[styles.star, { top: 50, left: 25 }]} />
         <View style={[styles.starSm, { top: 80, right: 40 }]} />
         <View style={[styles.star, { top: 130, left: width * 0.5 }]} />
         <View style={[styles.starSm, { top: 30, left: width * 0.7 }]} />
         <View style={[styles.starTn, { top: 100, left: 100 }]} />
       </Animated.View>
-      <View style={styles.nebulaGlow} />
+      <View pointerEvents="none" style={styles.nebulaGlow} />
 
       <ScrollView
         contentContainerStyle={[
