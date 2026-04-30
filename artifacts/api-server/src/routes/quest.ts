@@ -102,7 +102,7 @@ router.get("/profile", async (req, res) => {
 router.get("/streak", async (req, res) => {
   const sessionId = req.cookies?.["nq_session"];
   if (!sessionId) {
-    return res.json({ streak_count: 0, multiplier: 1, is_lucky_gold: false, is_electric_blue: false });
+    return void res.json({ streak_count: 0, multiplier: 1, is_lucky_gold: false, is_electric_blue: false });
   }
   const [profile] = await db
     .select({ streak_count: userProfilesTable.streak_count, last_game_date: userProfilesTable.last_game_date })
@@ -111,9 +111,9 @@ router.get("/streak", async (req, res) => {
     .limit(1);
 
   if (!profile) {
-    return res.json({ streak_count: 0, multiplier: 1, is_lucky_gold: false, is_electric_blue: false });
+    return void res.json({ streak_count: 0, multiplier: 1, is_lucky_gold: false, is_electric_blue: false });
   }
-  return res.json(computeStreakInfo(profile.streak_count, profile.last_game_date));
+  return void res.json(computeStreakInfo(profile.streak_count, profile.last_game_date));
 });
 
 // Called when a brain game is completed — awards energy and updates streak
@@ -166,7 +166,7 @@ router.post("/game-complete", async (req, res) => {
   const streakInfo = computeStreakInfo(newStreak, today);
   const streakChanged = !alreadyPlayedToday;
 
-  return res.json({
+  return void res.json({
     profile: GetProfileResponse.parse(updated),
     streak: streakInfo,
     streak_changed: streakChanged,
@@ -179,12 +179,13 @@ router.post("/game-complete", async (req, res) => {
   });
 });
 
-router.post("/earn-energy", async (req, res) => {
+router.post("/earn-energy", async (req, res): Promise<void> => {
   const sessionId = getOrCreateSessionId(req, res);
   const body = EarnEnergyBody.parse(req.body);
 
   if (DASHBOARD_TASK_LABELS.has(body.activity)) {
-    return res.status(400).json({ error: "Dashboard tasks must be completed through the reflection flow." });
+    res.status(400).json({ error: "Dashboard tasks must be completed through the reflection flow." });
+    return;
   }
 
   const profile = await getOrCreateProfile(sessionId);
@@ -212,7 +213,7 @@ router.post("/earn-compassion", async (req, res) => {
   const body = EarnCompassionBody.parse(req.body);
 
   if (DASHBOARD_TASK_LABELS.has(body.activity)) {
-    return res.status(400).json({ error: "Dashboard tasks must be completed through the reflection flow." });
+    return void res.status(400).json({ error: "Dashboard tasks must be completed through the reflection flow." });
   }
 
   const profile = await getOrCreateProfile(sessionId);
@@ -241,13 +242,13 @@ router.post("/gratitude", async (req, res) => {
   const sessionId = getOrCreateSessionId(req, res);
   const { text } = req.body;
   if (!text || String(text).trim().split(/\s+/).filter(Boolean).length < 3) {
-    return res.status(400).json({ error: "At least 3 words required" });
+    return void res.status(400).json({ error: "At least 3 words required" });
   }
   const profile = await getOrCreateProfile(sessionId);
   const today = todayUTC();
 
   if (profile.last_gratitude_date === today) {
-    return res.json({ already_done: true, bonus: 0 });
+    return void res.json({ already_done: true, bonus: 0 });
   }
 
   const bonus = 20;
@@ -265,19 +266,19 @@ router.post("/gratitude", async (req, res) => {
     amount: bonus,
   });
 
-  return res.json({ already_done: false, bonus });
+  return void res.json({ already_done: false, bonus });
 });
 
 router.get("/gratitude-status", async (req, res) => {
   const sessionId = req.cookies?.["nq_session"];
-  if (!sessionId) return res.json({ done_today: false });
+  if (!sessionId) return void res.json({ done_today: false });
   const [profile] = await db
     .select({ last_gratitude_date: userProfilesTable.last_gratitude_date })
     .from(userProfilesTable)
     .where(eq(userProfilesTable.session_id, sessionId))
     .limit(1);
   const done_today = profile?.last_gratitude_date === todayUTC();
-  return res.json({ done_today });
+  return void res.json({ done_today });
 });
 
 router.get("/activities", async (req, res) => {
@@ -295,7 +296,7 @@ router.get("/activities", async (req, res) => {
 /* ── Growth Stats — last 7 days ──────────────────────────────────────────── */
 router.get("/growth-stats", async (req, res) => {
   const sessionId = req.cookies?.["nq_session"];
-  if (!sessionId) return res.json({ days: [] });
+  if (!sessionId) return void res.json({ days: [] });
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
   const activities = await db.select()
@@ -318,7 +319,7 @@ router.get("/growth-stats", async (req, res) => {
     if (act.type === "compassion_points" && act.amount > 0) dayMap[key].compassion_points += act.amount;
   }
   const days = Object.entries(dayMap).map(([date, vals]) => ({ date, ...vals }));
-  return res.json({ days });
+  return void res.json({ days });
 });
 
 /* ── Global Leaderboard ──────────────────────────────────────────────────── */
@@ -331,7 +332,7 @@ router.get("/leaderboard", async (_req, res) => {
       eq(activitiesTable.type, "compassion_points"),
       gte(activitiesTable.amount, JACKPOT_AMT)
     ));
-  return res.json({ lives_impacted: Number(lives) });
+  return void res.json({ lives_impacted: Number(lives) });
 });
 
 router.get("/access-status", async (req, res) => {
@@ -359,7 +360,7 @@ router.get("/access-status", async (req, res) => {
       `);
       const rows = r.rows ?? r;
       if (rows && rows.length > 0) {
-        return res.json({ has_access: true, access_type: "pro", daily_pass_expires: null });
+        return void res.json({ has_access: true, access_type: "pro", daily_pass_expires: null });
       }
     }
   } catch {
@@ -368,7 +369,7 @@ router.get("/access-status", async (req, res) => {
 
   const sessionId = req.cookies?.["nq_session"];
   if (!sessionId) {
-    return res.json({ has_access: false, access_type: null, daily_pass_expires: null });
+    return void res.json({ has_access: false, access_type: null, daily_pass_expires: null });
   }
   const [profile] = await db
     .select({ is_pro: userProfilesTable.is_pro, daily_pass_expires: userProfilesTable.daily_pass_expires })
@@ -377,15 +378,15 @@ router.get("/access-status", async (req, res) => {
     .limit(1);
 
   if (!profile) {
-    return res.json({ has_access: false, access_type: null, daily_pass_expires: null });
+    return void res.json({ has_access: false, access_type: null, daily_pass_expires: null });
   }
   if (profile.is_pro) {
-    return res.json({ has_access: true, access_type: "pro", daily_pass_expires: null });
+    return void res.json({ has_access: true, access_type: "pro", daily_pass_expires: null });
   }
   if (profile.daily_pass_expires && new Date(profile.daily_pass_expires) > new Date()) {
-    return res.json({ has_access: true, access_type: "daily_pass", daily_pass_expires: profile.daily_pass_expires });
+    return void res.json({ has_access: true, access_type: "daily_pass", daily_pass_expires: profile.daily_pass_expires });
   }
-  return res.json({ has_access: false, access_type: null, daily_pass_expires: null });
+  return void res.json({ has_access: false, access_type: null, daily_pass_expires: null });
 });
 
 const VALID_TASKS: Record<string, { type: "energy" | "compassion"; amount: number; label: string }> = {
@@ -401,7 +402,7 @@ const DASHBOARD_TASK_LABELS = new Set(Object.values(VALID_TASKS).map(t => t.labe
 
 router.get("/task-status", async (req, res) => {
   const sessionId = req.cookies?.["nq_session"];
-  if (!sessionId) return res.json({ completions: {} });
+  if (!sessionId) return void res.json({ completions: {} });
 
   const today = todayUTC();
   const rows = await db
@@ -421,7 +422,7 @@ router.get("/task-status", async (req, res) => {
   for (const row of rows) {
     completions[row.task_id] = { done: true, response: row.user_response };
   }
-  return res.json({ completions });
+  return void res.json({ completions });
 });
 
 router.post("/complete-task", async (req, res) => {
@@ -429,10 +430,10 @@ router.post("/complete-task", async (req, res) => {
   const { task_id, response } = req.body;
 
   if (!task_id || typeof task_id !== "string" || !VALID_TASKS[task_id]) {
-    return res.status(400).json({ error: "Invalid task" });
+    return void res.status(400).json({ error: "Invalid task" });
   }
   if (!response || typeof response !== "string" || response.trim().length < 15) {
-    return res.status(400).json({ error: "Please describe your session (at least 15 characters)" });
+    return void res.status(400).json({ error: "Please describe your session (at least 15 characters)" });
   }
 
   const today = todayUTC();
@@ -449,7 +450,7 @@ router.post("/complete-task", async (req, res) => {
     });
   } catch (err: any) {
     if (err?.code === "23505" || err?.constraint?.includes("task_completions_unique_daily")) {
-      return res.status(409).json({ error: "Already completed today", already_done: true });
+      return void res.status(409).json({ error: "Already completed today", already_done: true });
     }
     throw err;
   }
@@ -489,7 +490,7 @@ router.post("/complete-task", async (req, res) => {
   const levelChanged = updated.level !== previousLevel;
   const mealsFromCompassion = task.type === "compassion" ? Math.round(awardedAmount * 0.01 * 100) / 100 : 0;
 
-  return res.json({
+  return void res.json({
     profile: GetProfileResponse.parse(updated),
     task_id,
     completed: true,

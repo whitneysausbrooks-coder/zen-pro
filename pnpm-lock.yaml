@@ -221,6 +221,9 @@ importers:
       pg:
         specifier: ^8.20.0
         version: 8.20.0
+      stripe:
+        specifier: 20.4.1
+        version: 20.4.1(@types/node@25.3.5)
       web-push:
         specifier: ^3.6.7
         version: 3.6.7
@@ -12396,6 +12399,10 @@ snapshots:
       - bufferutil
       - pg-native
       - utf-8-validate
+
+  stripe@20.4.1(@types/node@25.3.5):
+    optionalDependencies:
+      '@types/node': 25.3.5
 
   stripe@20.4.1(@types/node@25.6.0):
     optionalDependencies:

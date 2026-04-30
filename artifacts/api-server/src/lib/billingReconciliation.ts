@@ -49,7 +49,9 @@ export async function runReconciliation(): Promise<ReconciliationResult> {
         if (stripeSub) {
           const stripeStatus = stripeSub.status;
           const stripeSeats = stripeSub.items.data[0]?.quantity || 0;
-          const stripePeriodEnd = new Date((stripeSub.current_period_end as number) * 1000);
+          // Stripe SDK v18+ moved current_period_end onto each SubscriptionItem.
+          const periodEndUnix = stripeSub.items?.data?.[0]?.current_period_end;
+          const stripePeriodEnd = periodEndUnix ? new Date(periodEndUnix * 1000) : null;
 
           const fixes: string[] = [];
 
@@ -65,15 +67,17 @@ export async function runReconciliation(): Promise<ReconciliationResult> {
             await logDiscrepancy(company.id, "seat_mismatch", String(company.seat_count), String(stripeSeats));
           }
 
-          const localEnd = company.billing_period_end ? new Date(company.billing_period_end).getTime() : 0;
-          const stripeEnd = stripePeriodEnd.getTime();
-          if (Math.abs(localEnd - stripeEnd) > 60000) {
-            fixes.push("period_end");
-            result.discrepancies_found++;
-            await logDiscrepancy(company.id, "period_end_mismatch",
-              company.billing_period_end?.toISOString() || "null",
-              stripePeriodEnd.toISOString()
-            );
+          if (stripePeriodEnd) {
+            const localEnd = company.billing_period_end ? new Date(company.billing_period_end).getTime() : 0;
+            const stripeEnd = stripePeriodEnd.getTime();
+            if (Math.abs(localEnd - stripeEnd) > 60000) {
+              fixes.push("period_end");
+              result.discrepancies_found++;
+              await logDiscrepancy(company.id, "period_end_mismatch",
+                company.billing_period_end?.toISOString() || "null",
+                stripePeriodEnd.toISOString()
+              );
+            }
           }
 
           if (company.subscription_id !== stripeSub.id) {

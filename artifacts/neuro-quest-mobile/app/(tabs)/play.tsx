@@ -23,7 +23,8 @@ import { HoldAndWinSlot, HoldWinResult } from "@/components/HoldAndWinSlot";
 import { DiamondJackpotSlot, DiamondResult } from "@/components/DiamondJackpotSlot";
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import Colors from "@/constants/colors";
-import { initIAP, purchaseProduct } from "@/lib/iap";
+import { useRouter } from "expo-router";
+import { initIAP, purchaseProduct, fetchEntitlements } from "@/lib/iap";
 
 const { width: screenW } = Dimensions.get("window");
 const nd = Platform.OS !== "web";
@@ -54,8 +55,10 @@ const DONATION_CAUSES = [
 
 export default function PlayScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [neuralEnergy, setNeuralEnergy] = useState(100);
   const [spinsLeft, setSpinsLeft] = useState(5);
+  const [purchasingPack, setPurchasingPack] = useState<string | null>(null);
   const [totalWins, setTotalWins] = useState(0);
   const [totalDonated, setTotalDonated] = useState(0);
   const [lastDonation, setLastDonation] = useState<{ amount: number; cause: string } | null>(null);
@@ -312,23 +315,69 @@ export default function PlayScreen() {
     await AsyncStorage.setItem(SPINS_KEY, String(next));
   }, []);
 
+  // T003 — restored real IAP path. Server-side `requireUserOrDevice` already
+  // accepts our HMAC device-signed calls, and `purchaseProduct` flows through
+  // `signedFetch` so receipt validation succeeds without Clerk on mobile.
+  const reconcileSpinsWithServer = useCallback(async (): Promise<boolean> => {
+    try {
+      const ents = await fetchEntitlements();
+      if (typeof ents?.spin_balance === "number") {
+        setSpinsLeft(ents.spin_balance);
+        await AsyncStorage.setItem(SPINS_KEY, String(ents.spin_balance));
+        return true;
+      }
+    } catch {}
+    return false;
+  }, []);
+
+  const runSpinPackPurchase = useCallback(async (pack: typeof SPIN_PACKS[0]) => {
+    if (Platform.OS !== "ios") {
+      Alert.alert("iOS only", "In-app purchases are currently available on iOS.");
+      return;
+    }
+    try {
+      setPurchasingPack(pack.id);
+      const result = await purchaseProduct(pack.productId);
+      if (!result.duplicate) {
+        await creditSpins(pack.spins);
+      }
+      // Server is the source of truth post-receipt-validation.
+      await reconcileSpinsWithServer();
+      if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        "Purchase Successful",
+        result.duplicate
+          ? "This transaction has already been applied to your account."
+          : `${pack.spins} spins added to your account. Thank you for supporting mental health charities!`,
+        [{ text: "OK" }]
+      );
+    } catch (e: any) {
+      const msg = String(e?.message || e);
+      if (msg.includes("cancel") || msg.includes("E_USER_CANCELLED")) return;
+      if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Purchase Failed", msg || "Something went wrong. Please try again.");
+    } finally {
+      setPurchasingPack(null);
+    }
+  }, [creditSpins, reconcileSpinsWithServer]);
+
   const handleBuySpinPack = useCallback((pack: typeof SPIN_PACKS[0]) => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
-      "Free Daily Spins",
-      `You receive ${DAILY_FREE_SPINS} fresh spins every 24 hours — no purchase needed.\n\nIn-app spin packs will be available in an upcoming update. Thank you for your patience!`,
-      [{ text: "Got it" }]
+      `Buy ${pack.spins} spins`,
+      `${pack.price} via secure App Store purchase.\n\nA portion of every purchase is donated to mental health charities. Thank you for your support!`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: `Buy ${pack.price}`, style: "default", onPress: () => runSpinPackPurchase(pack) },
+      ]
     );
-  }, []);
+  }, [runSpinPackPurchase]);
 
-  const handleBuySpins = useCallback(async () => {
+  const handleBuySpins = useCallback(() => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      "Get Neural Energy",
-      "In-app purchases will be processed securely through your device's app store. This feature will be available at launch.",
-      [{ text: "Got it" }]
-    );
-  }, []);
+    // Route to /shop where the full pack picker lives.
+    router.push("/(tabs)/shop");
+  }, [router]);
 
   const handleShareWin = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

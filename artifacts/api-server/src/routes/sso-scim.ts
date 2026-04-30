@@ -68,7 +68,7 @@ router.get("/enterprise/sso/authorize", async (req, res) => {
   const { company_id, redirect_uri, state: clientState, scope } = req.query as Record<string, string>;
 
   if (!company_id || !redirect_uri) {
-    return res.status(400).json({ error: "company_id and redirect_uri are required" });
+    return void res.status(400).json({ error: "company_id and redirect_uri are required" });
   }
 
   try {
@@ -78,13 +78,13 @@ router.get("/enterprise/sso/authorize", async (req, res) => {
     );
 
     if (configResult.rows.length === 0) {
-      return res.status(404).json({ error: "SSO not configured for this company" });
+      return void res.status(404).json({ error: "SSO not configured for this company" });
     }
 
     const config = configResult.rows[0];
 
     if (!validateRedirectUri(redirect_uri, config.domain_restriction)) {
-      return res.status(400).json({ error: "Invalid redirect_uri: must be HTTPS and match configured domain" });
+      return void res.status(400).json({ error: "Invalid redirect_uri: must be HTTPS and match configured domain" });
     }
 
     const internalState = crypto.randomBytes(32).toString("hex");
@@ -117,12 +117,12 @@ router.get("/enterprise/sso/authorize", async (req, res) => {
         );
       } catch (e: any) {
         console.error("[SSO] Discovery fetch failed:", e.message);
-        return res.status(502).json({ error: "Failed to discover IdP endpoints" });
+        return void res.status(502).json({ error: "Failed to discover IdP endpoints" });
       }
     }
 
     if (!discoveryEndpoints.authorization_endpoint) {
-      return res.status(500).json({ error: "No authorization endpoint configured" });
+      return void res.status(500).json({ error: "No authorization endpoint configured" });
     }
 
     const scopes = config.scopes || scope || "openid profile email";
@@ -153,11 +153,11 @@ router.get("/enterprise/sso/callback", async (req, res) => {
   const { code, state, error: idpError, error_description } = req.query as Record<string, string>;
 
   if (idpError) {
-    return res.status(400).json({ error: idpError, description: error_description });
+    return void res.status(400).json({ error: idpError, description: error_description });
   }
 
   if (!code || !state) {
-    return res.status(400).json({ error: "Missing code or state parameter" });
+    return void res.status(400).json({ error: "Missing code or state parameter" });
   }
 
   try {
@@ -172,7 +172,7 @@ router.get("/enterprise/sso/callback", async (req, res) => {
     );
 
     if (sessionResult.rows.length === 0) {
-      return res.status(400).json({ error: "Invalid or expired SSO session" });
+      return void res.status(400).json({ error: "Invalid or expired SSO session" });
     }
 
     const session = sessionResult.rows[0];
@@ -187,7 +187,7 @@ router.get("/enterprise/sso/callback", async (req, res) => {
     }
 
     if (!tokenEndpoint) {
-      return res.status(500).json({ error: "Token endpoint not configured" });
+      return void res.status(500).json({ error: "Token endpoint not configured" });
     }
 
     const tokenRes = await fetch(tokenEndpoint, {
@@ -205,7 +205,7 @@ router.get("/enterprise/sso/callback", async (req, res) => {
     if (!tokenRes.ok) {
       const errText = await tokenRes.text();
       console.error("[SSO] Token exchange failed:", errText);
-      return res.status(502).json({ error: "Token exchange failed with IdP" });
+      return void res.status(502).json({ error: "Token exchange failed with IdP" });
     }
 
     const tokenData = await tokenRes.json() as any;
@@ -226,13 +226,13 @@ router.get("/enterprise/sso/callback", async (req, res) => {
     const familyName = userInfo?.family_name || "";
 
     if (!email) {
-      return res.status(400).json({ error: "Could not retrieve email from IdP" });
+      return void res.status(400).json({ error: "Could not retrieve email from IdP" });
     }
 
     if (session.domain_restriction) {
       const domain = email.split("@")[1];
       if (domain !== session.domain_restriction) {
-        return res.status(403).json({ error: `Email domain ${domain} not allowed for this organization` });
+        return void res.status(403).json({ error: `Email domain ${domain} not allowed for this organization` });
       }
     }
 
@@ -261,7 +261,7 @@ router.get("/enterprise/sso/callback", async (req, res) => {
         email, company_id: session.company_id, provider: session.provider,
       });
     } else {
-      return res.status(403).json({ error: "User not provisioned and auto-provisioning is disabled" });
+      return void res.status(403).json({ error: "User not provisioned and auto-provisioning is disabled" });
     }
 
     const authCode = crypto.randomBytes(32).toString("hex");
@@ -290,11 +290,11 @@ router.post("/enterprise/sso/token", async (req, res) => {
   const { grant_type, code, client_id, client_secret } = req.body;
 
   if (grant_type !== "authorization_code") {
-    return res.status(400).json({ error: "unsupported_grant_type" });
+    return void res.status(400).json({ error: "unsupported_grant_type" });
   }
 
   if (!code || !client_id || !client_secret) {
-    return res.status(400).json({ error: "invalid_request", error_description: "code, client_id, and client_secret are required" });
+    return void res.status(400).json({ error: "invalid_request", error_description: "code, client_id, and client_secret are required" });
   }
 
   try {
@@ -310,13 +310,13 @@ router.post("/enterprise/sso/token", async (req, res) => {
     );
 
     if (sessionResult.rows.length === 0) {
-      return res.status(400).json({ error: "invalid_grant" });
+      return void res.status(400).json({ error: "invalid_grant" });
     }
 
     const session = sessionResult.rows[0];
 
     if (client_id !== session.config_client_id) {
-      return res.status(401).json({ error: "invalid_client" });
+      return void res.status(401).json({ error: "invalid_client" });
     }
 
     const secretMatch = crypto.timingSafeEqual(
@@ -324,7 +324,7 @@ router.post("/enterprise/sso/token", async (req, res) => {
       Buffer.from(session.config_client_secret)
     );
     if (!secretMatch) {
-      return res.status(401).json({ error: "invalid_client" });
+      return void res.status(401).json({ error: "invalid_client" });
     }
 
     const userResult = await query(
@@ -375,7 +375,7 @@ router.get("/enterprise/sso/userinfo", async (req, res) => {
   const code = req.query.code as string;
 
   if (!authHeader && !code) {
-    return res.status(401).json({ error: "Authorization required" });
+    return void res.status(401).json({ error: "Authorization required" });
   }
 
   try {
@@ -393,7 +393,7 @@ router.get("/enterprise/sso/userinfo", async (req, res) => {
     }
 
     if (!session) {
-      return res.status(401).json({ error: "Invalid session" });
+      return void res.status(401).json({ error: "Invalid session" });
     }
 
     const emailParts = (session.email || "").split("@");
@@ -441,7 +441,7 @@ const ssoConfigSchema = z.object({
 
 router.post("/enterprise/sso/configure", async (req, res) => {
   const parsed = ssoConfigSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.flatten() });
 
   try {
     const result = await query(
@@ -483,7 +483,7 @@ router.post("/enterprise/sso/configure", async (req, res) => {
 router.get("/enterprise/sso/config/:companyId", async (req, res) => {
   const companyId = req.params.companyId;
   if (!z.string().uuid().safeParse(companyId).success) {
-    return res.status(400).json({ error: "Invalid company ID" });
+    return void res.status(400).json({ error: "Invalid company ID" });
   }
 
   try {
@@ -495,7 +495,7 @@ router.get("/enterprise/sso/config/:companyId", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.json({ configured: false });
+      return void res.json({ configured: false });
     }
     res.json({ configured: true, config: result.rows[0] });
   } catch (err: any) {
@@ -506,7 +506,7 @@ router.get("/enterprise/sso/config/:companyId", async (req, res) => {
 router.delete("/enterprise/sso/config/:companyId", async (req, res) => {
   const companyId = req.params.companyId;
   if (!z.string().uuid().safeParse(companyId).success) {
-    return res.status(400).json({ error: "Invalid company ID" });
+    return void res.status(400).json({ error: "Invalid company ID" });
   }
 
   try {
@@ -646,7 +646,7 @@ router.get("/enterprise/scim/v2/Users/:id", async (req, res) => {
       [req.params.id]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"], detail: "User not found", status: "404" });
+      return void res.status(404).json({ schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"], detail: "User not found", status: "404" });
     }
     res.json(toScimUser(result.rows[0]));
   } catch (err: any) {
@@ -657,7 +657,7 @@ router.get("/enterprise/scim/v2/Users/:id", async (req, res) => {
 router.post("/enterprise/scim/v2/Users", async (req, res) => {
   const parsed = scimUserSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({
+    return void res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail: "Invalid user data",
       status: "400",
@@ -685,7 +685,7 @@ router.post("/enterprise/scim/v2/Users", async (req, res) => {
       if (config.domain_restriction) {
         const domain = parsed.data.userName.split("@")[1];
         if (domain !== config.domain_restriction) {
-          return res.status(403).json({
+          return void res.status(403).json({
             schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
             detail: `Domain ${domain} not allowed`,
             status: "403",
@@ -720,7 +720,7 @@ router.post("/enterprise/scim/v2/Users", async (req, res) => {
 router.put("/enterprise/scim/v2/Users/:id", async (req, res) => {
   const parsed = scimUserSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({
+    return void res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail: "Invalid user data",
       status: "400",
@@ -735,7 +735,7 @@ router.put("/enterprise/scim/v2/Users/:id", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"], detail: "User not found", status: "404" });
+      return void res.status(404).json({ schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"], detail: "User not found", status: "404" });
     }
 
     await auditLog(req.params.id, "scim_user_updated", "enterprise_users", { email: parsed.data.userName });
@@ -748,7 +748,7 @@ router.put("/enterprise/scim/v2/Users/:id", async (req, res) => {
 router.patch("/enterprise/scim/v2/Users/:id", async (req, res) => {
   const ops = req.body?.Operations;
   if (!Array.isArray(ops)) {
-    return res.status(400).json({
+    return void res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail: "Invalid PATCH request",
       status: "400",
@@ -759,7 +759,7 @@ router.patch("/enterprise/scim/v2/Users/:id", async (req, res) => {
     for (const op of ops) {
       if (op.op === "replace" && op.path === "active" && op.value === false) {
         await handleSCIMDeprovision(req.params.id, "SCIM_PATCH");
-        return res.status(204).send();
+        return void res.status(204).send();
       }
     }
 
@@ -768,7 +768,7 @@ router.patch("/enterprise/scim/v2/Users/:id", async (req, res) => {
       [req.params.id]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"], detail: "User not found", status: "404" });
+      return void res.status(404).json({ schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"], detail: "User not found", status: "404" });
     }
     res.json(toScimUser(result.rows[0]));
   } catch (err: any) {
@@ -885,7 +885,7 @@ const brandingSchema = z.object({
 router.get("/enterprise/tenant/:companyId/branding", async (req, res) => {
   const companyId = req.params.companyId;
   if (!z.string().uuid().safeParse(companyId).success) {
-    return res.status(400).json({ error: "Invalid company ID" });
+    return void res.status(400).json({ error: "Invalid company ID" });
   }
 
   try {
@@ -897,7 +897,7 @@ router.get("/enterprise/tenant/:companyId/branding", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Company not found" });
+      return void res.status(404).json({ error: "Company not found" });
     }
 
     const company = result.rows[0];
@@ -921,11 +921,11 @@ router.get("/enterprise/tenant/:companyId/branding", async (req, res) => {
 router.put("/enterprise/tenant/:companyId/branding", async (req, res) => {
   const companyId = req.params.companyId;
   if (!z.string().uuid().safeParse(companyId).success) {
-    return res.status(400).json({ error: "Invalid company ID" });
+    return void res.status(400).json({ error: "Invalid company ID" });
   }
 
   const parsed = brandingSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.flatten() });
 
   try {
     const fields: string[] = [];
@@ -941,7 +941,7 @@ router.put("/enterprise/tenant/:companyId/branding", async (req, res) => {
     }
 
     if (fields.length === 0) {
-      return res.status(400).json({ error: "No branding fields provided" });
+      return void res.status(400).json({ error: "No branding fields provided" });
     }
 
     values.push(companyId);
@@ -952,7 +952,7 @@ router.put("/enterprise/tenant/:companyId/branding", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Company not found" });
+      return void res.status(404).json({ error: "Company not found" });
     }
 
     await auditLog(null, "tenant_branding_updated", "companies", {
@@ -983,7 +983,7 @@ router.put("/enterprise/tenant/:companyId/branding", async (req, res) => {
 router.get("/enterprise/tenant/:companyId/theme", async (req, res) => {
   const companyId = req.params.companyId;
   if (!z.string().uuid().safeParse(companyId).success) {
-    return res.status(400).json({ error: "Invalid company ID" });
+    return void res.status(400).json({ error: "Invalid company ID" });
   }
 
   try {
@@ -994,7 +994,7 @@ router.get("/enterprise/tenant/:companyId/theme", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Company not found" });
+      return void res.status(404).json({ error: "Company not found" });
     }
 
     const c = result.rows[0];

@@ -15,6 +15,37 @@ const GRACE_PERIOD_DAYS = 7;
 const MAX_DUNNING_ATTEMPTS = 3;
 const DLQ_MAX_RETRIES = 3;
 
+/**
+ * Stripe SDK v18+ relocated `current_period_end` / `current_period_start` from
+ * the Subscription root onto each SubscriptionItem (Subscription.items.data[i]).
+ * The first item is the canonical one for single-item subscriptions (our case).
+ * These helpers centralize the lookup so the rest of the file is readable.
+ */
+function subItemPeriodEnd(sub: Stripe.Subscription): number | undefined {
+  return sub.items?.data?.[0]?.current_period_end;
+}
+
+function subItemPeriodStart(sub: Stripe.Subscription): number | undefined {
+  return sub.items?.data?.[0]?.current_period_start;
+}
+
+/**
+ * Stripe SDK v18+ removed `Invoice.subscription` in favor of
+ * `Invoice.parent.subscription_details.subscription`. This helper returns the
+ * subscription id (string) regardless of which surface it lives on, falling
+ * back to a defensive cast for older event payloads sitting in our DLQ.
+ */
+function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const fromParent = invoice.parent?.subscription_details?.subscription;
+  if (fromParent) {
+    return typeof fromParent === "string" ? fromParent : fromParent.id;
+  }
+  // Defensive: replay an older DLQ payload that still has the legacy field
+  const legacy = (invoice as any).subscription;
+  if (legacy) return typeof legacy === "string" ? legacy : String(legacy);
+  return null;
+}
+
 async function isEventProcessed(eventId: string): Promise<boolean> {
   const result = await query(
     `SELECT event_id FROM processed_stripe_events WHERE event_id = $1`,
@@ -72,7 +103,8 @@ async function addToDeadLetterQueue(
 async function syncSubscriptionTransactional(sub: Stripe.Subscription): Promise<string | null> {
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.toString();
   const seats = sub.items.data[0]?.quantity || 0;
-  const periodEnd = new Date((sub.current_period_end as number) * 1000);
+  const periodEndUnix = subItemPeriodEnd(sub);
+  const periodEnd = periodEndUnix ? new Date(periodEndUnix * 1000) : null;
   const companyId = sub.metadata?.nq_company_id;
   const status = sub.status;
   const subscriptionId = sub.id;
@@ -128,13 +160,20 @@ async function handleCheckoutCompleted(event: Stripe.Event): Promise<void> {
 
   const resolvedCompanyId = companyId || session.metadata?.nq_company_id;
   const seats = sub.items.data[0]?.quantity || 0;
-  const periodStart = new Date((sub.current_period_start as number) * 1000);
-  const periodEnd = new Date((sub.current_period_end as number) * 1000);
+  const periodStartUnix = subItemPeriodStart(sub);
+  const periodEndUnix = subItemPeriodEnd(sub);
   const amountBilled = seats * 1200;
 
-  if (resolvedCompanyId) {
+  if (resolvedCompanyId && periodStartUnix && periodEndUnix) {
     try {
-      await handleNewSubscription(resolvedCompanyId, subId, periodStart, periodEnd, seats, amountBilled);
+      await handleNewSubscription(
+        resolvedCompanyId,
+        subId,
+        new Date(periodStartUnix * 1000),
+        new Date(periodEndUnix * 1000),
+        seats,
+        amountBilled,
+      );
     } catch (err: any) {
       console.error("Revenue recording error (new sub):", err.message);
     }
@@ -210,9 +249,8 @@ async function handleSubscriptionDeleted(event: Stripe.Event): Promise<void> {
 
   if (resolvedCompanyId) {
     try {
-      const periodEnd = sub.current_period_end
-        ? new Date((sub.current_period_end as number) * 1000)
-        : undefined;
+      const periodEndUnix = subItemPeriodEnd(sub);
+      const periodEnd = periodEndUnix ? new Date(periodEndUnix * 1000) : undefined;
       await handleCancellation(resolvedCompanyId, sub.id, periodEnd);
     } catch (err: any) {
       console.error("Revenue recording error (cancellation):", err.message);
@@ -228,12 +266,10 @@ async function handleSubscriptionDeleted(event: Stripe.Event): Promise<void> {
 
 async function handlePaymentSucceeded(event: Stripe.Event): Promise<void> {
   const invoice = event.data.object as Stripe.Invoice;
-  if (!invoice.subscription) return;
+  const subId = invoiceSubscriptionId(invoice);
+  if (!subId) return;
 
   const stripe = getStripeClient();
-  const subId = typeof invoice.subscription === "string"
-    ? invoice.subscription
-    : invoice.subscription.toString();
   const sub = await stripe.subscriptions.retrieve(subId);
   const companyId = sub.metadata?.nq_company_id;
   if (!companyId) return;
@@ -265,17 +301,19 @@ async function handlePaymentSucceeded(event: Stripe.Event): Promise<void> {
   }
 
   try {
-    const periodStart = new Date((sub.current_period_start as number) * 1000);
-    const periodEnd = new Date((sub.current_period_end as number) * 1000);
-    await handleInvoicePaid(
-      companyId,
-      subId,
-      periodStart,
-      periodEnd,
-      sub.items.data[0]?.quantity || 0,
-      invoice.amount_paid || 0,
-      invoice.id
-    );
+    const periodStartUnix = subItemPeriodStart(sub);
+    const periodEndUnix = subItemPeriodEnd(sub);
+    if (periodStartUnix && periodEndUnix && invoice.id) {
+      await handleInvoicePaid(
+        companyId,
+        subId,
+        new Date(periodStartUnix * 1000),
+        new Date(periodEndUnix * 1000),
+        sub.items.data[0]?.quantity || 0,
+        invoice.amount_paid || 0,
+        invoice.id,
+      );
+    }
   } catch (err: any) {
     console.error("Revenue recording error (payment):", err.message);
   }
@@ -292,12 +330,10 @@ async function handlePaymentSucceeded(event: Stripe.Event): Promise<void> {
 
 async function handlePaymentFailed(event: Stripe.Event): Promise<void> {
   const invoice = event.data.object as Stripe.Invoice;
-  if (!invoice.subscription) return;
+  const subId = invoiceSubscriptionId(invoice);
+  if (!subId) return;
 
   const stripe = getStripeClient();
-  const subId = typeof invoice.subscription === "string"
-    ? invoice.subscription
-    : invoice.subscription.toString();
   const sub = await stripe.subscriptions.retrieve(subId);
   const companyId = sub.metadata?.nq_company_id;
   if (!companyId) return;
@@ -339,8 +375,6 @@ async function handlePaymentFailed(event: Stripe.Event): Promise<void> {
 
   if (attempts >= MAX_DUNNING_ATTEMPTS) {
     try {
-      const subId = typeof invoice.subscription === "string"
-        ? invoice.subscription : invoice.subscription!.toString();
       await handleSuspension(companyId, subId);
     } catch (err: any) {
       console.error("Revenue recording error (suspension):", err.message);

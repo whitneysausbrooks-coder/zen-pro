@@ -1,7 +1,30 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { z } from "zod";
+import { randomBytes } from "crypto";
 import { query, auditLog } from "../lib/db";
-import { mintDeviceCredentials, requireDeviceSignature } from "../lib/deviceAuth";
+import {
+  mintDeviceCredentials,
+  requireDeviceSignature,
+  verifyDeviceSignature,
+} from "../lib/deviceAuth";
+
+// Strict GDPR-only signature gate. Unlike the global `requireDeviceSignature`,
+// this one HARD-401s when the signature is anything other than `ok`. Architect
+// blocker (Apr 30 2026): export and erasure endpoints must not honor the
+// global soft-mode rollout because they leak / destroy regulated data.
+function requireDeviceSignatureStrict(req: Request, res: Response, next: NextFunction) {
+  const rawId = req.params["id"];
+  const userId = Array.isArray(rawId) ? (rawId[0] ?? "") : (rawId ?? "");
+  const result = verifyDeviceSignature(req, userId);
+  (req as any).signatureCheck = result;
+  if (result.status !== "ok") {
+    return res.status(401).json({
+      error: "Authentication failed",
+      details: { reason: result.status, scope: "gdpr_strict" },
+    });
+  }
+  return next();
+}
 
 const router: IRouter = Router();
 
@@ -36,6 +59,24 @@ router.post("/app-user/register", async (req, res) => {
   const normEmail = email.toLowerCase();
 
   try {
+    // Architect HIGH (Apr 30 2026): block re-binding a tombstoned account.
+    // After GDPR erasure, the row's email is `deleted_<random>@neuroquest.local`.
+    // Allowing ON CONFLICT DO UPDATE on that PK would re-attach the historical
+    // biometrics/outcomes to a new identity — defeats Article 17.
+    const existing = await query<{ email: string }>(
+      `SELECT email FROM app_users WHERE id = $1`,
+      [user_id],
+    );
+    if (existing.rowCount && existing.rows[0].email.startsWith("deleted_")) {
+      await auditLog(user_id, "app_user_register_blocked_tombstone", "app_users", {
+        reason: "PK previously erased under GDPR Article 17",
+      });
+      return res.status(410).json({
+        error: "Account previously erased",
+        details: "This account ID has been permanently anonymized and cannot be reused.",
+      });
+    }
+
     const result = await query(
       `INSERT INTO app_users (id, email, name, display_name, account_type, last_login, updated_at)
        VALUES ($1, $2, $3, $3, $4, now(), now())
@@ -229,7 +270,7 @@ router.post("/app-user/biometrics", async (req, res) => {
  * This is what the dashboard calls on app start to drive personalization.
  */
 router.get("/app-user/:id/baseline", async (req, res) => {
-  const userId = req.params.id;
+  const userId = String(req.params.id);
   if (!UUID_RE.test(userId)) {
     return res.status(400).json({ error: "Invalid user_id" });
   }
@@ -350,7 +391,7 @@ const feedbackSchema = z.object({
   feedback_rating: z.number().int().min(1).max(5).nullable().optional(),
 });
 router.post("/app-user/:id/feedback", async (req, res) => {
-  const userId = req.params.id;
+  const userId = String(req.params.id);
   if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
   const parsed = feedbackSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -385,7 +426,7 @@ const PRIVACY_VERSION = "2026.04.29";
 
 /** GET /api/app-user/:id/tos-status — has the user accepted the current legal docs? */
 router.get("/app-user/:id/tos-status", requireDeviceSignature, async (req, res) => {
-  const userId = req.params.id;
+  const userId = String(req.params.id);
   if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
   try {
     const r = await query<{ tos_version: string; privacy_version: string; accepted_at: string }>(
@@ -422,7 +463,7 @@ const tosAcceptSchema = z.object({
   privacy_version: z.string().min(1).max(40),
 });
 router.post("/app-user/:id/tos-accept", requireDeviceSignature, async (req, res) => {
-  const userId = req.params.id;
+  const userId = String(req.params.id);
   if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
   const parsed = tosAcceptSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -482,7 +523,7 @@ const authEventSchema = z.object({
   app_version: z.string().max(40).nullable().optional(),
 });
 router.post("/app-user/:id/auth-event", requireDeviceSignature, async (req, res) => {
-  const userId = req.params.id;
+  const userId = String(req.params.id);
   // For logout we still want to record even if the id format is suspect, so
   // we don't drop tail-end events. But we do enforce a basic shape.
   if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
@@ -527,7 +568,7 @@ const syncErrorSchema = z.object({
   payload_excerpt: z.string().max(500).nullable().optional(),
 });
 router.post("/app-user/:id/sync-error", requireDeviceSignature, async (req, res) => {
-  const userId = req.params.id;
+  const userId = String(req.params.id);
   if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
   const parsed = syncErrorSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -567,7 +608,7 @@ const outcomeSchema = z.object({
   model_version: z.string().max(40).nullable().optional(),
 });
 router.post("/app-user/:id/outcome", requireDeviceSignature, async (req, res) => {
-  const userId = req.params.id;
+  const userId = String(req.params.id);
   if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
   const parsed = outcomeSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -602,6 +643,146 @@ router.post("/app-user/:id/outcome", requireDeviceSignature, async (req, res) =>
   } catch (err: any) {
     console.error("app_user/outcome failed:", err.message);
     return res.status(500).json({ error: "Failed to record outcome" });
+  }
+});
+
+// =====================================================================
+// GDPR data-subject rights (Article 15 access / Article 17 erasure).
+// Both routes require a valid device HMAC signature for the user being
+// acted on. Erasure is implemented as ANONYMIZATION rather than hard
+// delete so audit_logs and ON DELETE SET NULL FKs (auth events, sync
+// errors) stay intact for HIPAA/SOC2 forensic integrity. Requested by
+// Whitney as the GDPR rights surface advertised in README §7.
+// =====================================================================
+
+router.get("/app-user/:id/export", requireDeviceSignatureStrict, async (req, res) => {
+  const userId = String(req.params.id);
+  if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
+  try {
+    const userRes = await query(`SELECT * FROM app_users WHERE id = $1`, [userId]);
+    if (userRes.rowCount === 0) return res.status(404).json({ error: "User not found" });
+
+    const [biometrics, ai, tos, authEvents, syncErrors, outcomes] = await Promise.all([
+      query(`SELECT * FROM app_user_biometrics WHERE app_user_id = $1 ORDER BY recorded_at DESC`, [userId]),
+      query(`SELECT * FROM app_user_ai_personalization WHERE app_user_id = $1 ORDER BY triggered_at DESC`, [userId]),
+      query(`SELECT * FROM app_user_tos_acceptances WHERE app_user_id = $1 ORDER BY accepted_at DESC`, [userId]),
+      query(`SELECT * FROM app_user_auth_events WHERE app_user_id = $1 ORDER BY occurred_at DESC`, [userId]),
+      query(`SELECT * FROM wearable_sync_errors WHERE app_user_id = $1 ORDER BY occurred_at DESC`, [userId]),
+      query(`SELECT * FROM ai_outcome_feedback WHERE app_user_id = $1 ORDER BY recorded_at DESC`, [userId]),
+    ]);
+
+    await auditLog(userId, "gdpr_export_requested", "app_users", {
+      counts: {
+        biometrics: biometrics.rowCount ?? 0,
+        ai_personalization: ai.rowCount ?? 0,
+        tos_acceptances: tos.rowCount ?? 0,
+        auth_events: authEvents.rowCount ?? 0,
+        wearable_sync_errors: syncErrors.rowCount ?? 0,
+        ai_outcome_feedback: outcomes.rowCount ?? 0,
+      },
+    });
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="neuroquest-export-${userId}.json"`,
+    );
+    return res.json({
+      export_format_version: "1.0",
+      exported_at: new Date().toISOString(),
+      data_subject_id: userId,
+      profile: userRes.rows[0],
+      biometrics: biometrics.rows,
+      ai_personalization: ai.rows,
+      tos_acceptances: tos.rows,
+      auth_events: authEvents.rows,
+      wearable_sync_errors: syncErrors.rows,
+      ai_outcome_feedback: outcomes.rows,
+    });
+  } catch (err: any) {
+    console.error("gdpr_export failed:", err.message);
+    return res.status(500).json({ error: "Export failed" });
+  }
+});
+
+const deleteSchema = z.object({
+  confirm: z.literal("DELETE_MY_DATA"),
+});
+
+router.post("/app-user/:id/delete", requireDeviceSignatureStrict, async (req, res) => {
+  const userId = String(req.params.id);
+  if (!UUID_RE.test(userId)) return res.status(400).json({ error: "Invalid user_id" });
+  const parsed = deleteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Confirmation required",
+      details: 'Body must include { "confirm": "DELETE_MY_DATA" }',
+    });
+  }
+  try {
+    const userRes = await query<{ id: string; email: string }>(
+      `SELECT id, email FROM app_users WHERE id = $1`,
+      [userId],
+    );
+    if (userRes.rowCount === 0) return res.status(404).json({ error: "User not found" });
+    // Idempotency + tombstone: if already anonymized, do not re-randomize the
+    // placeholder (would let an attacker brute-force fresh IDs to confirm an
+    // ID was previously a real user via timing/audit traces).
+    if (userRes.rows[0].email.startsWith("deleted_")) {
+      return res.json({
+        success: true,
+        method: "already_anonymized",
+        data_subject_id: userId,
+      });
+    }
+
+    // Architect HIGH (Apr 30 2026): placeholders MUST NOT be derivable from
+    // the PK, otherwise a re-register with the same ID could reattach
+    // historical data. Use cryptographically random opaque tombstone IDs.
+    const tombstone = randomBytes(16).toString("hex");
+    const placeholderEmail = `deleted_${tombstone}@neuroquest.local`;
+    const placeholderName = `deleted_${tombstone}`;
+
+    // Anonymize PII on the parent row but KEEP the PK so child rows with
+    // ON DELETE CASCADE survive (the data they hold is now de-identified
+    // because biometrics/outcomes are not directly identifying without
+    // the email/name). Audit-log integrity preserved.
+    await query(
+      `UPDATE app_users
+       SET email = $1, name = $2, wearable_connected = false, wearable_type = NULL
+       WHERE id = $3`,
+      [placeholderEmail, placeholderName, userId],
+    );
+    // Strip request-time PII from log tables (IP / UA).
+    await query(
+      `UPDATE app_user_auth_events
+       SET ip_address = NULL, user_agent = NULL, device_id = NULL
+       WHERE app_user_id = $1`,
+      [userId],
+    );
+    await query(
+      `UPDATE app_user_tos_acceptances
+       SET ip_address = NULL, user_agent = NULL
+       WHERE app_user_id = $1`,
+      [userId],
+    );
+
+    await auditLog(userId, "gdpr_erasure_anonymized", "app_users", {
+      anonymized_email: placeholderEmail,
+      anonymized_name: placeholderName,
+      method: "anonymize_in_place",
+      reason: "Preserve audit_logs and SET NULL FK integrity",
+    });
+
+    return res.json({
+      success: true,
+      method: "anonymize_in_place",
+      data_subject_id: userId,
+      anonymized_email: placeholderEmail,
+    });
+  } catch (err: any) {
+    console.error("gdpr_delete failed:", err.message);
+    return res.status(500).json({ error: "Erasure failed" });
   }
 });
 

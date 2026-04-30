@@ -23,9 +23,26 @@ import {
   getProducts,
   purchaseProduct,
   restorePurchases,
+  fetchEntitlements,
 } from "@/lib/iap";
 
 const SPINS_KEY = "nq_spins_left";
+
+// Reconcile local spin balance with the server (which is the source of truth
+// after the receipt is validated server-side). Falls back silently on network
+// failure so the user still sees the optimistic local credit. Architect note
+// from previous session: prevents drift if a receipt is rejected as duplicate
+// or applied on another device.
+async function reconcileSpinsWithServer(): Promise<boolean> {
+  try {
+    const ents = await fetchEntitlements();
+    if (typeof ents?.spin_balance === "number") {
+      await AsyncStorage.setItem(SPINS_KEY, String(ents.spin_balance));
+      return true;
+    }
+  } catch {}
+  return false;
+}
 
 const PRODUCT_MAP: Record<string, string> = {
   pro: "pro.neuroquestzen.app.zenpro.monthly",
@@ -149,6 +166,9 @@ export default function ShopScreen() {
       if (!result.duplicate && spinAmount) {
         await creditSpinsAsync(spinAmount);
       }
+      // Source-of-truth reconcile: server is authoritative after receipt
+      // validation. Best-effort; never blocks the success UX.
+      await reconcileSpinsWithServer();
       if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         "Purchase Successful",

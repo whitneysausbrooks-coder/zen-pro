@@ -143,7 +143,7 @@ NeuroQuest is built to clear enterprise procurement reviews on first pass.
 |---|---|
 | GDPR data-subject rights (export, delete) | Available via `/api/app-user/:id/export` and `/delete` |
 | CCPA | Available |
-| HIPAA Business Associate Agreement | Available on request for Enterprise tier |
+| HIPAA Business Associate Agreement | Roadmap, target Q4 2026 (BAA template under counsel review) |
 | SOC 2 Type I | In progress, target Q3 2026 |
 | SOC 2 Type II | Roadmap, target Q1 2027 |
 

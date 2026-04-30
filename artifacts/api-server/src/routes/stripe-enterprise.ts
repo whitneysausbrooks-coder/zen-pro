@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { z } from "zod";
+import type Stripe from "stripe";
 import { getStripeClient, isStripeConfigured } from "../stripeClient";
 import { query, auditLog, withTransaction } from "../lib/db";
 import { getWebhookMetrics, retryDeadLetterQueue } from "../lib/enterpriseWebhook";
@@ -64,7 +65,7 @@ async function requireBillingRole(req: Request, res: Response, next: NextFunctio
 
 router.post("/stripe-enterprise/create-company", async (req, res) => {
   if (!isStripeConfigured()) {
-    return res.status(503).json({ error: "Stripe not configured" });
+    return void res.status(503).json({ error: "Stripe not configured" });
   }
 
   const schema = z.object({
@@ -82,7 +83,7 @@ router.post("/stripe-enterprise/create-company", async (req, res) => {
     }).optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.flatten() });
 
   try {
     const stripe = getStripeClient();
@@ -126,7 +127,7 @@ router.post("/stripe-enterprise/create-company", async (req, res) => {
       has_address: !!address,
     });
 
-    return res.json({
+    return void res.json({
       success: true,
       stripe_customer_id: customer.id,
       company_id,
@@ -134,13 +135,13 @@ router.post("/stripe-enterprise/create-company", async (req, res) => {
   } catch (err: any) {
     console.error("Enterprise Stripe customer error:", err.message);
     await auditLog(null, "stripe_customer_create_failed", "companies", { error: err.message });
-    return res.status(500).json({ error: "Failed to create Stripe customer" });
+    return void res.status(500).json({ error: "Failed to create Stripe customer" });
   }
 });
 
 router.post("/stripe-enterprise/subscribe", requireBillingRole, async (req, res) => {
   if (!isStripeConfigured()) {
-    return res.status(503).json({ error: "Stripe not configured" });
+    return void res.status(503).json({ error: "Stripe not configured" });
   }
 
   const schema = z.object({
@@ -151,7 +152,7 @@ router.post("/stripe-enterprise/subscribe", requireBillingRole, async (req, res)
     enable_tax: z.boolean().default(true),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.flatten() });
 
   try {
     const stripe = getStripeClient();
@@ -162,12 +163,12 @@ router.post("/stripe-enterprise/subscribe", requireBillingRole, async (req, res)
       [company_id]
     );
     if (companyResult.rows.length === 0) {
-      return res.status(404).json({ error: "Company not found" });
+      return void res.status(404).json({ error: "Company not found" });
     }
 
     const company = companyResult.rows[0];
     if (!company.stripe_customer_id) {
-      return res.status(400).json({ error: "Company has no Stripe customer. Call create-company first." });
+      return void res.status(400).json({ error: "Company has no Stripe customer. Call create-company first." });
     }
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
@@ -225,7 +226,7 @@ router.post("/stripe-enterprise/subscribe", requireBillingRole, async (req, res)
       tax_enabled: enable_tax,
     });
 
-    return res.json({
+    return void res.json({
       success: true,
       checkout_url: session.url,
       session_id: session.id,
@@ -236,13 +237,13 @@ router.post("/stripe-enterprise/subscribe", requireBillingRole, async (req, res)
   } catch (err: any) {
     console.error("Enterprise checkout error:", err.message);
     await auditLog(null, "enterprise_checkout_failed", "companies", { error: err.message });
-    return res.status(500).json({ error: "Failed to create checkout session" });
+    return void res.status(500).json({ error: "Failed to create checkout session" });
   }
 });
 
 router.post("/stripe-enterprise/update-seats", requireBillingRole, async (req, res) => {
   if (!isStripeConfigured()) {
-    return res.status(503).json({ error: "Stripe not configured" });
+    return void res.status(503).json({ error: "Stripe not configured" });
   }
 
   const schema = z.object({
@@ -250,7 +251,7 @@ router.post("/stripe-enterprise/update-seats", requireBillingRole, async (req, r
     new_employee_count: z.number().int().min(1).max(10000),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.flatten() });
 
   // Mid-month seat changes MUST credit/charge customers immediately so we
   // can pass the Series A audit. Force `create_prorations` server-side
@@ -266,7 +267,7 @@ router.post("/stripe-enterprise/update-seats", requireBillingRole, async (req, r
       [company_id]
     );
     if (companyResult.rows.length === 0 || !companyResult.rows[0].stripe_customer_id) {
-      return res.status(404).json({ error: "Company or Stripe customer not found" });
+      return void res.status(404).json({ error: "Company or Stripe customer not found" });
     }
 
     const previousSeats = companyResult.rows[0].seat_count || 0;
@@ -278,7 +279,7 @@ router.post("/stripe-enterprise/update-seats", requireBillingRole, async (req, r
     });
 
     if (subscriptions.data.length === 0) {
-      return res.status(404).json({ error: "No active subscription found" });
+      return void res.status(404).json({ error: "No active subscription found" });
     }
 
     const sub = subscriptions.data[0];
@@ -309,7 +310,7 @@ router.post("/stripe-enterprise/update-seats", requireBillingRole, async (req, r
       subscription_id: sub.id,
     });
 
-    return res.json({
+    return void res.json({
       success: true,
       previous_seats: previousSeats,
       new_employee_count,
@@ -319,14 +320,14 @@ router.post("/stripe-enterprise/update-seats", requireBillingRole, async (req, r
   } catch (err: any) {
     console.error("Seat update error:", err.message);
     await auditLog(null, "seat_update_failed", "companies", { error: err.message });
-    return res.status(500).json({ error: "Failed to update seats" });
+    return void res.status(500).json({ error: "Failed to update seats" });
   }
 });
 
 router.get("/stripe-enterprise/billing/:companyId", async (req, res) => {
   const companyId = req.params.companyId;
   if (!z.string().uuid().safeParse(companyId).success) {
-    return res.status(400).json({ error: "Invalid company ID" });
+    return void res.status(400).json({ error: "Invalid company ID" });
   }
 
   try {
@@ -337,13 +338,13 @@ router.get("/stripe-enterprise/billing/:companyId", async (req, res) => {
       [companyId]
     );
     if (companyResult.rows.length === 0) {
-      return res.json({ has_subscription: false });
+      return void res.json({ has_subscription: false });
     }
 
     const company = companyResult.rows[0];
 
     if (company.subscription_status === "active" && company.subscription_id) {
-      return res.json({
+      return void res.json({
         has_subscription: true,
         company_name: company.name,
         subscription_id: company.subscription_id,
@@ -363,7 +364,7 @@ router.get("/stripe-enterprise/billing/:companyId", async (req, res) => {
     }
 
     if (!isStripeConfigured() || !company.stripe_customer_id) {
-      return res.json({
+      return void res.json({
         has_subscription: false,
         company_name: company.name,
         subscription_status: company.subscription_status || "none",
@@ -379,7 +380,7 @@ router.get("/stripe-enterprise/billing/:companyId", async (req, res) => {
       });
 
       if (subscriptions.data.length === 0) {
-        return res.json({
+        return void res.json({
           has_subscription: false,
           company_name: company.name,
           stripe_customer_id: company.stripe_customer_id,
@@ -388,7 +389,9 @@ router.get("/stripe-enterprise/billing/:companyId", async (req, res) => {
 
       const sub = subscriptions.data[0];
       const seats = sub.items.data[0]?.quantity || 0;
-      const periodEnd = new Date((sub.current_period_end as number) * 1000);
+      // Stripe SDK v18+ moved current_period_end onto each SubscriptionItem.
+      const periodEndUnix = sub.items?.data?.[0]?.current_period_end;
+      const periodEnd = periodEndUnix ? new Date(periodEndUnix * 1000) : null;
 
       await withTransaction(async (client) => {
         await client.query(
@@ -400,7 +403,7 @@ router.get("/stripe-enterprise/billing/:companyId", async (req, res) => {
         );
       });
 
-      return res.json({
+      return void res.json({
         has_subscription: true,
         company_name: company.name,
         subscription_id: sub.id,
@@ -408,10 +411,10 @@ router.get("/stripe-enterprise/billing/:companyId", async (req, res) => {
         seats,
         per_seat_price: ENTERPRISE_PRICE_PER_SEAT / 100,
         monthly_total: (ENTERPRISE_PRICE_PER_SEAT * seats) / 100,
-        current_period_end: periodEnd.toISOString(),
+        current_period_end: periodEnd ? periodEnd.toISOString() : null,
       });
     } catch {
-      return res.json({
+      return void res.json({
         has_subscription: false,
         company_name: company.name,
         subscription_status: company.subscription_status || "none",
@@ -419,18 +422,18 @@ router.get("/stripe-enterprise/billing/:companyId", async (req, res) => {
     }
   } catch (err: any) {
     console.error("Billing status error:", err.message);
-    return res.status(500).json({ error: "Failed to fetch billing info" });
+    return void res.status(500).json({ error: "Failed to fetch billing info" });
   }
 });
 
 router.get("/stripe-enterprise/invoices/:companyId", async (req, res) => {
   const companyId = req.params.companyId;
   if (!z.string().uuid().safeParse(companyId).success) {
-    return res.status(400).json({ error: "Invalid company ID" });
+    return void res.status(400).json({ error: "Invalid company ID" });
   }
 
   if (!isStripeConfigured()) {
-    return res.json({ invoices: [], has_more: false });
+    return void res.json({ invoices: [], has_more: false });
   }
 
   try {
@@ -439,7 +442,7 @@ router.get("/stripe-enterprise/invoices/:companyId", async (req, res) => {
       [companyId]
     );
     if (companyResult.rows.length === 0 || !companyResult.rows[0].stripe_customer_id) {
-      return res.json({ invoices: [], has_more: false });
+      return void res.json({ invoices: [], has_more: false });
     }
 
     const stripe = getStripeClient();
@@ -454,7 +457,7 @@ router.get("/stripe-enterprise/invoices/:companyId", async (req, res) => {
 
     const invoices = await stripe.invoices.list(params);
 
-    return res.json({
+    return void res.json({
       invoices: invoices.data.map((inv) => ({
         id: inv.id,
         number: inv.number,
@@ -467,10 +470,11 @@ router.get("/stripe-enterprise/invoices/:companyId", async (req, res) => {
         period_end: inv.period_end ? new Date((inv.period_end as number) * 1000).toISOString() : null,
         hosted_invoice_url: inv.hosted_invoice_url,
         invoice_pdf: inv.invoice_pdf,
-        tax: inv.tax,
+        // Stripe SDK v18+ replaced Invoice.tax with total_taxes (an array).
+        tax: (inv.total_taxes ?? []).reduce((sum, t) => sum + (t.amount ?? 0), 0),
         subtotal: inv.subtotal,
         total: inv.total,
-        lines: inv.lines.data.map((line) => ({
+        lines: inv.lines.data.map((line: Stripe.InvoiceLineItem) => ({
           description: line.description,
           amount: line.amount,
           quantity: line.quantity,
@@ -480,18 +484,18 @@ router.get("/stripe-enterprise/invoices/:companyId", async (req, res) => {
     });
   } catch (err: any) {
     console.error("Invoice list error:", err.message);
-    return res.status(500).json({ error: "Failed to fetch invoices" });
+    return void res.status(500).json({ error: "Failed to fetch invoices" });
   }
 });
 
 router.get("/stripe-enterprise/upcoming/:companyId", async (req, res) => {
   const companyId = req.params.companyId;
   if (!z.string().uuid().safeParse(companyId).success) {
-    return res.status(400).json({ error: "Invalid company ID" });
+    return void res.status(400).json({ error: "Invalid company ID" });
   }
 
   if (!isStripeConfigured()) {
-    return res.json({ has_upcoming: false });
+    return void res.json({ has_upcoming: false });
   }
 
   try {
@@ -500,15 +504,16 @@ router.get("/stripe-enterprise/upcoming/:companyId", async (req, res) => {
       [companyId]
     );
     if (companyResult.rows.length === 0 || !companyResult.rows[0].stripe_customer_id) {
-      return res.json({ has_upcoming: false });
+      return void res.json({ has_upcoming: false });
     }
 
     const stripe = getStripeClient();
-    const upcoming = await stripe.invoices.retrieveUpcoming({
+    // Stripe SDK v18+ replaced invoices.retrieveUpcoming() with invoices.createPreview().
+    const upcoming = await stripe.invoices.createPreview({
       customer: companyResult.rows[0].stripe_customer_id,
     });
 
-    return res.json({
+    return void res.json({
       has_upcoming: true,
       amount_due: upcoming.amount_due,
       currency: upcoming.currency,
@@ -516,9 +521,10 @@ router.get("/stripe-enterprise/upcoming/:companyId", async (req, res) => {
         ? new Date((upcoming.next_payment_attempt as number) * 1000).toISOString()
         : null,
       subtotal: upcoming.subtotal,
-      tax: upcoming.tax,
+      // Stripe SDK v18+ replaced Invoice.tax with total_taxes (an array).
+      tax: (upcoming.total_taxes ?? []).reduce((sum, t) => sum + (t.amount ?? 0), 0),
       total: upcoming.total,
-      lines: upcoming.lines.data.map((line) => ({
+      lines: upcoming.lines.data.map((line: Stripe.InvoiceLineItem) => ({
         description: line.description,
         amount: line.amount,
         quantity: line.quantity,
@@ -526,16 +532,16 @@ router.get("/stripe-enterprise/upcoming/:companyId", async (req, res) => {
     });
   } catch (err: any) {
     if (err.code === "invoice_upcoming_none") {
-      return res.json({ has_upcoming: false });
+      return void res.json({ has_upcoming: false });
     }
     console.error("Upcoming invoice error:", err.message);
-    return res.status(500).json({ error: "Failed to fetch upcoming invoice" });
+    return void res.status(500).json({ error: "Failed to fetch upcoming invoice" });
   }
 });
 
 router.post("/stripe-enterprise/portal", requireBillingRole, async (req, res) => {
   if (!isStripeConfigured()) {
-    return res.status(503).json({ error: "Stripe not configured" });
+    return void res.status(503).json({ error: "Stripe not configured" });
   }
 
   const schema = z.object({
@@ -543,7 +549,7 @@ router.post("/stripe-enterprise/portal", requireBillingRole, async (req, res) =>
     return_url: z.string().url().optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.flatten() });
 
   try {
     const stripe = getStripeClient();
@@ -554,7 +560,7 @@ router.post("/stripe-enterprise/portal", requireBillingRole, async (req, res) =>
       [company_id]
     );
     if (companyResult.rows.length === 0 || !companyResult.rows[0].stripe_customer_id) {
-      return res.status(404).json({ error: "No Stripe customer found" });
+      return void res.status(404).json({ error: "No Stripe customer found" });
     }
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
@@ -565,21 +571,21 @@ router.post("/stripe-enterprise/portal", requireBillingRole, async (req, res) =>
 
     await auditLog(null, "billing_portal_opened", "companies", { company_id });
 
-    return res.json({ url: portalSession.url });
+    return void res.json({ url: portalSession.url });
   } catch (err: any) {
     console.error("Portal error:", err.message);
     await auditLog(null, "billing_portal_failed", "companies", { error: err.message });
-    return res.status(500).json({ error: "Failed to create billing portal" });
+    return void res.status(500).json({ error: "Failed to create billing portal" });
   }
 });
 
 router.get("/stripe-enterprise/webhook-metrics", async (_req, res) => {
   try {
     const metrics = await getWebhookMetrics();
-    return res.json(metrics);
+    return void res.json(metrics);
   } catch (err: any) {
     console.error("Webhook metrics error:", err.message);
-    return res.status(500).json({ error: "Failed to fetch webhook metrics" });
+    return void res.status(500).json({ error: "Failed to fetch webhook metrics" });
   }
 });
 
@@ -587,10 +593,10 @@ router.post("/stripe-enterprise/retry-dlq", async (_req, res) => {
   try {
     const result = await retryDeadLetterQueue();
     await auditLog(null, "dlq_retry_triggered", "stripe", result);
-    return res.json({ success: true, ...result });
+    return void res.json({ success: true, ...result });
   } catch (err: any) {
     console.error("DLQ retry error:", err.message);
-    return res.status(500).json({ error: "Failed to retry DLQ" });
+    return void res.status(500).json({ error: "Failed to retry DLQ" });
   }
 });
 
