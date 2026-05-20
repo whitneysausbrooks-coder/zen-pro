@@ -461,3 +461,9 @@ id = "MZ1N24JW0xlz4eRK1n3DL"
 uri = "file://COMPANY_ONBOARDING_PLAYBOOK.md"
 type = "text"
 title = "Company Onboarding Playbook — step-by-step"
+
+[[outputs]]
+id = "UTzM5ZbrhYZUoLwzpsi2v"
+uri = "file://exports/NeuroQuest_Zen_Pro_Founder_Package.pdf"
+type = "pdf"
+title = "NeuroQuest Zen Pro — Founder Package (print-ready)"
