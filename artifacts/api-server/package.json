@@ -19,6 +19,7 @@
     "express-rate-limit": "^8.4.1",
     "helmet": "^8.1.0",
     "http-proxy-middleware": "^3.0.5",
+    "openai": "^6.38.0",
     "pg": "^8.20.0",
     "stripe": "20.4.1",
     "web-push": "^3.6.7",

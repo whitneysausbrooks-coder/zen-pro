@@ -9,9 +9,11 @@
  *   - hashing the user_id before passing it to the analyzer (the analyzer
  *     itself rejects raw UUIDs as a defense-in-depth check).
  *
- * The handler does NOT call OpenAI in this build. It returns a deterministic
- * placeholder so the consent gate, audit log and error paths can be
- * exercised independently of any external API.
+ * Build #13: the handler calls OpenAI through the Replit AI Integrations
+ * proxy when AI_INTEGRATIONS_OPENAI_* env vars are present. If the proxy is
+ * unavailable or the call fails, it falls back to the Build #8 deterministic
+ * summary so the consent gate, audit log and error paths still pass. The
+ * returned `modelVersion` always reflects what produced the narrative.
  */
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
@@ -110,7 +112,7 @@ router.post("/ai/analyze-baseline", async (req, res) => {
     return res.status(500).json({ error: "Baseline lookup failed" });
   }
 
-  const result = analyzeTripleWeightBaseline({
+  const result = await analyzeTripleWeightBaseline({
     anonymizedUserId: hashUserId(userId),
     baselineSummary: {
       meanResilience,
