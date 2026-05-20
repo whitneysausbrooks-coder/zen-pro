@@ -237,8 +237,9 @@ export default function Landing() {
           </Reveal>
           <Reveal delay={0.35}>
             <p className="mt-7 text-lg md:text-xl text-white/65 font-light leading-relaxed max-w-2xl mx-auto">
-              NeuroQuest Zen Pro is premium neural conditioning engineered for
-              the modern high-performer. Stop burnout before it starts.
+              NeuroQuest Zen Pro is AI-personalized neural conditioning
+              engineered for the modern high-performer. Stop burnout before it
+              starts.
             </p>
           </Reveal>
           <Reveal delay={0.5}>
@@ -551,7 +552,7 @@ export default function Landing() {
                 {[
                   "Decelerate on Demand · unlimited sessions",
                   "Cognitive Sleep Architecture · nightly",
-                  "Personal neural baseline · adapts daily",
+                  "AI-personalized baseline · adapts daily",
                   "Apple Health + Health Connect sync",
                   "Premium guided ritual library",
                 ].map((line) => (

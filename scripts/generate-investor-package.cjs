@@ -513,22 +513,26 @@ slide({
   title: "Three signals. One intervention loop.",
   duration: "60 sec",
   visual:
-    "A horizontal flow diagram: 'HRV + Sleep + Self-Report' → 'Adaptive Engine' → " +
+    "A horizontal flow diagram: 'HRV + Sleep + Self-Report' → 'AI Engine' → " +
     "'Personalized 4-min Ritual' → 'Outcome (logged daily)'. Each node a gold-bordered " +
-    "rectangle on a cream card. Below: 'Powered by clinical neuroplasticity research.'",
+    "rectangle on a cream card. Below: 'AI-personalized to your biometric baseline, " +
+    "grounded in clinical neuroplasticity research.'",
   points: [
     "Reads HRV, sleep architecture, and daily self-report.",
-    "An adaptive engine sets the day's protocol intensity and modality.",
+    "An AI engine, calibrated to each user's 7-day personal baseline, sets the day's protocol intensity and modality.",
     "The user gets exactly one prescribed session per day — never more, never a menu.",
     "Outcomes are tracked silently; users see weekly trend, not daily noise.",
+    "Privacy by design: only anonymized aggregates leave the device — never raw biometrics or PII.",
   ],
   script:
     "Under the hood: every morning the app reads three signals — your HRV, last " +
-    "night's sleep structure, and an optional ten-second self-report. The adaptive " +
-    "engine sets your protocol for the day. The user doesn't pick from a menu. They " +
-    "don't decide whether to do the four-minute breath work or the seven-minute body " +
-    "scan. That decision fatigue is exactly what we remove. Open the app, do the one " +
-    "thing, close the app. The trend tracking happens in the background.",
+    "night's sleep structure, and an optional ten-second self-report. An AI engine, " +
+    "calibrated to your own 7-day baseline, sets your protocol for the day. The user " +
+    "doesn't pick from a menu. They don't decide whether to do the four-minute breath " +
+    "work or the seven-minute body scan. That decision fatigue is exactly what we " +
+    "remove. Open the app, do the one thing, close the app. The trend tracking happens " +
+    "in the background. And critically — the AI only ever sees anonymized aggregates. " +
+    "No raw biometrics, no identifiers, ever leave the user's device unencrypted.",
 });
 
 slide({
@@ -735,11 +739,14 @@ bullet([
 h2("Apple Health permission justification");
 p(
   "NeuroQuest reads three specific HealthKit types: Heart Rate Variability (HRV), " +
-  "Sleep Analysis, and Step Count. These signals drive the daily adaptive protocol " +
-  "and are the foundation of the resilience score. The app does NOT write to " +
-  "HealthKit. Granular permission denial is fully supported: if any data type is " +
+  "Sleep Analysis, and Step Count. These signals drive the daily AI-personalized " +
+  "protocol and are the foundation of the resilience score. The app does NOT write " +
+  "to HealthKit. Granular permission denial is fully supported: if any data type is " +
   "denied or unavailable, the user is offered a manual-entry path and the app " +
-  "remains fully functional."
+  "remains fully functional. AI insight calls only ever receive anonymized aggregate " +
+  "statistics (mean, standard deviation, sample count, baseline-day count) — never " +
+  "raw HealthKit samples, never identifiers, and only after explicit in-app consent " +
+  "and a 7-day baseline window is established."
 );
 muted(
   "Permission strings are configured in Info.plist and are user-readable per Apple " +
