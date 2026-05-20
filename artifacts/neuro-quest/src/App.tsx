@@ -3,6 +3,7 @@ import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wo
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, useClerk, useAuth as useClerkAuth } from "@clerk/react";
 import { AuthGate } from "@/components/auth-gate";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -217,15 +218,27 @@ function ClerkProviderWithRoutes() {
 
 function App() {
   return (
-    <TooltipProvider>
-      <AgeGate>
-        <WouterRouter base={basePath}>
-          <ClerkProviderWithRoutes />
-        </WouterRouter>
-        <InstallPrompt />
-        <Toaster />
-      </AgeGate>
-    </TooltipProvider>
+    <ErrorBoundary
+      onError={(error, componentStack) => {
+        // Surface in browser console for dev + production crash reporting
+        // tools (the user's Datadog browser SDK, when wired, will pick this
+        // up automatically via console capture).
+        // eslint-disable-next-line no-console
+        console.error("[NeuroQuest] Unhandled render error:", error, {
+          componentStack,
+        });
+      }}
+    >
+      <TooltipProvider>
+        <AgeGate>
+          <WouterRouter base={basePath}>
+            <ClerkProviderWithRoutes />
+          </WouterRouter>
+          <InstallPrompt />
+          <Toaster />
+        </AgeGate>
+      </TooltipProvider>
+    </ErrorBoundary>
   );
 }
 
