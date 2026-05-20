@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { ClerkProvider, SignIn, SignUp, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, useClerk, useAuth as useClerkAuth } from "@clerk/react";
 import { AuthGate } from "@/components/auth-gate";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
+import Landing from "@/pages/landing";
 import MemoryMatch from "@/pages/memory-match";
 import SlotMachine from "@/pages/slot-machine";
 import Subscribe from "@/pages/subscribe";
@@ -114,12 +115,39 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+/**
+ * Public front door at `/`.
+ *
+ * - Anonymous visitors see the D2C luxury Landing page (marketing).
+ * - Signed-in members fall through to BootstrapGate → Dashboard, which
+ *   preserves the existing onboarding → wearable → dashboard flow.
+ *
+ * We deliberately gate BEFORE BootstrapGate so its auto-redirect to
+ * /onboarding never fires for anonymous marketing visitors.
+ *
+ * The `nq_onboarding_done` localStorage flag is also checked so returning
+ * users who already completed onboarding (in a prior session, but are
+ * currently signed out) are sent to /sign-in via BootstrapGate rather than
+ * forced back through the marketing page.
+ */
 function HomeGated() {
-  return (
-    <BootstrapGate>
-      <Dashboard />
-    </BootstrapGate>
-  );
+  const { isLoaded, isSignedIn } = useClerkAuth();
+  const onboardingDone =
+    typeof window !== "undefined" &&
+    ["1", "true"].includes(localStorage.getItem("nq_onboarding_done") ?? "");
+
+  // Clerk still bootstrapping — render nothing rather than flash Landing
+  // and then immediately swap to Dashboard for signed-in returning users.
+  if (!isLoaded) return null;
+
+  if (isSignedIn || onboardingDone) {
+    return (
+      <BootstrapGate>
+        <Dashboard />
+      </BootstrapGate>
+    );
+  }
+  return <Landing />;
 }
 
 function AppRoutes() {

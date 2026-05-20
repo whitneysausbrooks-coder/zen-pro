@@ -1,0 +1,28 @@
+3. Page Structure & Component Layout
+Section 1: The Hero (Above the Fold)
+ Headline: ⁠Preserve Your Peak. Prevent The Fade.⁠
+ Subheadline: ⁠NeuroQuest Zen Pro is premium neural conditioning engineered for the modern high-performer. Stop burnout before it starts.⁠
+ Primary CTA Button: ⁠Claim Your Zen Pro⁠ (Scrolls to pricing/checkout)
+ Visual: A hero image of the product looking incredibly premium, or an elegant, abstract fluid visual representing mental clarity.
+Section 2: The Pivot (The "Why Now?")
+ Concept: A stark, minimalist 3-column section addressing the ambitious consumer who is running on empty.
+ Column 1: ⁠The Cost of Ambition⁠ — You don’t stop. But your neural reserves do.
+ Column 2: ⁠Early Intervention⁠ — Why heal burnout when you can prevent it entirely?
+ Column 3: ⁠The Zen Pro Shield⁠ — A daily luxury ritual designed to anchor focus and flush mental fatigue.
+Section 3: Product Experience / Features
+ Note: Translate technical jargon into consumer desires.
+ Feature 1: ⁠Decelerate on Demand⁠ (Instead of "stress reduction metrics") — Real-time neuro-feedback that downshifts your nervous system in under 4 minutes.
+ Feature 2: ⁠Cognitive Sleep Architecture⁠ (Instead of "sleep tracking integration") — Wake up with a fully recovered prefrontal cortex, ready to execute.
+Section 4: The Social Proof (Luxury Shift)
+ Remove: Corporate logos (e.g., "Trusted by Deloitte, Google").
+ Add: High-profile individual testimonials. Text format like: "The secret weapon of founders and creators who refuse to redline."
+Section 5: The Closing CTA & Pricing Tier
+ A premium checkout card. Clean layout with no confusing enterprise tiers. Just one straightforward premium consumer offer.
+ Final CTA Button: ⁠Invest in Your Edge⁠
+4. Technical & Interaction Notes
+ Smooth Scrolling: Implement smooth page anchors from the Hero CTA down to the final pricing section.
+ Animations: Use subtle, slow-fade scrolling animations. Avoid fast, snappy, aggressive pop-ups—everything should feel calm and high-end.
+ Mobile First: Ensure the minimalist typography scales perfectly on mobile without awkward line breaks.
+Let me know if you want to hop on a quick call to align on the assets, or if you have any questions about the layout!
+Pro-Tip for You (The Creator)
+When your developer delivers the first draft, look closely at the buttons. Corporate sites use words like "Submit," "Learn More," or "Register." Luxury D2C brands use active, high-value verbs like "Secure," "Claim," "Invest," or "Begin." Keep an eye out to ensure those corporate crumbs don't slip through!
