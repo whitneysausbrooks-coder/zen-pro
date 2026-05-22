@@ -27,7 +27,7 @@ import { OnboardingSignIn } from "@/components/OnboardingSignIn";
 import { OnboardingHealth } from "@/components/OnboardingHealth";
 import { TosAcceptanceModal } from "@/components/TosAcceptanceModal";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
-import { getLoginMode, getHealthChoice, onSignOut, signOutAndReset } from "@/lib/health";
+import { enableBackgroundHealthSync, getLoginMode, getHealthChoice, onSignOut, signOutAndReset } from "@/lib/health";
 import {
   clearIndividualAccount,
   heartbeat,
@@ -169,6 +169,30 @@ export default function RootLayout() {
       syncProfileToBackend().catch(() => {});
       heartbeat().catch(() => {});
     }
+  }, [loginDone, healthDone]);
+
+  // Build #14: enable HealthKit Background Delivery ONLY when the user
+  // explicitly chose `apple_health` during onboarding (NOT for manual or
+  // skipped choices — those users did not grant Apple Health and must not
+  // have a background observer silently installed even if iOS-level health
+  // permissions persist from a previous session). iOS then silently wakes
+  // the app whenever the Watch writes new HRV/Sleep/Steps samples and we
+  // post the fresh data to the server — no foreground required. Idempotent
+  // + cleans up on sign-out via the existing onSignOut listener.
+  useEffect(() => {
+    if (!loginDone || !healthDone) return;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+    (async () => {
+      const choice = await getHealthChoice();
+      if (cancelled || choice !== "apple_health") return;
+      cleanup = await enableBackgroundHealthSync();
+      if (cancelled) { try { cleanup?.(); } catch {} cleanup = undefined; }
+    })().catch(() => {});
+    return () => {
+      cancelled = true;
+      try { cleanup?.(); } catch {}
+    };
   }, [loginDone, healthDone]);
 
   if (!fontsLoaded && !fontError) return null;

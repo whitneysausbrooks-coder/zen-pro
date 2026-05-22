@@ -553,7 +553,8 @@ export default function Landing() {
                   "Decelerate on Demand · unlimited sessions",
                   "Cognitive Sleep Architecture · nightly",
                   "AI-personalized baseline · adapts daily",
-                  "Apple Health + Health Connect sync",
+                  "Apple Health + Health Connect background sync",
+                  "Whoop strain integration · coming soon",
                   "Premium guided ritual library",
                 ].map((line) => (
                   <li

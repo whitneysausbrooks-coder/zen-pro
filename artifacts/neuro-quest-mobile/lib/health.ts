@@ -903,3 +903,118 @@ export const WEARABLE_PROVIDERS: Record<WearableProviderId, WearableProvider | n
   garmin: GarminProviderStub,
   manual: null, // syncManualMetrics
 };
+
+// ============================================================================
+// Build #14 — HealthKit Background Delivery (iOS only).
+// ============================================================================
+//
+// PURPOSE: iOS lets us subscribe to HealthKit sample writes via HKObserverQuery
+// + enableBackgroundDeliveryForType. When the user's Apple Watch records a
+// new HRV / Sleep / Step sample, iOS silently wakes our app, runs the JS
+// callback, lets us POST the new score to the server, and puts us back to
+// sleep — all without the user opening the app. This is the Apple-sanctioned
+// way to keep the daily Neuro Resilience Score warm.
+//
+// PRECONDITIONS (all enforced):
+//   1. Only runs on iOS where HealthKit + the background entitlement exist.
+//      `background: true` in app.json HealthKit plugin config provisions it.
+//   2. Only runs once the user has completed health onboarding (so we don't
+//      observe before consent has been recorded). `_layout.tsx` only calls
+//      this after `healthDone === true` AND `loginDone === true`.
+//   3. Only fires the network sync if the user is in enterprise (pilot) mode
+//      AND credentials are present in SecureStore — same guard as foreground
+//      `syncToServer`. Individual-mode users do not sync to the team baseline.
+//   4. De-bounced server-side via existing /api/wearable/sync idempotency.
+//   5. Errors are SILENT — background invocations have no UI. We never throw.
+//
+// CALLER CONTRACT: Idempotent. Calling it more than once is safe — the
+// returned `cleanup()` removes the previous subscription before installing
+// a new one.
+// ============================================================================
+
+let backgroundSyncCleanup: (() => void) | null = null;
+
+export async function enableBackgroundHealthSync(): Promise<() => void> {
+  // Tear down any previous subscription so dev-mode hot-reloads don't pile up.
+  if (backgroundSyncCleanup) {
+    try { backgroundSyncCleanup(); } catch {}
+    backgroundSyncCleanup = null;
+  }
+  if (!isHealthKitAvailable) {
+    // Health Connect on Android has its own background mechanism that is
+    // out of scope for Build #14; we'll wire it in a separate change.
+    return () => {};
+  }
+
+  let HK: any;
+  try {
+    HK = await import("@kingstinct/react-native-healthkit");
+  } catch {
+    return () => {};
+  }
+  const subscribeToChanges = HK?.subscribeToChanges ?? HK?.default?.subscribeToChanges;
+  if (typeof subscribeToChanges !== "function") {
+    return () => {};
+  }
+
+  // Coalesce rapid bursts: when the Watch syncs, it can write many HRV
+  // samples at once across all three types. We don't want to fire three
+  // identical /api/wearable/sync calls within milliseconds — collapse to
+  // one trailing-edge POST per burst window.
+  let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+  const BURST_WINDOW_MS = 3000;
+
+  const fireSync = async () => {
+    pendingTimer = null;
+    try {
+      // Pull credentials from SecureStore on every fire — never cache them
+      // in a closure because the user could have signed out since the last
+      // background wake. A null/empty pair = silent no-op (correct: the
+      // sample-write happened but the user is signed out).
+      const [email, inviteCode, mode] = await Promise.all([
+        getStoredEmail(),
+        getStoredInviteCode(),
+        getLoginMode(),
+      ]);
+      if (!email || !inviteCode || mode !== "enterprise") return;
+
+      const metrics = await readLatestMetrics();
+      if (
+        metrics.hrv == null &&
+        metrics.sleep_duration_minutes == null &&
+        metrics.steps == null
+      ) {
+        return;
+      }
+      await syncToServer(email, inviteCode, metrics);
+    } catch {
+      // Background context has no UI to surface to — swallow.
+    }
+  };
+
+  const scheduleFire = () => {
+    if (pendingTimer) clearTimeout(pendingTimer);
+    pendingTimer = setTimeout(() => { void fireSync(); }, BURST_WINDOW_MS);
+  };
+
+  const noopCb = () => scheduleFire();
+  const subs: Array<{ remove: () => void }> = [];
+  for (const id of [HRV_TYPE, STEPS_TYPE, SLEEP_TYPE]) {
+    try {
+      const sub = subscribeToChanges(id, noopCb);
+      if (sub && typeof sub.remove === "function") subs.push(sub);
+    } catch {
+      // A failing subscription (e.g. permission denied for one type) must
+      // not block the others. Continue.
+    }
+  }
+
+  const cleanup = () => {
+    if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
+    for (const s of subs) {
+      try { s.remove(); } catch {}
+    }
+  };
+  backgroundSyncCleanup = cleanup;
+  return cleanup;
+}

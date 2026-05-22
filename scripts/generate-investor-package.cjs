@@ -753,6 +753,41 @@ muted(
   "guideline 5.1.1 (data minimization and clarity)."
 );
 
+h2("HealthKit background delivery justification");
+p(
+  "Build #14 enables HealthKit Background Delivery via the HealthKit " +
+  "background-delivery entitlement and HKObserverQuery for HRV, Sleep " +
+  "Analysis, and Step Count. Justification: the Neuro Resilience Score is calibrated against " +
+  "each user's personal baseline and is most useful when refreshed against " +
+  "the latest overnight Watch data BEFORE the user opens the app in the " +
+  "morning. Without background delivery, users with poor sleep — exactly " +
+  "the cohort the app is designed to serve — would face a stale score on " +
+  "the days they need a fresh one most."
+);
+p(
+  "Scope is strictly minimized: the same three HealthKit types already " +
+  "granted in foreground onboarding (HRV, Sleep Analysis, Step Count); no " +
+  "additional types are read in the background. The background handler " +
+  "transmits the same daily summary fields as foreground sync — most " +
+  "recent HRV reading (ms), total sleep duration (minutes), and total " +
+  "step count — over TLS to the user's pilot baseline endpoint. No raw " +
+  "HealthKit sample arrays, identifiers, device IDs, or sub-stage sleep " +
+  "data leave the device. The background work is single-shot per Watch " +
+  "write burst (3-second trailing-edge debounce) so wake-cycles are " +
+  "minimal and battery impact is negligible. Background sync respects " +
+  "the same consent gate as foreground sync: the observer is installed " +
+  "ONLY for users who explicitly chose Apple Health during onboarding " +
+  "(never for users who chose manual entry or skipped) and ONLY for " +
+  "enterprise-mode pilot members; in all other cases the handler is a " +
+  "silent no-op."
+);
+muted(
+  "No BGTaskScheduler / UIBackgroundModes are declared — the HealthKit " +
+  "background-delivery entitlement provided by the @kingstinct plugin is " +
+  "sufficient. Users can revoke at any time via Settings → Privacy → " +
+  "Health → NeuroQuest."
+);
+
 h2("In-app purchase / subscription model");
 p(
   "A single auto-renewable subscription is offered: 'NeuroQuest Zen Pro — Monthly' " +
