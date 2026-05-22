@@ -42,7 +42,7 @@ export default function PrivacyPage() {
             <Shield className="w-7 h-7 text-primary" />
             <h1 className="text-3xl font-serif font-bold text-gradient-gold">Privacy Policy</h1>
           </div>
-          <p className="text-sm text-muted-foreground">Last Updated: April 2026</p>
+          <p className="text-sm text-muted-foreground">Last Updated: May 2026</p>
         </motion.div>
 
         <motion.div
@@ -64,8 +64,17 @@ export default function PrivacyPage() {
             <p><strong>What we do with it.</strong> Your HealthKit readings are used only to compute your personal Neuro Resilience Score, which is shown only to you in the app. Readings are transmitted to our servers over HTTPS, encrypted in transit and at rest, and used solely for your individual score and for fully-anonymized employer aggregates (see below).</p>
             <p><strong>What we never do.</strong> We never write data back to Apple Health. We never use HealthKit data for advertising, marketing, or sharing with data brokers. We never derive your identity or location from HealthKit data. We do not share individual HealthKit data with your employer under any circumstances.</p>
             <p><strong>Employer aggregates.</strong> If your employer is sponsoring your NeuroQuest pilot, they see anonymized, aggregated team trends only — and only when 5 or more teammates participate (k-anonymity threshold of 5). Your name and individual readings are never visible to your employer.</p>
+            <p><strong>Background delivery.</strong> If you grant HealthKit permission, NeuroQuest registers an observer with Apple Health so that when your Apple Watch writes new HRV, sleep, or step samples, iOS wakes the app briefly in the background to refresh your Neuro Resilience Score. This means your morning score reflects last night's sleep without you having to open the app first. Background callbacks are debounced (we wait 3 seconds for a burst to settle), transmit only the same three data types listed above, and stop immediately if you revoke HealthKit access or sign out. We do not declare any other background execution modes.</p>
             <p><strong>Revoking access.</strong> You can revoke HealthKit access at any time in iOS Settings → Privacy &amp; Security → Health → NeuroQuest. You can also delete your account in-app under Profile → Delete Account, which permanently removes all HealthKit-derived data from our servers.</p>
             <p><strong>HealthKit policy compliance.</strong> NeuroQuest's use of HealthKit data complies with Apple's HealthKit usage requirements. We do not use HealthKit data for purposes other than providing health and fitness services within the App.</p>
+          </Section>
+
+          <Section title="AI Personalization">
+            <p><strong>What we use AI for.</strong> NeuroQuest optionally uses an AI model (OpenAI gpt-5-mini, accessed through a secure proxy) to generate personalized natural-language interpretations of your Neuro Resilience Score — for example, a short morning coaching note tuned to how your recent biometrics compare to your personal baseline.</p>
+            <p><strong>What we send to the AI.</strong> Only bounded numeric aggregates: your current Neuro Resilience Score, recent mean HRV, recent mean sleep hours, recent mean step count, and the deltas of each versus your personal 14-day baseline. We do <strong>not</strong> send your name, email, account ID, location, raw HealthKit samples, individual readings, timestamps, or any other personally identifying information.</p>
+            <p><strong>Provider.</strong> The AI request is routed through a Replit-managed proxy to OpenAI. Per OpenAI's API data policy, API inputs and outputs are not used to train OpenAI's models. The proxy provider does not retain request bodies beyond standard operational logs.</p>
+            <p><strong>Fallback.</strong> If the AI call fails or is unavailable, NeuroQuest falls back to a deterministic, on-server interpretation — your core score and the app continue to work normally without AI.</p>
+            <p><strong>Opt out.</strong> AI personalization is part of the standard interpretation pipeline. If you prefer not to have aggregate metrics processed by an AI provider, you can disable HealthKit sync (which removes the data being aggregated) or delete your account.</p>
           </Section>
 
           <Section title="Local Data Storage">
@@ -86,6 +95,7 @@ export default function PrivacyPage() {
 
           <Section title="Data Sharing">
             <p>We do not sell, trade, or rent your personal information to third parties. We may share anonymized, aggregated data for research purposes or to demonstrate the collective impact of our user community. We may disclose your information if required by law or in response to valid legal processes.</p>
+            <p><strong>Service providers (data processors).</strong> We use the following processors strictly to operate the App: Clerk (authentication), Stripe (payments), our hosting provider (encrypted storage of account data), Datadog (operational logging — no HealthKit data), and OpenAI via a Replit-managed proxy (AI personalization of aggregate, non-identifying metrics as described in the AI Personalization section above). These processors act on our instructions, are bound by data-processing agreements, and are not permitted to use your data for their own purposes.</p>
           </Section>
 
           <Section title="Data Retention">
