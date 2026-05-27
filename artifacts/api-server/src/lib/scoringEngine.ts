@@ -1,4 +1,4 @@
-export const ENGINE_VERSION = "2.0.0";
+export const ENGINE_VERSION = "2.1.0";
 
 export function normalize(value: number, min: number, max: number): number {
   return Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
@@ -139,6 +139,16 @@ export interface BurnoutAnalysisV2 {
     hrv_vs_baseline: number | null;
     sleep_vs_baseline: number | null;
   } | null;
+  // Build #14 — Data-quality disclosure so consumers (UI + clinicians)
+  // can see HOW SURE the algorithm is, not just what it says. A "low"
+  // confidence reading should be presented to the user as provisional
+  // — we are not yet entitled to make a strong claim.
+  data_quality?: {
+    baseline_established: boolean;
+    days_of_history: number;
+    confidence: "low" | "moderate" | "high";
+    notes: string[];
+  };
 }
 
 export interface AnalyzeParams {
@@ -227,22 +237,55 @@ export function analyzeBurnoutV2(params: AnalyzeParams): BurnoutAnalysisV2 {
   }
 
   if (currentHRV !== undefined && currentHRV > 0) {
-    if (currentHRV < 30) {
-      risk += 20;
-      reasons.push({
-        factor: "Very low HRV",
-        contribution: 20,
-        detail: `HRV ${currentHRV}ms indicates poor autonomic recovery (critical threshold: <30ms)`,
-      });
-    } else if (currentHRV < 50) {
-      risk += 10;
-      reasons.push({
-        factor: "Low HRV",
-        contribution: 10,
-        detail: `HRV ${currentHRV}ms indicates reduced recovery capacity (threshold: <50ms)`,
-      });
+    const hasEstablishedBaseline =
+      baseline !== undefined && baseline !== null && baseline.established && baseline.avg_hrv > 0;
+
+    // Build #14 — Baseline-relative HRV is the PRIMARY signal once a
+    // 14-day personal baseline is established. Absolute thresholds
+    // (<30ms / <50ms) are deliberately downgraded when baseline is
+    // available because absolute HRV is age- and sex-dependent: a
+    // healthy 58-year-old or female user can have resting HRV
+    // legitimately in the 25-40ms range. Flagging them as "critical"
+    // on absolute thresholds is a false positive. Personal-baseline
+    // deviation captures the meaningful signal ("this user is X%
+    // below where THEY normally are") without that demographic
+    // false-flagging.
+    if (hasEstablishedBaseline) {
+      const hrvBaselineDev = ((currentHRV - baseline.avg_hrv) / baseline.avg_hrv) * 100;
+      if (hrvBaselineDev < -20) {
+        const contrib = Math.min(20, Math.round(Math.abs(hrvBaselineDev) / 2));
+        risk += contrib;
+        reasons.push({
+          factor: "HRV below personal baseline",
+          contribution: contrib,
+          detail: `HRV ${hrvBaselineDev.toFixed(1)}% below your established baseline (${baseline.avg_hrv.toFixed(0)}ms)`,
+        });
+      }
+    } else {
+      // No baseline yet — fall back to provisional absolute thresholds.
+      // Halved relative to v2.0.0 because they are known to over-flag
+      // older and female users. Marked "(provisional)" so UI can show
+      // a softer treatment until the baseline establishes.
+      if (currentHRV < 30) {
+        risk += 10;
+        reasons.push({
+          factor: "Very low HRV (provisional)",
+          contribution: 10,
+          detail: `HRV ${currentHRV}ms is low — provisional reading, refine once 14-day baseline establishes`,
+        });
+      } else if (currentHRV < 50) {
+        risk += 5;
+        reasons.push({
+          factor: "Low HRV (provisional)",
+          contribution: 5,
+          detail: `HRV ${currentHRV}ms is reduced — provisional reading, refine once 14-day baseline establishes`,
+        });
+      }
     }
 
+    // Sudden 24h drop is signal-agnostic to absolute level (any sharp
+    // acute change indicates ANS shift) so it fires regardless of
+    // baseline status.
     if (previousHRV !== undefined && previousHRV > 0) {
       const hrvDrop = ((previousHRV - currentHRV) / previousHRV) * 100;
       if (hrvDrop > 20) {
@@ -252,19 +295,6 @@ export function analyzeBurnoutV2(params: AnalyzeParams): BurnoutAnalysisV2 {
           factor: "Sudden HRV drop",
           contribution: contrib,
           detail: `HRV dropped ${hrvDrop.toFixed(1)}% in 24h (${previousHRV}ms → ${currentHRV}ms)`,
-        });
-      }
-    }
-
-    if (baseline && baseline.established && baseline.avg_hrv > 0) {
-      const hrvBaselineDev = ((currentHRV - baseline.avg_hrv) / baseline.avg_hrv) * 100;
-      if (hrvBaselineDev < -20) {
-        const contrib = Math.min(10, Math.round(Math.abs(hrvBaselineDev) / 4));
-        risk += contrib;
-        reasons.push({
-          factor: "HRV below personal baseline",
-          contribution: contrib,
-          detail: `HRV ${hrvBaselineDev.toFixed(1)}% below your baseline (${baseline.avg_hrv.toFixed(0)}ms)`,
         });
       }
     }
@@ -359,6 +389,32 @@ export function analyzeBurnoutV2(params: AnalyzeParams): BurnoutAnalysisV2 {
     };
   }
 
+  // Build #14 — Data-quality / confidence disclosure. The algorithm
+  // should never claim more certainty than its inputs warrant. A user
+  // with 3 days of history and no baseline gets "low" confidence even
+  // if the score is dramatic. This field gives the UI a license to
+  // soften wording ("possible early signal" vs "high risk detected").
+  const dq_notes: string[] = [];
+  const days = wriHistory.length;
+  const baselineEstablished = !!(baseline && baseline.established);
+  if (!baselineEstablished) {
+    dq_notes.push(`Personal baseline not yet established (need 14+ days, have ${days})`);
+  }
+  if (days < 7) {
+    dq_notes.push("Short observation window — trend detection is provisional");
+  }
+  if (currentHRV === undefined) dq_notes.push("No HRV signal in this reading");
+  if (currentSleepHours === undefined) dq_notes.push("No sleep signal in this reading");
+
+  let confidence: "low" | "moderate" | "high";
+  if (baselineEstablished && days >= 21 && currentHRV !== undefined && currentSleepHours !== undefined) {
+    confidence = "high";
+  } else if (days >= 7 && (currentHRV !== undefined || currentSleepHours !== undefined)) {
+    confidence = "moderate";
+  } else {
+    confidence = "low";
+  }
+
   return {
     risk,
     reasons,
@@ -369,6 +425,12 @@ export function analyzeBurnoutV2(params: AnalyzeParams): BurnoutAnalysisV2 {
     trend_direction,
     engine_version: ENGINE_VERSION,
     baseline_comparison,
+    data_quality: {
+      baseline_established: baselineEstablished,
+      days_of_history: days,
+      confidence,
+      notes: dq_notes,
+    },
   };
 }
 

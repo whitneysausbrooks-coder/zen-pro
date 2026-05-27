@@ -35,6 +35,7 @@ import SharePage from "@/pages/share";
 import CopyrightPage from "@/pages/copyright";
 import PrivacyPage from "@/pages/privacy";
 import ImpactPage from "@/pages/impact";
+import CbiPage from "@/pages/cbi";
 import TermsPage from "@/pages/terms";
 import SupportPage from "@/pages/support";
 
@@ -190,6 +191,7 @@ function AppRoutes() {
           <Route path="/copyright"   component={CopyrightPage} />
           <Route path="/privacy"     component={PrivacyPage} />
           <Route path="/impact"      component={ImpactPage} />
+          <Route path="/cbi"         component={CbiPage} />
           <Route path="/terms"       component={TermsPage} />
           <Route path="/support"     component={SupportPage} />
           <Route                     component={NotFound} />

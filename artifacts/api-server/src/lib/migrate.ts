@@ -170,4 +170,34 @@ export async function runMigrations(): Promise<void> {
   await query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS health_consent_status varchar NOT NULL DEFAULT 'not_granted'`);
   await query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS watch_connected_status varchar NOT NULL DEFAULT 'not_connected'`);
   await query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`);
+
+  // ---- Build #14 (May 27, 2026) — Copenhagen Burnout Inventory (CBI) ----
+  // Validation harness for the Triple-Weight Algorithm. CBI Personal Burnout
+  // subscale (Kristensen et al. 2005, Creative Commons): 6 items, each
+  // 0/25/50/75/100, total = mean (0-100, higher = more burnout). Stored
+  // alongside the algorithm's burnout-risk score at the time of completion
+  // so we can compute a Pearson correlation per-user and population-wide.
+  // This is the ground-truth dataset that converts "wellness app heuristic"
+  // into "instrument-correlated screening tool." DO NOT remove columns.
+  await query(`
+    CREATE TABLE IF NOT EXISTS cbi_responses (
+      id serial PRIMARY KEY,
+      app_user_id varchar NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      q1 integer NOT NULL CHECK (q1 IN (0,25,50,75,100)),
+      q2 integer NOT NULL CHECK (q2 IN (0,25,50,75,100)),
+      q3 integer NOT NULL CHECK (q3 IN (0,25,50,75,100)),
+      q4 integer NOT NULL CHECK (q4 IN (0,25,50,75,100)),
+      q5 integer NOT NULL CHECK (q5 IN (0,25,50,75,100)),
+      q6 integer NOT NULL CHECK (q6 IN (0,25,50,75,100)),
+      total_score numeric(5,2) NOT NULL,
+      subscale varchar NOT NULL DEFAULT 'personal_burnout',
+      algorithm_risk_at_time numeric(5,2),
+      engine_version varchar,
+      taken_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_cbi_responses_user_time
+    ON cbi_responses(app_user_id, taken_at DESC)
+  `);
 }
