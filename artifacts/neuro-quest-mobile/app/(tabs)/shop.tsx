@@ -46,6 +46,8 @@ async function reconcileSpinsWithServer(): Promise<boolean> {
 
 const PRODUCT_MAP: Record<string, string> = {
   pro: "pro.neuroquestzen.app.zenpro.monthly",
+  annual: "pro.neuroquestzen.app.zenpro.annual",
+  founder: "pro.neuroquestzen.app.founder",
   daily: "pro.neuroquestzen.app.daypass",
   "spins-5": "pro.neuroquestzen.app.spins.5",
   "spins-15": "pro.neuroquestzen.app.spins.15",
@@ -69,23 +71,58 @@ const nd = Platform.OS !== "web";
 
 const PLANS = [
   {
+    id: "founder",
+    title: "Founder Tier",
+    price: "$199.99",
+    period: " one-time",
+    badge: "LIFETIME",
+    oneTime: true,
+    donationNote: "1% of net revenue donated to Feeding America · see /impact",
+    features: [
+      "Lifetime access to all Zen Pro features",
+      "Permanent Founder badge",
+      "Early access to new features",
+      "Direct line to the founder for feedback",
+      "Locks in today's price forever",
+    ],
+    cta: "Become a Founder",
+    highlight: true,
+  },
+  {
+    id: "annual",
+    title: "Zen Pro · Annual",
+    price: "$79.99",
+    period: "/year",
+    badge: "SAVE 33%",
+    oneTime: false,
+    donationNote: "1% of net revenue donated to Feeding America · see /impact",
+    features: [
+      "Everything in Zen Pro Monthly",
+      "Save $40 vs. monthly billing",
+      "Locked-in price for 12 months",
+      "Cancel anytime, no contracts",
+    ],
+    cta: "Start Annual",
+    highlight: false,
+  },
+  {
     id: "pro",
     title: "Zen Pro",
     price: "$9.99",
     period: "/month",
-    badge: "MOST POPULAR",
-    donationNote: "$3.00 of every subscription goes directly to charity",
+    badge: null,
+    oneTime: false,
+    donationNote: "1% of net revenue donated to Feeding America · see /impact",
     features: [
       "Unlimited daily spins",
       "All brain training games unlocked",
       "Priority reward access",
       "Exclusive Zen themes & sounds",
-      "Monthly cause selection",
       "Advanced progress analytics",
       "Ad-free experience",
     ],
     cta: "Start Zen Pro",
-    highlight: true,
+    highlight: false,
   },
   {
     id: "daily",
@@ -93,7 +130,8 @@ const PLANS = [
     price: "$5.99",
     period: "/24 hours",
     badge: null,
-    donationNote: "$1.80 donated per pass",
+    oneTime: true,
+    donationNote: "1% of net revenue donated to Feeding America · see /impact",
     features: [
       "50 spins for 24 hours",
       "All Zen Pro features for the day",
@@ -125,7 +163,7 @@ const ENTERPRISE_BENEFITS = [
 export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [selectedPlan, setSelectedPlan] = useState("pro");
+  const [selectedPlan, setSelectedPlan] = useState("founder");
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
 
@@ -194,13 +232,19 @@ export default function ShopScreen() {
     const plan = PLANS.find((p) => p.id === id);
     if (!plan) return;
 
+    const billingNote = plan.oneTime
+      ? "Payment will be processed securely through the App Store. This is a one-time purchase — no auto-renewal."
+      : "Payment will be processed securely through the App Store. Subscriptions auto-renew unless cancelled at least 24 hours before the end of the current period.";
+
+    const ctaLabel = plan.oneTime ? "Buy" : "Subscribe";
+
     Alert.alert(
-      `Subscribe to ${plan.title}`,
-      `${plan.price}${plan.period}\n\n${plan.donationNote}\n\nYour subscription includes:\n${plan.features.slice(0, 4).map((f) => `• ${f}`).join("\n")}\n\nPayment will be processed securely through the App Store. Subscriptions auto-renew unless cancelled at least 24 hours before the end of the current period.`,
+      `${ctaLabel === "Buy" ? "Purchase" : "Subscribe to"} ${plan.title}`,
+      `${plan.price}${plan.period}\n\n${plan.donationNote}\n\nThis ${plan.oneTime ? "purchase" : "subscription"} includes:\n${plan.features.slice(0, 4).map((f) => `• ${f}`).join("\n")}\n\n${billingNote}`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: `Subscribe ${plan.price}${plan.period}`,
+          text: `${ctaLabel} ${plan.price}${plan.period}`,
           style: "default",
           onPress: () => runPurchase(id),
         },
