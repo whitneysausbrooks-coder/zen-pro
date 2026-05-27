@@ -54,7 +54,7 @@ const VISION_POINTS = [
   {
     icon: Zap,
     title: "The Game Changes the Brain",
-    body: "Every round of NeuroQuest is a clinically-informed training protocol wrapped in a beautiful experience. Memory Matrix rewires working memory. Emotional EQ raises empathy baseline. Neural Challenge builds probabilistic intuition. Wellness is the gateway.",
+    body: "Every round of NeuroQuest is a research-grounded training experience designed for daily play. Memory Matrix targets working memory. Emotional EQ trains empathic pattern recognition. Neural Challenge builds probabilistic intuition. Wellness is the gateway.",
   },
   {
     icon: DollarSign,

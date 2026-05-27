@@ -147,7 +147,7 @@ const ENTERPRISE_FEATURES = [
   { icon: "analytics", title: "ROI Analytics", desc: "Measure engagement, retention, and productivity impact" },
   { icon: "shield-checkmark", title: "SSO & SCIM", desc: "Enterprise-grade SSO integration and user provisioning" },
   { icon: "git-branch", title: "Team Challenges", desc: "Custom team exercises designed by organizational psychologists" },
-  { icon: "bar-chart", title: "Burnout Detection", desc: "AI-powered early warning system for employee burnout" },
+  { icon: "bar-chart", title: "Burnout Risk Signals", desc: "Trend analysis on team HRV, sleep, and engagement — surfaces declines early so you can intervene" },
   { icon: "heart-circle", title: "CSR Impact Reports", desc: "Branded reports showing your company's charitable impact" },
   { icon: "lock-closed", title: "Enterprise Security", desc: "Designed with privacy-first principles and data protection in mind" },
   { icon: "calendar", title: "Dedicated Success", desc: "Named customer success manager and onboarding support" },

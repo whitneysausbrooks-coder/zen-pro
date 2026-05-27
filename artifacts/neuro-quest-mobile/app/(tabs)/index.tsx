@@ -779,9 +779,9 @@ export default function HomeScreen() {
             </Text>
             <View style={styles.missionDivider} />
             <Text style={styles.missionBody}>
-              NeuroQuest combines neuroscience-backed brain training with real
-              charitable giving. Every interaction strengthens neural pathways
-              while funding verified global causes.
+              NeuroQuest combines research-grounded brain training with real
+              charitable giving. Every interaction supports your daily wellness
+              practice while funding verified global causes.
             </Text>
             <View style={styles.missionMetrics}>
               <View style={styles.missionMetric}>

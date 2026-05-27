@@ -238,8 +238,8 @@ export default function Landing() {
           <Reveal delay={0.35}>
             <p className="mt-7 text-lg md:text-xl text-white/65 font-light leading-relaxed max-w-2xl mx-auto">
               NeuroQuest Zen Pro is AI-personalized neural conditioning
-              engineered for the modern high-performer. Stop burnout before it
-              starts.
+              engineered for the modern high-performer. Catch the decline before
+              it catches you.
             </p>
           </Reveal>
           <Reveal delay={0.5}>
@@ -262,7 +262,7 @@ export default function Landing() {
           </Reveal>
           <Reveal delay={0.7}>
             <p className="mt-12 text-xs tracking-[0.2em] uppercase text-white/35 font-light">
-              Designed in California · Built on clinical neuroplasticity research
+              Designed in California · Grounded in published HRV and sleep research
             </p>
           </Reveal>
         </motion.div>
@@ -294,7 +294,7 @@ export default function Landing() {
               {
                 eyebrow: "02",
                 title: "Early Intervention",
-                body: "Why heal burnout when you can prevent it entirely? Zen Pro reads the earliest signal — measured days, not weeks, before you'd notice — and intervenes.",
+                body: "Recovery is a measurable signal. Zen Pro tracks your HRV, sleep, and activity against your own established baseline and surfaces declines you might otherwise miss — so you can intervene early.",
               },
               {
                 eyebrow: "03",
