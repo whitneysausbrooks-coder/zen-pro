@@ -53,6 +53,102 @@ router.get("/stripe/zen-pro-price", async (_req, res) => {
   }
 });
 
+/**
+ * Returns the full Zen Pro pricing matrix (Monthly / Annual / Founder Tier).
+ *
+ * Resolution strategy:
+ *   1. Search Stripe for products with names "Zen Pro Monthly", "Zen Pro Annual",
+ *      "Zen Pro Founder" (exact match — Whitney creates them in the dashboard).
+ *   2. Fall back to the legacy "Zen Pro" product for the Monthly slot so existing
+ *      installs keep working without any Stripe-dashboard re-config.
+ *   3. For each product, pick the first active price (recurring for sub tiers,
+ *      one-time for Founder).
+ *
+ * The client uses this to render a 3-tier picker on /subscribe. Tiers that
+ * are not yet configured in Stripe are returned with priceId:null and the UI
+ * disables that card so we never offer a checkout that would 400.
+ */
+router.get("/stripe/zen-pro-prices", async (_req, res) => {
+  if (!isStripeConfigured()) {
+    return res.json({
+      configured: false,
+      tiers: [
+        { tier: "monthly", label: "Monthly",  priceId: null, amount: 999,  currency: "usd", interval: "month", mode: "subscription" },
+        { tier: "annual",  label: "Annual",   priceId: null, amount: 7900, currency: "usd", interval: "year",  mode: "subscription" },
+        { tier: "founder", label: "Founder",  priceId: null, amount: 19900, currency: "usd", interval: null,   mode: "payment" },
+      ],
+    });
+  }
+
+  try {
+    const stripe = getStripeClient();
+
+    async function findProductByName(name: string) {
+      try {
+        const r = await stripe.products.search({ query: `name:'${name}' AND active:'true'` });
+        return r.data[0] ?? null;
+      } catch { return null; }
+    }
+    async function firstActivePrice(productId: string, recurring: boolean) {
+      const list = await stripe.prices.list({
+        product: productId,
+        active: true,
+        type: recurring ? "recurring" : "one_time",
+        limit: 1,
+      });
+      return list.data[0] ?? null;
+    }
+
+    const [pMonthly, pAnnual, pFounder, pLegacy] = await Promise.all([
+      findProductByName("Zen Pro Monthly"),
+      findProductByName("Zen Pro Annual"),
+      findProductByName("Zen Pro Founder"),
+      findProductByName("Zen Pro"),
+    ]);
+
+    const monthlyProduct = pMonthly ?? pLegacy;
+    const monthlyPrice = monthlyProduct ? await firstActivePrice(monthlyProduct.id, true) : null;
+    const annualPrice  = pAnnual       ? await firstActivePrice(pAnnual.id,       true) : null;
+    const founderPrice = pFounder      ? await firstActivePrice(pFounder.id,      false) : null;
+
+    return res.json({
+      configured: true,
+      tiers: [
+        {
+          tier: "monthly",
+          label: "Monthly",
+          priceId: monthlyPrice?.id ?? null,
+          amount: monthlyPrice?.unit_amount ?? 999,
+          currency: monthlyPrice?.currency ?? "usd",
+          interval: (monthlyPrice?.recurring?.interval ?? "month") as string,
+          mode: "subscription" as const,
+        },
+        {
+          tier: "annual",
+          label: "Annual",
+          priceId: annualPrice?.id ?? null,
+          amount: annualPrice?.unit_amount ?? 7900,
+          currency: annualPrice?.currency ?? "usd",
+          interval: (annualPrice?.recurring?.interval ?? "year") as string,
+          mode: "subscription" as const,
+        },
+        {
+          tier: "founder",
+          label: "Founder",
+          priceId: founderPrice?.id ?? null,
+          amount: founderPrice?.unit_amount ?? 19900,
+          currency: founderPrice?.currency ?? "usd",
+          interval: null,
+          mode: "payment" as const,
+        },
+      ],
+    });
+  } catch (err: any) {
+    console.error("zen-pro-prices error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 router.post("/stripe/checkout", async (req: any, res) => {
   if (!isStripeConfigured()) {
     return res.status(503).json({ error: "Stripe is not configured. Add STRIPE_SECRET_KEY to enable payments." });
@@ -84,12 +180,20 @@ router.post("/stripe/checkout", async (req: any, res) => {
         .where(eq(userProfilesTable.session_id, sessionId));
     }
 
+    // Auto-detect subscription vs one-time payment from the price itself —
+    // required so the Founder Tier (one-time $199) works through the same
+    // /checkout endpoint as the recurring Monthly/Annual tiers without the
+    // client having to know about Stripe's mode/type pairing rules.
+    const priceObj = await stripe.prices.retrieve(priceId);
+    const isRecurring = !!priceObj.recurring;
+
     const baseUrl = `${req.protocol}://${req.get("host")}`;
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
-      mode: "subscription",
+      mode: isRecurring ? "subscription" : "payment",
+      metadata: { nq_session: sessionId, tier: isRecurring ? "subscription" : "founder" },
       success_url: `${baseUrl}/subscribe?success=1`,
       cancel_url: `${baseUrl}/subscribe?canceled=1`,
     });

@@ -23,6 +23,21 @@ async function fetchZenProPrice(): Promise<{ priceId: string | null; amount: num
   return r.json()
 }
 
+type Tier = {
+  tier: "monthly" | "annual" | "founder"
+  label: string
+  priceId: string | null
+  amount: number
+  currency: string
+  interval: string | null
+  mode: "subscription" | "payment"
+}
+
+async function fetchZenProPrices(): Promise<{ configured: boolean; tiers: Tier[] }> {
+  const r = await fetch(`${BASE}/api/stripe/zen-pro-prices`, { credentials: "include" })
+  return r.json()
+}
+
 async function startCheckout(priceId: string): Promise<{ url?: string; error?: string }> {
   const r = await fetch(`${BASE}/api/stripe/checkout`, {
     method: "POST",
@@ -251,7 +266,9 @@ export default function Subscribe() {
   const { toast } = useToast()
 
   const [isPro, setIsPro] = useState(false)
-  const [priceInfo, setPriceInfo] = useState<{ priceId: string | null; amount: number; interval: string; configured: boolean } | null>(null)
+  const [tiers, setTiers] = useState<Tier[]>([])
+  const [selectedTier, setSelectedTier] = useState<Tier["tier"]>("monthly")
+  const [configured, setConfigured] = useState(false)
   const [loading, setLoading] = useState(true)
   const [checkingOut, setCheckingOut] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -262,17 +279,20 @@ export default function Subscribe() {
     if (params.get("success") === "1") setSuccess(true)
     if (params.get("daily_success") === "1") setDailySuccess(true)
 
-    Promise.all([fetchProStatus(), fetchZenProPrice()])
-      .then(([status, price]) => {
+    Promise.all([fetchProStatus(), fetchZenProPrices()])
+      .then(([status, prices]) => {
         setIsPro(status.is_pro)
-        setPriceInfo(price)
+        setTiers(prices.tiers ?? [])
+        setConfigured(!!prices.configured)
       })
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
 
+  const activeTier = tiers.find((t) => t.tier === selectedTier) ?? tiers[0]
+
   const handleActivate = async () => {
-    if (!priceInfo?.configured) {
+    if (!configured) {
       toast({
         title: "Stripe not configured",
         description: "Add your STRIPE_SECRET_KEY secret to enable payments.",
@@ -280,10 +300,10 @@ export default function Subscribe() {
       })
       return
     }
-    if (!priceInfo.priceId) {
+    if (!activeTier?.priceId) {
       toast({
-        title: "Product not found",
-        description: "Run the seed script to create the Zen Pro product in Stripe.",
+        title: `${activeTier?.label ?? "This plan"} not configured`,
+        description: `Create the "Zen Pro ${activeTier?.label ?? ""}" product in your Stripe dashboard, then refresh.`,
         variant: "destructive",
       })
       return
@@ -291,7 +311,7 @@ export default function Subscribe() {
 
     setCheckingOut(true)
     try {
-      const { url, error } = await startCheckout(priceInfo.priceId)
+      const { url, error } = await startCheckout(activeTier.priceId)
       if (error || !url) {
         toast({ title: "Checkout failed", description: error || "Unknown error", variant: "destructive" })
         setCheckingOut(false)
@@ -320,8 +340,9 @@ export default function Subscribe() {
     }
   }
 
-  const displayPrice = priceInfo ? `$${(priceInfo.amount / 100).toFixed(2)}` : "$9.99"
-  const displayInterval = priceInfo?.interval ?? "month"
+  const displayPrice = activeTier ? `$${(activeTier.amount / 100).toFixed(2)}` : "$9.99"
+  const displayInterval = activeTier?.interval ?? "month"
+  const isOneTime = activeTier?.mode === "payment"
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-12 relative overflow-hidden">
@@ -449,13 +470,62 @@ export default function Subscribe() {
               ) : (
                 /* ── Pricing state ── */
                 <div className="space-y-8">
+                  {/* 3-tier picker */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {tiers.map((t) => {
+                      const isSel = t.tier === selectedTier
+                      const isBest = t.tier === "annual"
+                      const isFounder = t.tier === "founder"
+                      const price = `$${(t.amount / 100).toFixed(t.amount % 100 === 0 ? 0 : 2)}`
+                      const sub = t.mode === "payment" ? "one-time" : `/${t.interval}`
+                      return (
+                        <button
+                          key={t.tier}
+                          onClick={() => setSelectedTier(t.tier)}
+                          className={`relative p-3 rounded-xl border text-left transition-all ${
+                            isSel
+                              ? "bg-primary/15 border-primary/50 shadow-[0_0_24px_-8px_rgba(212,175,55,0.5)]"
+                              : "bg-white/4 border-white/10 hover:bg-white/8 hover:border-white/20"
+                          }`}
+                        >
+                          {isBest && (
+                            <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-amber-400/90 text-[10px] font-bold text-black uppercase tracking-wider">
+                              Save $40
+                            </span>
+                          )}
+                          {isFounder && (
+                            <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-rose-400/90 text-[10px] font-bold text-white uppercase tracking-wider">
+                              Lifetime
+                            </span>
+                          )}
+                          <p className={`text-[10px] uppercase tracking-widest font-bold mb-1 ${isSel ? "text-primary" : "text-white/40"}`}>
+                            {t.label}
+                          </p>
+                          <p className="font-serif text-2xl font-bold text-foreground leading-tight">{price}</p>
+                          <p className="text-[10px] text-white/40 mt-0.5">{sub}</p>
+                          {!t.priceId && (
+                            <p className="text-[9px] text-amber-300/80 mt-1">Coming soon</p>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+
                   <div className="flex items-end justify-between gap-4">
                     <div>
                       <div className="flex items-baseline gap-1">
                         <span className="font-serif text-6xl font-bold text-gradient-gold">{displayPrice}</span>
-                        <span className="text-muted-foreground text-lg">/{displayInterval}</span>
+                        {!isOneTime && (
+                          <span className="text-muted-foreground text-lg">/{displayInterval}</span>
+                        )}
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">Auto-renews monthly · Cancel any time · No contracts.</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {isOneTime
+                          ? "One-time payment · Lifetime access · Includes Founder badge"
+                          : selectedTier === "annual"
+                          ? "Billed yearly · Save vs. monthly · Cancel anytime"
+                          : "Auto-renews monthly · Cancel any time · No contracts."}
+                      </p>
                     </div>
                     <div className="shrink-0 p-4 rounded-2xl bg-primary/10 border border-primary/25">
                       <Crown className="w-8 h-8 text-primary" />

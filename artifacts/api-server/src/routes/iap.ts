@@ -16,6 +16,8 @@ const APPLE_VERIFY_SANDBOX = "https://sandbox.itunes.apple.com/verifyReceipt";
 
 const KNOWN_PRODUCTS = new Set([
   "pro.neuroquestzen.app.zenpro.monthly",
+  "pro.neuroquestzen.app.zenpro.annual",
+  "pro.neuroquestzen.app.founder",
   "pro.neuroquestzen.app.daypass",
   "pro.neuroquestzen.app.spins.5",
   "pro.neuroquestzen.app.spins.15",
@@ -28,8 +30,14 @@ const CONSUMABLES: Record<string, number> = {
   "pro.neuroquestzen.app.spins.50": 50,
 };
 
-const SUBSCRIPTIONS = new Set(["pro.neuroquestzen.app.zenpro.monthly"]);
-const NON_CONSUMABLES = new Set(["pro.neuroquestzen.app.daypass"]);
+const SUBSCRIPTIONS = new Set([
+  "pro.neuroquestzen.app.zenpro.monthly",
+  "pro.neuroquestzen.app.zenpro.annual",
+]);
+const NON_CONSUMABLES = new Set([
+  "pro.neuroquestzen.app.daypass",
+  "pro.neuroquestzen.app.founder",
+]);
 
 function requireUserId(req: any, res: any): string | null {
   const auth = getAuth(req);
@@ -283,7 +291,11 @@ router.get("/iap/entitlements", async (req, res) => {
     entitlements: ents.rows,
     spin_balance: spins.rows[0]?.balance || 0,
     pro_active: ents.rows.some(
-      (r: any) => r.product_id === "pro.neuroquestzen.app.zenpro.monthly" && r.status === "active",
+      (r: any) =>
+        (r.product_id === "pro.neuroquestzen.app.zenpro.monthly" ||
+         r.product_id === "pro.neuroquestzen.app.zenpro.annual" ||
+         r.product_id === "pro.neuroquestzen.app.founder") &&
+        r.status === "active",
     ),
   });
 });

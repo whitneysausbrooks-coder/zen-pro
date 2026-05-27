@@ -35,8 +35,14 @@ async function buildAuthHeaders(authToken?: string): Promise<Record<string, stri
 }
 
 export const PRODUCT_IDS = {
-  subscriptions: ["pro.neuroquestzen.app.zenpro.monthly"],
-  nonConsumables: ["pro.neuroquestzen.app.daypass"],
+  subscriptions: [
+    "pro.neuroquestzen.app.zenpro.monthly",
+    "pro.neuroquestzen.app.zenpro.annual",
+  ],
+  nonConsumables: [
+    "pro.neuroquestzen.app.daypass",
+    "pro.neuroquestzen.app.founder",
+  ],
   consumables: [
     "pro.neuroquestzen.app.spins.5",
     "pro.neuroquestzen.app.spins.15",
