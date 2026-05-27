@@ -969,15 +969,20 @@ export async function enableBackgroundHealthSync(): Promise<() => void> {
     try {
       // Pull credentials from SecureStore on every fire — never cache them
       // in a closure because the user could have signed out since the last
-      // background wake. A null/empty pair = silent no-op (correct: the
-      // sample-write happened but the user is signed out).
-      const [email, inviteCode, mode] = await Promise.all([
+      // background wake.
+      const [email, inviteCode, mode, userId] = await Promise.all([
         getStoredEmail(),
         getStoredInviteCode(),
         getLoginMode(),
+        getStoredUserId(),
       ]);
-      if (!email || !inviteCode || mode !== "enterprise") return;
 
+      // Read once, route to the appropriate endpoint based on login mode.
+      // Both enterprise pilots AND individual consumers need background
+      // sync so the Neuro Resilience Score stays warm without requiring
+      // the user to open the app — otherwise the burnout-detection promise
+      // (catch decline before the user feels it) silently fails for the
+      // 99% of users that aren't on a pilot.
       const metrics = await readLatestMetrics();
       if (
         metrics.hrv == null &&
@@ -986,7 +991,40 @@ export async function enableBackgroundHealthSync(): Promise<() => void> {
       ) {
         return;
       }
-      await syncToServer(email, inviteCode, metrics);
+
+      if (mode === "enterprise" && email && inviteCode) {
+        await syncToServer(email, inviteCode, metrics);
+        return;
+      }
+
+      if (mode === "individual" && userId) {
+        // POST to the individual baseline endpoint — same source-of-truth
+        // server-side scoring, just keyed by app_users.id instead of
+        // enterprise email+invite. Mirrors the foreground path in
+        // syncManualMetrics so individual + enterprise stay symmetric.
+        const sleep_hours =
+          metrics.sleep_duration_minutes != null
+            ? Math.round((metrics.sleep_duration_minutes / 60) * 100) / 100
+            : null;
+        try {
+          await fetch(`${getApiBase()}/api/app-user/biometrics`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_id: userId,
+              hrv: metrics.hrv,
+              sleep_hours,
+              steps: metrics.steps,
+              data_source: "wearable",
+            }),
+          });
+        } catch {
+          // Background — silent.
+        }
+        return;
+      }
+
+      // Unknown mode or missing creds: silent no-op (signed out, etc.)
     } catch {
       // Background context has no UI to surface to — swallow.
     }
