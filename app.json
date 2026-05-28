@@ -6,7 +6,10 @@
       }
     },
     "ios": {
-      "bundleIdentifier": "pro.neuroquestzen.app"
+      "bundleIdentifier": "pro.neuroquestzen.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     }
   }
 }
