@@ -472,4 +472,10 @@ title = "NeuroQuest Zen Pro — Founder Package (Build #14)"
 id = "msxK07I3hRaknFzAZ4Vkm"
 uri = "file://PILOT_HANDBOOK.md"
 type = "text"
-title = "NeuroQuest Zen Pro — Pilot Handbook (Owner + Pilot Groups)"
+title = "NeuroQuest Zen Pro — Pilot Handbook (now with embedded QR)"
+
+[[outputs]]
+id = "MvF_cCepo_Lp-DgRN93Rg"
+uri = "file://attached_assets/neuroquestzen_qr.png"
+type = "image"
+title = "NeuroQuest Zen Pro — Quick-Join QR Code (→ neuroquestzen.pro)"

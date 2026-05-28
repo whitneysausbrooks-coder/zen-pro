@@ -246,6 +246,14 @@ This is enforced at the database level, not just a policy. Your data stays yours
 
 ### B4. How to set up
 
+**Fastest path — scan this QR code with your phone camera:**
+
+![Scan to start NeuroQuest Zen Pro](attached_assets/neuroquestzen_qr.png)
+
+*Opens https://neuroquestzen.pro — from there, tap the App Store or Play Store badge.*
+
+**Or follow the steps manually:**
+
 1. **Download** NeuroQuest Zen Pro from the App Store (iPhone) or Play Store (Android).
 2. **Open the app**, tap **"Join with company invite"**.
 3. **Enter** your work email and the **8-character invite code** your admin sent you.
