@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { useLocation } from "wouter"
 import { motion, AnimatePresence } from "framer-motion"
 import { Building2, CheckCircle2, Loader2, ArrowRight, Sparkles } from "lucide-react"
@@ -29,13 +29,17 @@ export default function JoinPage() {
   const [department, setDepartment] = useState("")
   const [company, setCompany] = useState<CompanyInfo | null>(null)
   const [busy, setBusy] = useState(false)
+  const autoLookupRan = useRef(false)
 
-  const handleLookup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const cleaned = code.trim().toUpperCase()
+  // Per-pilot QR codes link to `/join?code=XYZ` so participants don't have to
+  // type the 8-char invite. Read the query param, validate it, and auto-advance
+  // to the details step. Runs once on mount; the ref prevents StrictMode
+  // double-invocation from firing the lookup twice.
+  const lookupCode = async (rawCode: string): Promise<boolean> => {
+    const cleaned = rawCode.trim().toUpperCase()
     if (cleaned.length < 4) {
       toast({ title: "Enter your company code", variant: "destructive" })
-      return
+      return false
     }
     setBusy(true)
     try {
@@ -43,16 +47,37 @@ export default function JoinPage() {
       const data = await res.json()
       if (!data.valid) {
         toast({ title: "Code not found", description: "Please check with your admin.", variant: "destructive" })
-      } else {
-        setCompany(data)
-        setCode(cleaned)
-        setStep("details")
+        return false
       }
+      setCompany(data)
+      setCode(cleaned)
+      setStep("details")
+      return true
     } catch (err: any) {
       toast({ title: "Could not check code", description: "Please try again.", variant: "destructive" })
+      return false
     } finally {
       setBusy(false)
     }
+  }
+
+  useEffect(() => {
+    if (autoLookupRan.current) return
+    autoLookupRan.current = true
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const urlCode = params.get("code")
+      if (urlCode && urlCode.trim().length >= 4) {
+        setCode(urlCode.trim().toUpperCase())
+        void lookupCode(urlCode)
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleLookup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await lookupCode(code)
   }
 
   const handleJoin = async (e: React.FormEvent) => {

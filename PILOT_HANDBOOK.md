@@ -61,7 +61,7 @@ Your value proposition to the employee:
 
 ## 4. How to create a new pilot
 
-One API call. Run from your shell:
+**Step 1 — Create the company (one API call):**
 
 ```bash
 curl -X POST https://neuroquestzen.pro/api/enterprise/onboard-pilot \
@@ -76,7 +76,18 @@ curl -X POST https://neuroquestzen.pro/api/enterprise/onboard-pilot \
   }'
 ```
 
-You'll get back an 8-character `invite_code` (e.g. `K7P9X2MN`). **That's the magic string.** Email it to the admin along with Part 2 of this handbook.
+You'll get back an 8-character `invite_code` (e.g. `K7P9X2MN`). **That's the magic string.**
+
+**Step 2 — Generate the per-pilot QR code:**
+
+```bash
+./scripts/generate-pilot-qr.sh K7P9X2MN "Acme Corp"
+# → attached_assets/pilots/acme-corp_K7P9X2MN_qr.png
+```
+
+The QR encodes `https://neuroquestzen.pro/join?code=K7P9X2MN`. When a participant scans it with their phone camera, the join page opens with the code **already pre-filled and the company lookup auto-triggered** — they just type their name and work email, hit Join, and they're in. No typing the 8 characters wrong, no support tickets about typos.
+
+**Step 3 — Email the admin** the invite code + the QR PNG + Part 2 of this handbook. Use the launch email template in §7.
 
 For the full technical onboarding (SSO, SCIM, custom branding), see `COMPANY_ONBOARDING_PLAYBOOK.md`.
 
@@ -168,11 +179,15 @@ Forward Section B to your team.
 
 ## Section A — Company Admin Guide
 
-### A1. Your invite code
+### A1. Your invite code + QR code
 
-You'll receive an **8-character invite code** by email (e.g. `K7P9X2MN`). This is the key your employees will use to join your pilot. Share it through your normal team-communication channels — email, Slack announcement, Notion, whatever you use.
+You'll receive two things by email:
+1. An **8-character invite code** (e.g. `K7P9X2MN`)
+2. A **PNG QR code** for your pilot
 
-**Treat it like a password for your pilot.** Anyone with this code can claim a seat. If you suspect it's been shared outside your org, contact us to rotate it.
+The QR code is the fastest way to onboard your team. When scanned with a phone camera, it opens the join page with your invite code already filled in — participants just enter their name and work email. Drop the PNG into your launch email, print it on a poster for the break room, paste it into a Slack announcement, or include it on your benefits-overview slide.
+
+**Treat the invite code like a password for your pilot.** Anyone with the code (or the QR) can claim a seat. If you suspect it's been shared outside your org, contact us to rotate it.
 
 ### A2. What you can see
 
