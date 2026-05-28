@@ -467,3 +467,9 @@ id = "UTzM5ZbrhYZUoLwzpsi2v"
 uri = "file://exports/NeuroQuest_Zen_Pro_Founder_Package.pdf"
 type = "pdf"
 title = "NeuroQuest Zen Pro — Founder Package (Build #14)"
+
+[[outputs]]
+id = "msxK07I3hRaknFzAZ4Vkm"
+uri = "file://PILOT_HANDBOOK.md"
+type = "text"
+title = "NeuroQuest Zen Pro — Pilot Handbook (Owner + Pilot Groups)"
