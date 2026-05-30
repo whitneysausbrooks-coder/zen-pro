@@ -9,8 +9,14 @@ export interface SeatCheck {
   reason?: string;
 }
 
-export async function checkSeatAvailability(companyId: string): Promise<SeatCheck> {
-  const companyResult = await query(
+type QueryFn = (text: string, params?: any[]) => Promise<any>;
+
+export async function checkSeatAvailability(
+  companyId: string,
+  executor?: { query: QueryFn }
+): Promise<SeatCheck> {
+  const run: QueryFn = executor ? executor.query.bind(executor) : query;
+  const companyResult = await run(
     `SELECT subscription_status, seat_count, seat_cap, suspended_at FROM companies WHERE id = $1`,
     [companyId]
   );
@@ -40,7 +46,7 @@ export async function checkSeatAvailability(companyId: string): Promise<SeatChec
   }
 
   if (company.subscription_status !== "active" && company.subscription_status !== "trialing") {
-    const employeeCount = await query(
+    const employeeCount = await run(
       `SELECT COUNT(*) as count FROM enterprise_users WHERE company_id = $1`,
       [companyId]
     );
@@ -54,7 +60,7 @@ export async function checkSeatAvailability(companyId: string): Promise<SeatChec
     };
   }
 
-  const employeeCount = await query(
+  const employeeCount = await run(
     `SELECT COUNT(*) as count FROM enterprise_users WHERE company_id = $1`,
     [companyId]
   );

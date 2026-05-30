@@ -133,26 +133,36 @@ router.post("/enterprise/join", async (req: Request, res: Response) => {
   }
   const code = parsed.data.invite_code.trim().toUpperCase();
   const email = parsed.data.email.trim().toLowerCase();
+  const client = await pool.connect();
   try {
-    const companyResult = await query(
+    await client.query("BEGIN");
+    // Lock the company row so concurrent joins serialize here. Without this,
+    // two simultaneous joins can both pass the seat check and both insert,
+    // overshooting the paid seat cap (a billing leak at $12/seat/mo).
+    const companyResult = await client.query(
       `SELECT id, name, pilot_status, pilot_ends_at, seat_count
-       FROM companies WHERE invite_code = $1`,
+       FROM companies WHERE invite_code = $1 FOR UPDATE`,
       [code]
     );
     if (companyResult.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "That company code wasn't found. Please check with your admin." });
     }
     const company = companyResult.rows[0];
     if (company.pilot_ends_at && new Date(company.pilot_ends_at) < new Date()) {
+      await client.query("ROLLBACK");
       return res.status(403).json({ error: "This pilot has ended. Please contact your admin to renew." });
     }
-    const seatCheck = await checkSeatAvailability(company.id);
+    // Seat check runs on the same locked transaction, so its employee count
+    // reflects any in-flight join that already committed.
+    const seatCheck = await checkSeatAvailability(company.id, client);
     if (!seatCheck.allowed) {
-      const existing = await query(
+      const existing = await client.query(
         `SELECT id FROM enterprise_users WHERE email = $1 AND company_id = $2`,
         [email, company.id]
       );
       if (existing.rows.length === 0) {
+        await client.query("ROLLBACK");
         return res.status(403).json({
           error: `Your company has used all ${seatCheck.seat_count} seats. Please ask your admin to add more.`,
           seats_used: seatCheck.current_employees,
@@ -160,7 +170,7 @@ router.post("/enterprise/join", async (req: Request, res: Response) => {
         });
       }
     }
-    const result = await query(
+    const result = await client.query(
       `INSERT INTO enterprise_users (email, company_id, role, department, idp_subject)
        VALUES ($1, $2, 'employee', $3, $4)
        ON CONFLICT (email) DO UPDATE
@@ -171,9 +181,17 @@ router.post("/enterprise/join", async (req: Request, res: Response) => {
        RETURNING id, company_id, role`,
       [email, company.id, parsed.data.department || null, parsed.data.idp_subject || null]
     );
-    await auditLog(result.rows[0].id, "enterprise_user_joined", "enterprise_users", {
-      company_id: company.id, company_name: company.name, email,
-    });
+    await client.query("COMMIT");
+    // Audit logging is best-effort and runs AFTER commit. A telemetry failure
+    // must never turn a successful join into a 500 (which would prompt retries),
+    // so it gets its own catch and never reaches the transaction error handler.
+    try {
+      await auditLog(result.rows[0].id, "enterprise_user_joined", "enterprise_users", {
+        company_id: company.id, company_name: company.name, email,
+      });
+    } catch (auditErr: any) {
+      console.warn("Enterprise join audit log failed (join succeeded):", auditErr?.message);
+    }
     return res.json({
       success: true,
       user_id: result.rows[0].id,
@@ -182,8 +200,11 @@ router.post("/enterprise/join", async (req: Request, res: Response) => {
       role: result.rows[0].role,
     });
   } catch (err: any) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error("Enterprise join failed:", err.message);
     return res.status(500).json({ error: "Could not join company. Please try again." });
+  } finally {
+    client.release();
   }
 });
 

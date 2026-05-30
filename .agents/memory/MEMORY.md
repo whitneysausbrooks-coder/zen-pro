@@ -1,0 +1,1 @@
+- [Enterprise write patterns](enterprise-write-patterns.md) — seat-cap joins need FOR UPDATE row lock; audit logs go after COMMIT in their own try/catch (best-effort).
