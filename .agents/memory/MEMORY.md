@@ -1,2 +1,3 @@
 - [Enterprise write patterns](enterprise-write-patterns.md) — seat-cap joins need FOR UPDATE row lock; audit logs go after COMMIT in their own try/catch (best-effort).
 - [Compassion Reels donations](compassion-reels-donations.md) — every.org accrue-then-settle; cap via FOR UPDATE on budget row; settle = single UPDATE…RETURNING; webhook fail-closed; Apple-safe copy.
+- [NeuroQuest architecture](neuroquest-architecture.md) — dual user tracks (device-key individual vs Clerk enterprise) with DIFFERENT score shapes; Resilience tab shows hardcoded demoScore (never fetches); IAP flow; lucide Infinity collision.

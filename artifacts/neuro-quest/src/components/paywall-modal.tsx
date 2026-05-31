@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Crown, Zap, Heart, Bitcoin, CreditCard, Copy, Check, Clock, Infinity, X, Shield, ExternalLink, Loader2, ChevronRight } from "lucide-react"
+import { Crown, Zap, Heart, Bitcoin, CreditCard, Copy, Check, Clock, Infinity as InfinityIcon, X, Shield, ExternalLink, Loader2, ChevronRight } from "lucide-react"
 import { LuxuryButton } from "@/components/ui/luxury-button"
 import { GlassCard, GlassCardContent } from "@/components/ui/glass-card"
 import { cn } from "@/lib/utils"
@@ -314,7 +314,7 @@ export function PaywallGate({ children, gameName = "this game" }: PaywallGatePro
             <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-black/30 border border-white/8">
               {([
                 { id: "daily", icon: Clock, label: "Daily Pass", price: "$5", sub: "24 hrs of full play" },
-                { id: "pro", icon: Infinity, label: "Zen Pro", price: "$9.99", sub: "Per month, cancel any time" },
+                { id: "pro", icon: InfinityIcon, label: "Zen Pro", price: "$9.99", sub: "Per month, cancel any time" },
               ] as const).map(({ id, icon: Icon, label, price, sub }) => (
                 <button
                   key={id}
