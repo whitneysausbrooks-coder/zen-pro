@@ -81,6 +81,39 @@ export const taskCompletionsTable = pgTable("task_completions", {
   uniqueIndex("task_completions_unique_daily").on(table.session_id, table.task_id, table.completion_date),
 ]);
 
+// ---- Compassion Reels: business-funded micro-donations (every.org) ----
+// One row per month tracks the HARD spending cap and how much the business has
+// already committed this period. The milestone endpoint locks this row
+// (SELECT ... FOR UPDATE) before accruing, so concurrent plays / bots can never
+// push committed giving past `budget_cents`.
+export const compassionBudgetTable = pgTable("compassion_budget", {
+  id: serial("id").primaryKey(),
+  period: text("period").notNull().unique(), // "YYYY-MM"
+  budget_cents: integer("budget_cents").notNull(),
+  accrued_cents: integer("accrued_cents").notNull().default(0),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Ledger of real, business-funded micro-donations accrued from Compassion
+// Milestones. Amounts are settled to the nonprofit in batches via every.org;
+// `status` walks accrued -> settling -> settled (or failed).
+export const compassionDonationsTable = pgTable("compassion_donations", {
+  id: serial("id").primaryKey(),
+  session_id: text("session_id"),
+  period: text("period").notNull(),
+  amount_cents: integer("amount_cents").notNull(),
+  nonprofit_slug: text("nonprofit_slug").notNull(),
+  milestone_kind: text("milestone_kind").notNull().default("reels_three_match"),
+  status: text("status").notNull().default("accrued"),
+  batch_id: text("batch_id"),
+  every_org_charge_id: text("every_org_charge_id"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  settled_at: timestamp("settled_at"),
+});
+
+export type CompassionBudget = typeof compassionBudgetTable.$inferSelect;
+export type CompassionDonation = typeof compassionDonationsTable.$inferSelect;
+
 export const insertUserProfileSchema = createInsertSchema(userProfilesTable).omit({ id: true, updated_at: true });
 export const insertActivitySchema = createInsertSchema(activitiesTable).omit({ id: true, created_at: true });
 export const insertEnterpriseLeadSchema = createInsertSchema(enterpriseLeadsTable).omit({ id: true, created_at: true });

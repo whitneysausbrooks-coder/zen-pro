@@ -200,4 +200,44 @@ export async function runMigrations(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_cbi_responses_user_time
     ON cbi_responses(app_user_id, taken_at DESC)
   `);
+
+  // ---- Compassion Reels (May 31, 2026) — business-funded micro-donations ----
+  // A Compassion Milestone in the Play-tab game accrues a REAL, business-funded
+  // micro-donation routed to a nonprofit via every.org. `compassion_budget`
+  // holds a HARD monthly cap that the milestone endpoint enforces under a row
+  // lock so gameplay/bots can never overspend the giving budget. Donations are
+  // accrued here and settled to every.org in batches (status walks
+  // accrued -> settling -> settled). DO NOT remove columns.
+  await query(`
+    CREATE TABLE IF NOT EXISTS compassion_budget (
+      id serial PRIMARY KEY,
+      period varchar NOT NULL UNIQUE,
+      budget_cents integer NOT NULL,
+      accrued_cents integer NOT NULL DEFAULT 0,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS compassion_donations (
+      id serial PRIMARY KEY,
+      session_id varchar,
+      period varchar NOT NULL,
+      amount_cents integer NOT NULL,
+      nonprofit_slug varchar NOT NULL,
+      milestone_kind varchar NOT NULL DEFAULT 'reels_three_match',
+      status varchar NOT NULL DEFAULT 'accrued',
+      batch_id varchar,
+      every_org_charge_id varchar,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      settled_at timestamptz
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_compassion_donations_period
+    ON compassion_donations(period, status)
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_compassion_donations_batch
+    ON compassion_donations(batch_id)
+  `);
 }

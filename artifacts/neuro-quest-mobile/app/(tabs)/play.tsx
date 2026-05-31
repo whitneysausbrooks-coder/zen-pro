@@ -32,25 +32,64 @@ const nd = Platform.OS !== "web";
 const NE_KEY = "nq_neural_energy";
 const SPINS_KEY = "nq_spins_left";
 const WINS_KEY = "nq_total_wins";
-const DONATIONS_KEY = "nq_micro_donations";
+const PLAY_SESSION_KEY = "nq_play_session";
 const TOTAL_SPINS_USED_KEY = "nq_total_spins_used";
 const LAST_SPIN_REFILL_KEY = "nq_last_spin_refill";
 
 const WHEEL_SPIN_COST = 10;
-const DONATION_RATE = 0.30;
 const DAILY_FREE_SPINS = 5;
 const REFILL_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 type ResultState = "idle" | "win" | "lose";
 
+// Compassion Reels: hitting a Compassion Milestone triggers a REAL,
+// business-funded micro-donation routed to a nonprofit via every.org. The
+// player never pays — NeuroQuest funds it from a capped monthly giving budget
+// enforced server-side. The amounts and impact shown here are the real ledger,
+// not a simulation.
+interface CompassionImpact {
+  this_month_cents: number;
+  monthly_budget_cents: number;
+  monthly_remaining_cents: number;
+  all_time_cents: number;
+  supporters_this_month: number;
+  milestone_cents: number;
+  nonprofit: string;
+}
+
+function getApiBase(): string {
+  return Platform.OS === "web" ? "" : `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+}
+
+async function getPlaySessionId(): Promise<string> {
+  try {
+    let id = await AsyncStorage.getItem(PLAY_SESSION_KEY);
+    if (!id) {
+      id = `play_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      await AsyncStorage.setItem(PLAY_SESSION_KEY, id);
+    }
+    return id;
+  } catch {
+    return `play_${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+function prettyNonprofit(slug: string | undefined): string {
+  if (!slug || slug === "feeding-america") return "Feeding America";
+  return slug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function formatCents(cents: number | undefined): string {
+  return `$${((cents ?? 0) / 100).toFixed(2)}`;
+}
+
 const SPIN_PACKS = [
   { id: "pack_5", spins: 5, price: "$0.99", priceNum: 0.99, label: "Starter", productId: "pro.neuroquestzen.app.spins.5" },
   { id: "pack_15", spins: 15, price: "$1.99", priceNum: 1.99, label: "Popular", badge: "POPULAR", productId: "pro.neuroquestzen.app.spins.15" },
   { id: "pack_50", spins: 50, price: "$4.99", priceNum: 4.99, label: "Pro", badge: "BEST VALUE", productId: "pro.neuroquestzen.app.spins.50" },
-];
-
-const DONATION_CAUSES = [
-  "Clean Water", "End Hunger", "Education", "Mental Health", "Climate Action", "Ocean Cleanup",
 ];
 
 export default function PlayScreen() {
@@ -60,8 +99,8 @@ export default function PlayScreen() {
   const [spinsLeft, setSpinsLeft] = useState(5);
   const [purchasingPack, setPurchasingPack] = useState<string | null>(null);
   const [totalWins, setTotalWins] = useState(0);
-  const [totalDonated, setTotalDonated] = useState(0);
-  const [lastDonation, setLastDonation] = useState<{ amount: number; cause: string } | null>(null);
+  const [impact, setImpact] = useState<CompassionImpact | null>(null);
+  const [lastMilestone, setLastMilestone] = useState<{ donatedCents: number; capped: boolean } | null>(null);
   const [result, setResult] = useState<ResultState>("idle");
   const [isLoading, setIsLoading] = useState(true);
   const resultAnim = useRef(new Animated.Value(0)).current;
@@ -81,11 +120,10 @@ export default function PlayScreen() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [ne, s, w, d, lastRefill] = await Promise.all([
+        const [ne, s, w, lastRefill] = await Promise.all([
           AsyncStorage.getItem(NE_KEY),
           AsyncStorage.getItem(SPINS_KEY),
           AsyncStorage.getItem(WINS_KEY),
-          AsyncStorage.getItem(DONATIONS_KEY),
           AsyncStorage.getItem(LAST_SPIN_REFILL_KEY),
         ]);
         if (ne !== null) {
@@ -113,15 +151,12 @@ export default function PlayScreen() {
           const parsed = parseInt(w, 10);
           if (!Number.isNaN(parsed)) setTotalWins(parsed);
         }
-        if (d !== null) {
-          const parsed = parseFloat(d);
-          if (!Number.isNaN(parsed)) setTotalDonated(parsed);
-        }
       } catch {}
       setIsLoading(false);
       Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: nd }).start();
     };
     load();
+    fetchImpact();
 
     if (Platform.OS === "ios") {
       initIAP().catch(() => {});
@@ -153,24 +188,57 @@ export default function PlayScreen() {
     }, 2800);
   }, []);
 
-  const trackDonation = useCallback(
-    (amount: number) => {
-      const donationAmount = Math.round(amount * DONATION_RATE * 100) / 100;
-      if (donationAmount <= 0) return;
-      const cause = DONATION_CAUSES[Math.floor(Math.random() * DONATION_CAUSES.length)];
-      setTotalDonated((prev) => {
-        const newTotal = Math.round((prev + donationAmount) * 100) / 100;
-        AsyncStorage.setItem(DONATIONS_KEY, String(newTotal));
-        return newTotal;
+  const fetchImpact = useCallback(async () => {
+    try {
+      const res = await fetch(`${getApiBase()}/api/donations/compassion-impact`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setImpact({
+        this_month_cents: data.this_month_cents ?? 0,
+        monthly_budget_cents: data.monthly_budget_cents ?? 0,
+        monthly_remaining_cents: data.monthly_remaining_cents ?? 0,
+        all_time_cents: data.all_time_cents ?? 0,
+        supporters_this_month: data.supporters_this_month ?? 0,
+        milestone_cents: data.milestone_cents ?? 0,
+        nonprofit: data.nonprofit ?? "feeding-america",
       });
-      setLastDonation({ amount: donationAmount, cause });
+    } catch {}
+  }, []);
 
+  // A Compassion Milestone triggers a REAL, business-funded micro-donation on the
+  // server (capped monthly). The player never pays. We optimistically reflect the
+  // returned ledger totals so the impact card stays in sync with the real cap.
+  const recordMilestone = useCallback(
+    async (kind: string) => {
       Animated.sequence([
         Animated.timing(donationPulse, { toValue: 1, duration: 300, useNativeDriver: nd }),
         Animated.timing(donationPulse, { toValue: 0, duration: 2000, useNativeDriver: nd }),
       ]).start();
+      try {
+        const sessionId = await getPlaySessionId();
+        const res = await fetch(`${getApiBase()}/api/donations/compassion-milestone`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, milestone_kind: kind }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setLastMilestone({ donatedCents: data.donated_cents ?? 0, capped: !!data.capped });
+        setImpact((prev) => ({
+          this_month_cents: data.monthly_total_cents ?? prev?.this_month_cents ?? 0,
+          monthly_budget_cents: data.monthly_budget_cents ?? prev?.monthly_budget_cents ?? 0,
+          monthly_remaining_cents: data.monthly_remaining_cents ?? prev?.monthly_remaining_cents ?? 0,
+          all_time_cents: (prev?.all_time_cents ?? 0) + (data.donated_cents ?? 0),
+          supporters_this_month: prev?.supporters_this_month ?? 0,
+          milestone_cents: prev?.milestone_cents ?? (data.donated_cents || 0),
+          nonprofit: data.nonprofit ?? prev?.nonprofit ?? "feeding-america",
+        }));
+        // Re-sync with the authoritative server ledger (supporters, all-time,
+        // settled) so the optimistic update above can't drift out of truth.
+        fetchImpact();
+      } catch {}
     },
-    []
+    [fetchImpact]
   );
 
   const incrementSpinCount = useCallback(async () => {
@@ -193,7 +261,7 @@ export default function PlayScreen() {
           persistNE(next);
           return next;
         });
-        trackDonation(payout);
+        recordMilestone("reels_match");
         setTotalWins((prev) => {
           const next = prev + 1;
           AsyncStorage.setItem(WINS_KEY, String(next));
@@ -203,7 +271,7 @@ export default function PlayScreen() {
         setCelebrationAmount(payout);
         setShowCelebration(true);
       } else if (wheelResult.isBoost) {
-        trackDonation(WHEEL_SPIN_COST * 2);
+        recordMilestone("reels_boost");
         setTotalWins((prev) => {
           const next = prev + 1;
           AsyncStorage.setItem(WINS_KEY, String(next));
@@ -213,11 +281,10 @@ export default function PlayScreen() {
         setCelebrationAmount(WHEEL_SPIN_COST * 2);
         setShowCelebration(true);
       } else {
-        trackDonation(WHEEL_SPIN_COST * 0.1);
         showResult("lose");
       }
     },
-    [spinsLeft, showResult, trackDonation, incrementSpinCount, persistNE]
+    [spinsLeft, showResult, recordMilestone, incrementSpinCount, persistNE]
   );
 
   const handlePremiumSpinStart = useCallback(
@@ -263,7 +330,7 @@ export default function PlayScreen() {
         neRef.current = nextNE;
         setNeuralEnergy(nextNE);
         persistNE(nextNE);
-        trackDonation(payout);
+        recordMilestone("hold_and_win");
         setTotalWins((prev) => {
           const next = prev + 1;
           AsyncStorage.setItem(WINS_KEY, String(next));
@@ -273,11 +340,10 @@ export default function PlayScreen() {
         setCelebrationAmount(payout);
         setShowCelebration(true);
       } else {
-        trackDonation(cost * 0.1);
         showResult("lose");
       }
     },
-    [showResult, trackDonation, incrementSpinCount, persistNE]
+    [showResult, recordMilestone, incrementSpinCount, persistNE]
   );
 
   const handleDiamondResult = useCallback(
@@ -291,7 +357,7 @@ export default function PlayScreen() {
         neRef.current = nextNE;
         setNeuralEnergy(nextNE);
         persistNE(nextNE);
-        trackDonation(payout);
+        recordMilestone("diamond");
         setTotalWins((prev) => {
           const next = prev + 1;
           AsyncStorage.setItem(WINS_KEY, String(next));
@@ -301,11 +367,10 @@ export default function PlayScreen() {
         setCelebrationAmount(payout);
         setShowCelebration(true);
       } else {
-        trackDonation(cost * 0.1);
         showResult("lose");
       }
     },
-    [showResult, trackDonation, incrementSpinCount, persistNE]
+    [showResult, recordMilestone, incrementSpinCount, persistNE]
   );
 
   const creditSpins = useCallback(async (amount: number) => {
@@ -428,9 +493,9 @@ export default function PlayScreen() {
       >
         <Animated.View style={{ opacity: isLoading ? 0 : fadeIn }}>
         <View style={styles.header} accessibilityRole="header">
-          <Text style={styles.eyebrow}>COMPASSION WHEEL</Text>
-          <Text style={styles.title}>Spin for Good</Text>
-          <Text style={styles.subtitle}>For entertainment & mindfulness only</Text>
+          <Text style={styles.eyebrow}>COMPASSION REELS</Text>
+          <Text style={styles.title}>Play for Good</Text>
+          <Text style={styles.subtitle}>Hit a Compassion Milestone — we fund a real donation, never you</Text>
         </View>
 
         <GlassCard style={styles.balanceCard} borderColor={Colors.goldAlpha20} elevated>
@@ -450,7 +515,7 @@ export default function PlayScreen() {
             <View style={styles.balanceItem}>
               <Text style={styles.balanceLabel}>Free Spins</Text>
               <Text style={[styles.balanceValue, { color: Colors.empathyGreen }]}>{spinsLeft}</Text>
-              <Text style={styles.balanceSub}>Lucky Wheel</Text>
+              <Text style={styles.balanceSub}>Compassion Reels</Text>
             </View>
             <View style={styles.balanceDivider} />
             <View style={styles.balanceItem}>
@@ -514,7 +579,7 @@ export default function PlayScreen() {
         <View style={styles.premiumInfo}>
           <Ionicons name="information-circle-outline" size={14} color={Colors.whiteAlpha30} />
           <Text style={styles.premiumInfoText}>
-            Premium games cost Neural Energy. Rewards = Stake × Multiplier. Balance deducted before spin.
+            Premium games cost Neural Energy. Rewards = NE spent × Multiplier. Balance deducted before play.
           </Text>
         </View>
 
@@ -536,12 +601,14 @@ export default function PlayScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           />
-          <Text style={styles.microEyebrow}>IMPACT TRACKER</Text>
-          <Text style={styles.microSubtitle}>{Math.round(DONATION_RATE * 100)}% of all gameplay value goes to charity</Text>
+          <Text style={styles.microEyebrow}>COMPASSION IMPACT</Text>
+          <Text style={styles.microSubtitle}>
+            Real, business-funded donations to {prettyNonprofit(impact?.nonprofit)} — funded by NeuroQuest, never you
+          </Text>
 
           <View style={styles.microStats}>
             <View style={styles.microStatMain}>
-              <Text style={styles.microTotalLabel}>Your Total Impact</Text>
+              <Text style={styles.microTotalLabel}>Funded This Month</Text>
               <Animated.Text
                 style={[
                   styles.microTotal,
@@ -557,28 +624,28 @@ export default function PlayScreen() {
                   },
                 ]}
               >
-                ${totalDonated.toFixed(2)}
+                {formatCents(impact?.this_month_cents)}
               </Animated.Text>
             </View>
             <View style={styles.microStatsRow}>
               <View style={styles.microStatItem}>
-                <Text style={styles.microStatVal}>{totalWins}</Text>
-                <Text style={styles.microStatLabel}>Wins</Text>
+                <Text style={styles.microStatVal}>{formatCents(impact?.all_time_cents)}</Text>
+                <Text style={styles.microStatLabel}>All-Time</Text>
               </View>
               <View style={styles.microStatDivider} />
               <View style={styles.microStatItem}>
-                <Text style={styles.microStatVal}>{Math.round(DONATION_RATE * 100)}%</Text>
-                <Text style={styles.microStatLabel}>To Charity</Text>
+                <Text style={styles.microStatVal}>{formatCents(impact?.monthly_budget_cents)}</Text>
+                <Text style={styles.microStatLabel}>Monthly Cap</Text>
               </View>
               <View style={styles.microStatDivider} />
               <View style={styles.microStatItem}>
-                <Text style={styles.microStatVal}>6</Text>
-                <Text style={styles.microStatLabel}>Causes</Text>
+                <Text style={styles.microStatVal}>{impact?.supporters_this_month ?? 0}</Text>
+                <Text style={styles.microStatLabel}>Players</Text>
               </View>
             </View>
           </View>
 
-          {lastDonation && (
+          {lastMilestone && (
             <Animated.View
               style={[
                 styles.lastDonation,
@@ -592,27 +659,40 @@ export default function PlayScreen() {
             >
               <View style={styles.lastDonationDot} />
               <Text style={styles.lastDonationText}>
-                ${lastDonation.amount.toFixed(2)} impact tracked for {lastDonation.cause}
+                {lastMilestone.donatedCents > 0
+                  ? `Compassion Milestone! We just funded ${formatCents(lastMilestone.donatedCents)} to ${prettyNonprofit(impact?.nonprofit)}`
+                  : `This month's giving goal is reached — milestones still celebrate, giving resumes next month`}
               </Text>
             </Animated.View>
           )}
 
-          <View style={styles.microBreakdown}>
-            <Text style={styles.microBreakdownTitle}>Where Your Donations Go</Text>
-            {DONATION_CAUSES.map((cause, i) => {
-              const basePct = Math.floor((1 / DONATION_CAUSES.length) * 100);
-              const pct = i < (100 - basePct * DONATION_CAUSES.length) ? basePct + 1 : basePct;
-              return (
-                <View key={cause} style={styles.microCauseRow}>
-                  <View style={[styles.microCauseDot, { backgroundColor: [Colors.mindfulBlue, Colors.balanceAmber, Colors.empathyGreen, Colors.neuralPurple, Colors.compassionPink, Colors.gold][i] }]} />
-                  <Text style={styles.microCauseName}>{cause}</Text>
-                  <View style={styles.microCauseBar}>
-                    <View style={[styles.microCauseFill, { width: `${pct}%`, backgroundColor: [Colors.mindfulBlue, Colors.balanceAmber, Colors.empathyGreen, Colors.neuralPurple, Colors.compassionPink, Colors.gold][i] }]} />
-                  </View>
-                  <Text style={styles.microCausePct}>{pct}%</Text>
-                </View>
-              );
-            })}
+          <View style={styles.microBudget}>
+            <View style={styles.microBudgetHead}>
+              <Text style={styles.microBudgetTitle}>This Month's Giving Budget</Text>
+              <Text style={styles.microBudgetPct}>
+                {formatCents(impact?.this_month_cents)} / {formatCents(impact?.monthly_budget_cents)}
+              </Text>
+            </View>
+            <View style={styles.microCauseBar}>
+              <View
+                style={[
+                  styles.microCauseFill,
+                  {
+                    width: `${
+                      impact && impact.monthly_budget_cents > 0
+                        ? Math.min(100, Math.round((impact.this_month_cents / impact.monthly_budget_cents) * 100))
+                        : 0
+                    }%`,
+                    backgroundColor: Colors.empathyGreen,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.microBudgetNote}>
+              {impact && impact.monthly_remaining_cents <= 0
+                ? "Monthly giving goal reached — thank you for playing. Giving resets next month."
+                : `${formatCents(impact?.monthly_remaining_cents)} of business-funded giving left this month`}
+            </Text>
           </View>
         </GlassCard>
 
@@ -651,7 +731,7 @@ export default function PlayScreen() {
             <Feather name="share-2" size={20} color={Colors.neuralPurple} />
             <View style={styles.shareTextWrap}>
               <Text style={styles.shareTitle}>Share Your Wins</Text>
-              <Text style={styles.shareSub}>Challenge friends to spin for good</Text>
+              <Text style={styles.shareSub}>Challenge friends to play for good</Text>
             </View>
             <Feather name="chevron-right" size={18} color={Colors.whiteAlpha30} />
           </GlassCard>
@@ -662,8 +742,8 @@ export default function PlayScreen() {
           {[
             { icon: "🧠", text: "Each spin trains neuroplasticity through pattern recognition" },
             { icon: "⚡", text: "Neural Energy is deducted before each premium spin — no double claims" },
-            { icon: "❤️", text: `${Math.round(DONATION_RATE * 100)}% of all gameplay value goes to verified charity partners` },
-            { icon: "📊", text: "Win rates are transparent: 70–80% miss, 11–20% partial, 1–11% top reward" },
+            { icon: "❤️", text: "Hit a Compassion Milestone and NeuroQuest funds a real donation to a verified nonprofit — our money, never yours" },
+            { icon: "🛡️", text: "Giving is capped by a fixed monthly budget; when it's reached, milestones still celebrate and giving resumes next month" },
           ].map((item, i) => (
             <View key={i} style={styles.howRow}>
               <Text style={styles.howIcon}>{item.icon}</Text>
@@ -1003,52 +1083,44 @@ const styles = StyleSheet.create({
     color: Colors.empathyGreen,
     flex: 1,
   },
-  microBreakdown: {
+  microBudget: {
     gap: 8,
     backgroundColor: Colors.whiteAlpha05,
     borderRadius: 12,
     padding: 14,
   },
-  microBreakdownTitle: {
+  microBudgetHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  microBudgetTitle: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 12,
     color: Colors.whiteAlpha60,
-    marginBottom: 4,
   },
-  microCauseRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  microBudgetPct: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
+    color: Colors.empathyGreen,
   },
-  microCauseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  microCauseName: {
+  microBudgetNote: {
     fontFamily: "Inter_400Regular",
     fontSize: 11,
     color: Colors.whiteAlpha50,
-    width: 90,
+    marginTop: 2,
   },
   microCauseBar: {
-    flex: 1,
-    height: 4,
+    width: "100%",
+    height: 6,
     backgroundColor: Colors.whiteAlpha05,
-    borderRadius: 2,
+    borderRadius: 3,
     overflow: "hidden",
   },
   microCauseFill: {
     height: "100%",
-    borderRadius: 2,
-    opacity: 0.7,
-  },
-  microCausePct: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 10,
-    color: Colors.whiteAlpha30,
-    width: 28,
-    textAlign: "right",
+    borderRadius: 3,
+    opacity: 0.85,
   },
   spinPackCard: {
     padding: 24,

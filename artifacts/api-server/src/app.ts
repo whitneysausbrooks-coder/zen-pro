@@ -37,6 +37,28 @@ app.post(
 );
 
 app.post(
+  "/api/webhooks/every-org",
+  express.raw({ type: "application/json" }),
+  async (req, res): Promise<void> => {
+    try {
+      const { handleEveryOrgWebhook } = await import("./lib/everyOrg");
+      const token =
+        (req.header("x-webhook-token") as string | undefined) ||
+        (typeof req.query.webhook_token === "string" ? req.query.webhook_token : undefined);
+      const result = await handleEveryOrgWebhook(req.body as Buffer, token);
+      if (!result.ok) {
+        res.status(result.reason === "invalid_token" ? 403 : 400).json({ error: result.reason });
+        return;
+      }
+      res.json({ received: true, settled: result.settled });
+    } catch (err: any) {
+      console.error("every.org webhook error:", err?.message);
+      res.status(400).json({ error: "Webhook error" });
+    }
+  }
+);
+
+app.post(
   "/api/stripe-enterprise/webhook",
   express.raw({ type: "application/json" }),
   async (req, res): Promise<void> => {

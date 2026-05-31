@@ -192,7 +192,7 @@ export function SlotMachine({ onSpin, spinsLeft, disabled }: SlotMachineProps) {
         />
         <View style={styles.machineTop}>
           <Text style={styles.machineTitle}>Compassion</Text>
-          <Text style={styles.machineSubtitle}>LUCKY WHEEL</Text>
+          <Text style={styles.machineSubtitle}>REELS</Text>
         </View>
 
         <View style={styles.wheelContainer}>
@@ -269,7 +269,7 @@ export function SlotMachine({ onSpin, spinsLeft, disabled }: SlotMachineProps) {
             <Text style={styles.resultText}>
               {WHEEL_SEGMENTS[lastWinIndex].icon}{" "}
               {WHEEL_SEGMENTS[lastWinIndex].label === "MISS"
-                ? "No Win"
+                ? "Try Again"
                 : WHEEL_SEGMENTS[lastWinIndex].label === "2x"
                 ? "2x Boost!"
                 : `+${WHEEL_SEGMENTS[lastWinIndex].label} NE`}

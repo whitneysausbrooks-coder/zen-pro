@@ -14,6 +14,7 @@ import companyAdminRouter from "./company-admin";
 import appUserRouter from "./app-user";
 import aiRouter from "./ai";
 import cbiRouter from "./cbi";
+import donationsRouter from "./donations";
 
 const router: IRouter = Router();
 
@@ -29,6 +30,7 @@ router.use(aiRouter);
 router.use(cbiRouter);
 router.use(companyAdminRouter);
 router.use(stripeEnterpriseRouter);
+router.use(donationsRouter);
 router.use("/", sponsorRouter);
 router.use("/", adminRouter);
 router.use("/", notificationsRouter);

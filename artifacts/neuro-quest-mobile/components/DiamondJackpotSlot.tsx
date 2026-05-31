@@ -12,9 +12,9 @@ import {
 import Colors from "@/constants/colors";
 
 const nd = Platform.OS !== "web";
-const SYMBOLS = ["💎", "👑", "💰", "🃏", "🎲", "🍀"];
+const SYMBOLS = ["💎", "👑", "🌟", "🌿", "🌸", "🍀"];
 const PAYOUTS: Record<string, number> = {
-  "💎": 15, "👑": 12, "💰": 8, "🃏": 5, "🎲": 4, "🍀": 6,
+  "💎": 15, "👑": 12, "🌟": 8, "🌿": 5, "🌸": 4, "🍀": 6,
 };
 
 const TIERS = [
@@ -235,13 +235,13 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
       case "mega": {
         resultMultiplier = (PAYOUTS[matchSym] || 5) * 3;
         payoutAmount = Math.round(cost * resultMultiplier);
-        setResultText(`💎 MEGA WIN! ${matchSym}×5 — +${payoutAmount} NE!`);
+        setResultText(`💎 Compassion Milestone! ${matchSym}×5 — +${payoutAmount} NE!`);
         break;
       }
       case "four": {
         resultMultiplier = (PAYOUTS[matchSym] || 5) * 1.5;
         payoutAmount = Math.round(cost * resultMultiplier);
-        setResultText(`🔥 Four of a Kind! ${matchSym}×4 — +${payoutAmount} NE!`);
+        setResultText(`🔥 Four Match! ${matchSym}×4 — +${payoutAmount} NE!`);
         break;
       }
       case "three": {
@@ -257,7 +257,7 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
         break;
       }
       default: {
-        setResultText("No match — spin again!");
+        setResultText("No match — play again!");
         break;
       }
     }
@@ -309,7 +309,7 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
         style={StyleSheet.absoluteFill}
       />
       <View style={s.header}>
-        <Text style={s.badge}>5-REEL PREMIUM</Text>
+        <Text style={s.badge}>5-MATCH PREMIUM</Text>
         <Text style={s.title}>Diamond Reward</Text>
         <Text style={s.sub}>5 reels, bigger matches, bigger rewards</Text>
       </View>
@@ -336,7 +336,7 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
               selectedTier === i && { borderColor: tier.color, backgroundColor: `${tier.color}15` },
             ]}
             accessibilityRole="button"
-            accessibilityLabel={`Stake ${tier.label}`}
+            accessibilityLabel={`Play ${tier.label}`}
           >
             <Text style={[s.tierLabel, selectedTier === i && { color: tier.color }]}>
               {tier.label}
@@ -363,8 +363,8 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
       </View>
 
       <View style={s.oddsRow}>
-        <Text style={s.oddsLabel}>Win Rates:</Text>
-        <Text style={s.oddsText}>Mega 1% · Four 2% · Three 6% · Pair 11% · Miss 80%</Text>
+        <Text style={s.oddsLabel}>Match Chances:</Text>
+        <Text style={s.oddsText}>Top 1% · Four 2% · Three 6% · Pair 11% · Miss 80%</Text>
       </View>
 
       <Pressable

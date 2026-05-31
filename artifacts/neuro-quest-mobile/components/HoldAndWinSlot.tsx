@@ -13,9 +13,9 @@ import { Ionicons } from "@expo/vector-icons";
 import Colors from "@/constants/colors";
 
 const nd = Platform.OS !== "web";
-const SYMBOLS = ["💎", "7️⃣", "🍒", "🔔", "⭐", "🎰"];
+const SYMBOLS = ["💎", "⚡", "🌿", "🔔", "⭐", "🧠"];
 const MULTIPLIERS: Record<string, number> = {
-  "💎": 10, "7️⃣": 7, "🍒": 3, "🔔": 5, "⭐": 4, "🎰": 8,
+  "💎": 10, "⚡": 7, "🌿": 3, "🔔": 5, "⭐": 4, "🧠": 8,
 };
 
 const TIERS = [
@@ -285,17 +285,17 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
         donationCents = Math.round(tier.cost * resultMultiplier);
         const net = donationCents - tier.cost;
         setResultText(
-          `TRIPLE WIN! ${matchSymbol}${matchSymbol}${matchSymbol} — +${donationCents} NE (net +${net})`
+          `Triple Match! ${matchSymbol}${matchSymbol}${matchSymbol} — +${donationCents} NE (net +${net})`
         );
       } else if (outcome === "pair") {
         resultMultiplier = 0.5;
         donationCents = Math.round(tier.cost * resultMultiplier);
         const net = donationCents - tier.cost;
         setResultText(
-          `Pair ${matchSymbol}${matchSymbol} — half stake back +${donationCents} NE (net ${net})`
+          `Pair ${matchSymbol}${matchSymbol} — half energy back +${donationCents} NE (net ${net})`
         );
       } else {
-        setResultText(`No match — lost ${tier.cost} NE`);
+        setResultText(`No match — spent ${tier.cost} NE`);
       }
 
       setPayout(donationCents);
@@ -389,7 +389,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
         style={StyleSheet.absoluteFill}
       />
       <View style={s.header}>
-        <Text style={s.badge}>HOLD & WIN</Text>
+        <Text style={s.badge}>HOLD & GROW</Text>
         <Text style={s.title}>Neural Hold</Text>
         <Text style={s.sub}>
           Hold your best reels, respin for a match
@@ -453,7 +453,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
               },
             ]}
             accessibilityRole="button"
-            accessibilityLabel={`Stake ${tier.label}`}
+            accessibilityLabel={`Play ${tier.label}`}
           >
             <Text
               style={[
@@ -468,7 +468,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
       </View>
 
       <View style={s.oddsRow}>
-        <Text style={s.oddsLabel}>Win Rates:</Text>
+        <Text style={s.oddsLabel}>Match Chances:</Text>
         <Text style={s.oddsText}>Triple 11% · Pair 19% · Miss 70%</Text>
       </View>
 

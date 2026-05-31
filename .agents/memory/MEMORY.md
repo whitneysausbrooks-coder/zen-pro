@@ -1,1 +1,2 @@
 - [Enterprise write patterns](enterprise-write-patterns.md) — seat-cap joins need FOR UPDATE row lock; audit logs go after COMMIT in their own try/catch (best-effort).
+- [Compassion Reels donations](compassion-reels-donations.md) — every.org accrue-then-settle; cap via FOR UPDATE on budget row; settle = single UPDATE…RETURNING; webhook fail-closed; Apple-safe copy.
