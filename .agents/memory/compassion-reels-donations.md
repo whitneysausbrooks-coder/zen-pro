@@ -47,3 +47,25 @@ via every.org.
   (file/component/type names like `DiamondJackpotSlot`, outcome `"mega"`) can stay.
 - **Why:** the original tied random outcomes to real money ("win money"), which reads as
   real-money gambling. Business-funded + de-gambled copy keeps it review-safe.
+
+## Apple-safety copy sweep — non-obvious banned-string locations
+- Banned wording hides OUTSIDE the Play file and OUTSIDE visible text. Confirmed traps:
+  `components/CelebrationOverlay.tsx` (shared milestone overlay) hard-codes the celebration
+  title — it was "YOU WON!"; and several `accessibilityLabel`s carried "spinning"/"wins"
+  (e.g. SlotMachine wheel label, play.tsx share card). Sweep ALL Play-tab components +
+  a11y labels, not just `play.tsx` visible Text.
+- Do NOT touch internal identifiers/type-literals: `ResultState = "win" | "lose"`,
+  `phase === "spinning"`, `onSpinStart`, `DiamondJackpotSlot` — these are not user-facing and
+  flipping them just churns code. Only quoted user-facing strings + a11y labels matter.
+
+## Testing the cap from the shell — two gotchas
+- The API has a **rate limiter** ("Too many requests. Please slow down.") that throttles
+  burst load tests, so you usually CANNOT push enough HTTP requests to actually hit the 5000¢
+  cap boundary from the shell. Don't read its 429s as cap/logic failures.
+- Node global `fetch` (undici) fails en masse (mass ECONNRESET) when firing hundreds of
+  concurrent requests at localhost — gives false "all errored" results. Use bounded parallel
+  `curl` (`xargs -P N`) instead. Atomic accrual is best proven by exact totals: N concurrent
+  milestones must equal N×milestone_cents in `compassion_donations` with zero overshoot.
+- Cleanup after load tests: delete `compassion_donations` test rows AND reset
+  `compassion_budget.accrued_cents` for the current period (it's tracked separately from the
+  ledger sum, so deleting rows alone leaves a stale accrued count).

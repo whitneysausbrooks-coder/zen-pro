@@ -24,7 +24,6 @@ import { DiamondJackpotSlot, DiamondResult } from "@/components/DiamondJackpotSl
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import Colors from "@/constants/colors";
 import { useRouter } from "expo-router";
-import { initIAP, purchaseProduct, fetchEntitlements } from "@/lib/iap";
 
 const { width: screenW } = Dimensions.get("window");
 const nd = Platform.OS !== "web";
@@ -86,18 +85,11 @@ function formatCents(cents: number | undefined): string {
   return `$${((cents ?? 0) / 100).toFixed(2)}`;
 }
 
-const SPIN_PACKS = [
-  { id: "pack_5", spins: 5, price: "$0.99", priceNum: 0.99, label: "Starter", productId: "pro.neuroquestzen.app.spins.5" },
-  { id: "pack_15", spins: 15, price: "$1.99", priceNum: 1.99, label: "Popular", badge: "POPULAR", productId: "pro.neuroquestzen.app.spins.15" },
-  { id: "pack_50", spins: 50, price: "$4.99", priceNum: 4.99, label: "Pro", badge: "BEST VALUE", productId: "pro.neuroquestzen.app.spins.50" },
-];
-
 export default function PlayScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [neuralEnergy, setNeuralEnergy] = useState(100);
   const [spinsLeft, setSpinsLeft] = useState(5);
-  const [purchasingPack, setPurchasingPack] = useState<string | null>(null);
   const [totalWins, setTotalWins] = useState(0);
   const [impact, setImpact] = useState<CompassionImpact | null>(null);
   const [lastMilestone, setLastMilestone] = useState<{ donatedCents: number; capped: boolean } | null>(null);
@@ -157,10 +149,6 @@ export default function PlayScreen() {
     };
     load();
     fetchImpact();
-
-    if (Platform.OS === "ios") {
-      initIAP().catch(() => {});
-    }
 
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -294,8 +282,8 @@ export default function PlayScreen() {
       const currentNE = neRef.current;
       if (currentNE < cost) {
         Alert.alert(
-          "Insufficient Neural Energy",
-          `You need ${cost} NE but have ${currentNE} NE. Earn more through brain training or purchase additional energy.`,
+          "Not enough Neural Energy",
+          `You need ${cost} NE but have ${currentNE} NE. Earn more through brain training — daily plays also refill automatically every 24 hours.`,
           [{ text: "OK" }]
         );
         return false;
@@ -373,82 +361,17 @@ export default function PlayScreen() {
     [showResult, recordMilestone, incrementSpinCount, persistNE]
   );
 
-  const creditSpins = useCallback(async (amount: number) => {
-    const current = parseInt((await AsyncStorage.getItem(SPINS_KEY)) || "0", 10) || 0;
-    const next = current + amount;
-    setSpinsLeft(next);
-    await AsyncStorage.setItem(SPINS_KEY, String(next));
-  }, []);
-
-  // T003 — restored real IAP path. Server-side `requireUserOrDevice` already
-  // accepts our HMAC device-signed calls, and `purchaseProduct` flows through
-  // `signedFetch` so receipt validation succeeds without Clerk on mobile.
-  const reconcileSpinsWithServer = useCallback(async (): Promise<boolean> => {
-    try {
-      const ents = await fetchEntitlements();
-      if (typeof ents?.spin_balance === "number") {
-        setSpinsLeft(ents.spin_balance);
-        await AsyncStorage.setItem(SPINS_KEY, String(ents.spin_balance));
-        return true;
-      }
-    } catch {}
-    return false;
-  }, []);
-
-  const runSpinPackPurchase = useCallback(async (pack: typeof SPIN_PACKS[0]) => {
-    if (Platform.OS !== "ios") {
-      Alert.alert("iOS only", "In-app purchases are currently available on iOS.");
-      return;
-    }
-    try {
-      setPurchasingPack(pack.id);
-      const result = await purchaseProduct(pack.productId);
-      if (!result.duplicate) {
-        await creditSpins(pack.spins);
-      }
-      // Server is the source of truth post-receipt-validation.
-      await reconcileSpinsWithServer();
-      if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        "Purchase Successful",
-        result.duplicate
-          ? "This transaction has already been applied to your account."
-          : `${pack.spins} spins added to your account. Thank you for supporting mental health charities!`,
-        [{ text: "OK" }]
-      );
-    } catch (e: any) {
-      const msg = String(e?.message || e);
-      if (msg.includes("cancel") || msg.includes("E_USER_CANCELLED")) return;
-      if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Purchase Failed", msg || "Something went wrong. Please try again.");
-    } finally {
-      setPurchasingPack(null);
-    }
-  }, [creditSpins, reconcileSpinsWithServer]);
-
-  const handleBuySpinPack = useCallback((pack: typeof SPIN_PACKS[0]) => {
+  const handleEarnEnergy = useCallback(() => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      `Buy ${pack.spins} spins`,
-      `${pack.price} via secure App Store purchase.\n\nA portion of every purchase is donated to mental health charities. Thank you for your support!`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: `Buy ${pack.price}`, style: "default", onPress: () => runSpinPackPurchase(pack) },
-      ]
-    );
-  }, [runSpinPackPurchase]);
-
-  const handleBuySpins = useCallback(() => {
-    if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // Route to /shop where the full pack picker lives.
-    router.push("/(tabs)/shop");
+    // Route to brain training, where Neural Energy is earned through play.
+    router.push("/(tabs)/train");
   }, [router]);
 
   const handleShareWin = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const msg =
-      `I've earned ${totalWins} win${totalWins !== 1 ? "s" : ""} on NeuroQuest! 🧠\n\n` +
-      "Every interaction trains my brain through neuroplasticity exercises.\n" +
+      `I've completed ${totalWins} good deed${totalWins !== 1 ? "s" : ""} on NeuroQuest! 🧠\n\n` +
+      "Every round trains my brain through neuroplasticity exercises.\n" +
       "Compassion-focused brain training. → neuroquest.app";
     if (Platform.OS === "web") {
       try {
@@ -457,16 +380,16 @@ export default function PlayScreen() {
       } catch {}
     } else {
       try {
-        await Share.share({ message: msg, title: "My NeuroQuest Wins!" });
+        await Share.share({ message: msg, title: "My NeuroQuest Good Deeds!" });
       } catch {}
     }
   }, [totalWins]);
 
   const resultConfig =
     result === "win"
-      ? { title: "You Won!", subtitle: "Neural Energy credited to your balance", color: Colors.gold }
+      ? { title: "Milestone reached", subtitle: "Neural Energy added to your balance", color: Colors.gold }
       : result === "lose"
-      ? { title: "Keep Going", subtitle: "Every spin strengthens your mind", color: Colors.whiteAlpha50 }
+      ? { title: "Keep going", subtitle: "Every round strengthens your mind", color: Colors.whiteAlpha50 }
       : null;
 
   return (
@@ -513,13 +436,13 @@ export default function PlayScreen() {
             </View>
             <View style={styles.balanceDivider} />
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>Free Spins</Text>
+              <Text style={styles.balanceLabel}>Plays Left</Text>
               <Text style={[styles.balanceValue, { color: Colors.empathyGreen }]}>{spinsLeft}</Text>
               <Text style={styles.balanceSub}>Compassion Reels</Text>
             </View>
             <View style={styles.balanceDivider} />
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>Total Wins</Text>
+              <Text style={styles.balanceLabel}>Good Deeds</Text>
               <Text style={[styles.balanceValue, { color: Colors.neuralPurple }]}>{totalWins}</Text>
               <Text style={styles.balanceSub}>All Games</Text>
             </View>
@@ -527,48 +450,6 @@ export default function PlayScreen() {
         </GlassCard>
 
         <SlotMachine onSpin={handleWheelSpin} spinsLeft={spinsLeft} />
-
-        <GlassCard style={styles.spinPackCard} borderColor={Colors.goldAlpha20}>
-          <LinearGradient
-            colors={[Colors.goldAlpha08, Colors.goldAlpha05, "transparent"]}
-            style={StyleSheet.absoluteFill}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-          />
-          <Text style={styles.spinPackEyebrow}>EXTRA SPINS</Text>
-          <Text style={styles.spinPackSubtitle}>Bonus spins that never expire</Text>
-          <View style={styles.spinPackRow}>
-            {SPIN_PACKS.map((pack) => (
-              <Pressable
-                key={pack.id}
-                onPress={() => handleBuySpinPack(pack)}
-                style={({ pressed }) => [styles.spinPackItem, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Buy ${pack.spins} spins for ${pack.price}`}
-              >
-                {"badge" in pack && pack.badge && (
-                  <View style={styles.spinPackBadge}>
-                    <Text style={styles.spinPackBadgeText}>{pack.badge}</Text>
-                  </View>
-                )}
-                <Text style={styles.spinPackCount}>{pack.spins}</Text>
-                <Text style={styles.spinPackLabel}>spins</Text>
-                <LinearGradient
-                  colors={[Colors.goldLight, Colors.gold, Colors.goldDim]}
-                  style={styles.spinPackPriceBtn}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Text style={styles.spinPackPrice}>{pack.price}</Text>
-                </LinearGradient>
-              </Pressable>
-            ))}
-          </View>
-          <View style={styles.spinPackDonation}>
-            <View style={styles.spinPackDonationDot} />
-            <Text style={styles.spinPackDonationText}>30% of every purchase supports charity</Text>
-          </View>
-        </GlassCard>
 
         <View style={styles.premiumDivider}>
           <View style={styles.premiumLine} />
@@ -704,23 +585,23 @@ export default function PlayScreen() {
             />
             <Text style={styles.noSpinsTitle}>Low on Energy</Text>
             <Text style={styles.noSpinsBody}>
-              Earn more Neural Energy through brain training, or purchase additional energy to keep playing.
+              Earn more Neural Energy through brain training. Daily plays refill automatically every 24 hours.
             </Text>
-            <Pressable onPress={handleBuySpins} style={({ pressed }) => [pressed && { opacity: 0.85 }]} accessibilityRole="button" accessibilityLabel="Get more Neural Energy">
+            <Pressable onPress={handleEarnEnergy} style={({ pressed }) => [pressed && { opacity: 0.85 }]} accessibilityRole="button" accessibilityLabel="Go to brain training to earn Neural Energy">
               <LinearGradient
                 colors={[Colors.goldLight, Colors.gold, Colors.goldDim]}
                 style={styles.buyButton}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <Ionicons name="add-circle" size={18} color={Colors.forestDeep} />
-                <Text style={styles.buyButtonText}>Get Neural Energy</Text>
+                <Ionicons name="fitness" size={18} color={Colors.forestDeep} />
+                <Text style={styles.buyButtonText}>Train to Earn Energy</Text>
               </LinearGradient>
             </Pressable>
           </GlassCard>
         )}
 
-        <Pressable onPress={handleShareWin} style={({ pressed }) => [pressed && { opacity: 0.9 }]} accessibilityRole="button" accessibilityLabel="Share your wins with friends">
+        <Pressable onPress={handleShareWin} style={({ pressed }) => [pressed && { opacity: 0.9 }]} accessibilityRole="button" accessibilityLabel="Share your good deeds with friends">
           <GlassCard style={styles.shareCard} borderColor="rgba(167,139,250,0.2)">
             <LinearGradient
               colors={["rgba(167,139,250,0.08)", "rgba(244,114,182,0.06)", "transparent"]}
@@ -730,7 +611,7 @@ export default function PlayScreen() {
             />
             <Feather name="share-2" size={20} color={Colors.neuralPurple} />
             <View style={styles.shareTextWrap}>
-              <Text style={styles.shareTitle}>Share Your Wins</Text>
+              <Text style={styles.shareTitle}>Share Your Good Deeds</Text>
               <Text style={styles.shareSub}>Challenge friends to play for good</Text>
             </View>
             <Feather name="chevron-right" size={18} color={Colors.whiteAlpha30} />
@@ -740,8 +621,8 @@ export default function PlayScreen() {
         <GlassCard style={styles.howCard} borderColor={Colors.glassBorderLight}>
           <Text style={styles.howEyebrow}>HOW IT WORKS</Text>
           {[
-            { icon: "🧠", text: "Each spin trains neuroplasticity through pattern recognition" },
-            { icon: "⚡", text: "Neural Energy is deducted before each premium spin — no double claims" },
+            { icon: "🧠", text: "Each round trains neuroplasticity through pattern recognition" },
+            { icon: "⚡", text: "Neural Energy is deducted before each premium round — no double claims" },
             { icon: "❤️", text: "Hit a Compassion Milestone and NeuroQuest funds a real donation to a verified nonprofit — our money, never yours" },
             { icon: "🛡️", text: "Giving is capped by a fixed monthly budget; when it's reached, milestones still celebrate and giving resumes next month" },
           ].map((item, i) => (
@@ -1121,94 +1002,5 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 3,
     opacity: 0.85,
-  },
-  spinPackCard: {
-    padding: 24,
-    gap: 10,
-    overflow: "hidden",
-  },
-  spinPackEyebrow: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 10,
-    color: Colors.goldDim,
-    letterSpacing: 3,
-  },
-  spinPackSubtitle: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-    color: Colors.whiteAlpha50,
-  },
-  spinPackRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 6,
-  },
-  spinPackItem: {
-    flex: 1,
-    backgroundColor: Colors.whiteAlpha05,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.glassBorderLight,
-    paddingVertical: 16,
-    alignItems: "center",
-    gap: 4,
-    overflow: "hidden",
-  },
-  spinPackBadge: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: Colors.goldAlpha15,
-    paddingVertical: 3,
-    alignItems: "center",
-  },
-  spinPackBadgeText: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 7,
-    color: Colors.gold,
-    letterSpacing: 1.5,
-  },
-  spinPackCount: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 28,
-    color: Colors.white,
-    marginTop: 8,
-  },
-  spinPackLabel: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    color: Colors.whiteAlpha30,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  spinPackPriceBtn: {
-    marginTop: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 50,
-  },
-  spinPackPrice: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 13,
-    color: Colors.forestDeep,
-  },
-  spinPackDonation: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 4,
-  },
-  spinPackDonationDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.empathyGreen,
-  },
-  spinPackDonationText: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    color: Colors.empathyGreen,
-    opacity: 0.8,
   },
 });

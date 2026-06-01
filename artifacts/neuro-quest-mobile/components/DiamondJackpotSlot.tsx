@@ -311,15 +311,15 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
       <View style={s.header}>
         <Text style={s.badge}>5-MATCH PREMIUM</Text>
         <Text style={s.title}>Diamond Reward</Text>
-        <Text style={s.sub}>5 reels, bigger matches, bigger rewards</Text>
+        <Text style={s.sub}>5 symbols, bigger matches, bigger rewards</Text>
       </View>
 
-      <View style={s.reelsRow} accessibilityLabel={`Reels showing ${displayReels.map((r) => SYMBOLS[r]).join(", ")}`}>
+      <View style={s.reelsRow} accessibilityLabel={`Symbols showing ${displayReels.map((r) => SYMBOLS[r]).join(", ")}`}>
         {[0, 1, 2, 3, 4].map((i) => (
           <Animated.View
             key={i}
             style={[s.reel, { transform: [{ translateY: bounceAnims[i] }] }]}
-            accessibilityLabel={`Reel ${i + 1}: ${SYMBOLS[displayReels[i]]}`}
+            accessibilityLabel={`Symbol ${i + 1}: ${SYMBOLS[displayReels[i]]}`}
           >
             <Text style={s.reelSymbol}>{SYMBOLS[displayReels[i]]}</Text>
           </Animated.View>
@@ -363,8 +363,8 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
       </View>
 
       <View style={s.oddsRow}>
-        <Text style={s.oddsLabel}>Match Chances:</Text>
-        <Text style={s.oddsText}>Top 1% · Four 2% · Three 6% · Pair 11% · Miss 80%</Text>
+        <Text style={s.oddsLabel}>How it works:</Text>
+        <Text style={s.oddsText}>Match 3 or more symbols to earn Neural Energy</Text>
       </View>
 
       <Pressable
@@ -375,7 +375,7 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
         accessibilityLabel={
           !canAfford
             ? "Insufficient Neural Energy"
-            : `Spin for ${TIERS[selectedTier].label}`
+            : `Play for ${TIERS[selectedTier].label}`
         }
       >
         <LinearGradient
@@ -386,10 +386,10 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
         >
           <Text style={s.spinText}>
             {phase === "spinning"
-              ? "SPINNING..."
+              ? "PLAYING..."
               : !canAfford
               ? "NEED MORE NE"
-              : `SPIN — ${TIERS[selectedTier].label}`}
+              : `PLAY — ${TIERS[selectedTier].label}`}
           </Text>
         </LinearGradient>
       </Pressable>

@@ -485,3 +485,9 @@ id = "xrXJGxGteU9_ovOHik5qv"
 uri = "file://attached_assets/pilots/sample-pilot-co_DEMO2025_qr.png"
 type = "image"
 title = "Sample per-pilot QR — scans to /join?code=DEMO2025 (pre-filled)"
+
+[[outputs]]
+id = "Sml3iqriMmpjat7UhpFs_"
+uri = "file://docs/architecture-reference.md"
+type = "text"
+title = "NeuroQuest Architecture Reference Guide"

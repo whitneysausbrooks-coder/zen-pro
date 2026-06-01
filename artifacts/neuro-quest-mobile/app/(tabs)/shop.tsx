@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -23,49 +22,14 @@ import {
   getProducts,
   purchaseProduct,
   restorePurchases,
-  fetchEntitlements,
 } from "@/lib/iap";
-
-const SPINS_KEY = "nq_spins_left";
-
-// Reconcile local spin balance with the server (which is the source of truth
-// after the receipt is validated server-side). Falls back silently on network
-// failure so the user still sees the optimistic local credit. Architect note
-// from previous session: prevents drift if a receipt is rejected as duplicate
-// or applied on another device.
-async function reconcileSpinsWithServer(): Promise<boolean> {
-  try {
-    const ents = await fetchEntitlements();
-    if (typeof ents?.spin_balance === "number") {
-      await AsyncStorage.setItem(SPINS_KEY, String(ents.spin_balance));
-      return true;
-    }
-  } catch {}
-  return false;
-}
 
 const PRODUCT_MAP: Record<string, string> = {
   pro: "pro.neuroquestzen.app.zenpro.monthly",
   annual: "pro.neuroquestzen.app.zenpro.annual",
   founder: "pro.neuroquestzen.app.founder",
   daily: "pro.neuroquestzen.app.daypass",
-  "spins-5": "pro.neuroquestzen.app.spins.5",
-  "spins-15": "pro.neuroquestzen.app.spins.15",
-  "spins-50": "pro.neuroquestzen.app.spins.50",
 };
-
-const SPIN_PACK_AMOUNTS: Record<string, number> = {
-  "spins-5": 5,
-  "spins-15": 15,
-  "spins-50": 50,
-};
-
-async function creditSpinsAsync(amount: number) {
-  try {
-    const current = parseInt((await AsyncStorage.getItem(SPINS_KEY)) || "0", 10) || 0;
-    await AsyncStorage.setItem(SPINS_KEY, String(current + amount));
-  } catch {}
-}
 
 const nd = Platform.OS !== "web";
 
@@ -114,7 +78,7 @@ const PLANS = [
     oneTime: false,
     donationNote: "1% of net revenue donated to Feeding America · see /impact",
     features: [
-      "Unlimited daily spins",
+      "Unlimited daily plays",
       "All brain training games unlocked",
       "Priority reward access",
       "Exclusive Zen themes & sounds",
@@ -133,7 +97,7 @@ const PLANS = [
     oneTime: true,
     donationNote: "1% of net revenue donated to Feeding America · see /impact",
     features: [
-      "50 spins for 24 hours",
+      "50 plays for 24 hours",
       "All Zen Pro features for the day",
       "No commitment required",
     ],
@@ -200,21 +164,12 @@ export default function ShopScreen() {
     try {
       setPurchasing(planKey);
       const result = await purchaseProduct(productId);
-      const spinAmount = SPIN_PACK_AMOUNTS[planKey];
-      if (!result.duplicate && spinAmount) {
-        await creditSpinsAsync(spinAmount);
-      }
-      // Source-of-truth reconcile: server is authoritative after receipt
-      // validation. Best-effort; never blocks the success UX.
-      await reconcileSpinsWithServer();
       if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         "Purchase Successful",
         result.duplicate
           ? "This transaction has already been applied to your account."
-          : spinAmount
-          ? `${spinAmount} spins added to your account. Thank you for supporting mental health charities!`
-          : "Your purchase has been confirmed. Thank you for supporting mental health charities!",
+          : "Your purchase has been confirmed. Thank you for being a member.",
         [{ text: "OK" }]
       );
     } catch (e: any) {
@@ -422,63 +377,6 @@ export default function ShopScreen() {
             </Pressable>
           );
         })}
-
-        <GlassCard style={styles.spinsCard} borderColor={Colors.glassBorderLight}>
-          <View style={styles.spinsHeader}>
-            <View style={styles.spinsIconWrap}>
-              <Ionicons name="game-controller" size={24} color={Colors.gold} />
-            </View>
-            <View style={styles.spinsInfo}>
-              <Text style={styles.spinsTitle}>Extra Spins</Text>
-              <Text style={styles.spinsDesc}>Bonus spins that never expire</Text>
-            </View>
-          </View>
-          <View style={styles.spinsTierRow}>
-            {[
-              { spins: 5, price: "$0.99", donation: "$0.30" },
-              { spins: 15, price: "$1.99", donation: "$0.60", badge: "POPULAR" },
-              { spins: 50, price: "$4.99", donation: "$1.50", badge: "BEST VALUE" },
-            ].map((tier) => (
-              <Pressable
-                key={tier.spins}
-                disabled={purchasing !== null}
-                onPress={() => {
-                  if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  const planKey = `spins-${tier.spins}`;
-                  Alert.alert(
-                    `${tier.spins} Extra Spins — ${tier.price}`,
-                    `Purchase ${tier.spins} bonus spins for ${tier.price}. ${tier.donation} of this purchase goes to charity.\n\nPayment processed securely through the App Store.`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: `Buy ${tier.price}`,
-                        onPress: () => runPurchase(planKey),
-                      },
-                    ]
-                  );
-                }}
-                style={({ pressed }) => [styles.spinsTierItem, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }, purchasing !== null && { opacity: 0.6 }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Buy ${tier.spins} spins for ${tier.price}`}
-              >
-                {"badge" in tier && tier.badge && (
-                  <View style={styles.spinsTierBadge}>
-                    <Text style={styles.spinsTierBadgeText}>{tier.badge}</Text>
-                  </View>
-                )}
-                <Text style={styles.spinsTierCount}>{tier.spins}</Text>
-                <Text style={styles.spinsTierLabel}>spins</Text>
-                <View style={styles.spinsTierPriceWrap}>
-                  <Text style={styles.spinsTierPrice}>{tier.price}</Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
-          <View style={styles.donationNote}>
-            <View style={styles.donationDot} />
-            <Text style={styles.donationText}>30% of every purchase supports charity</Text>
-          </View>
-        </GlassCard>
 
         <GlassCard style={styles.enterpriseCard} borderColor="rgba(96,165,250,0.2)" elevated>
           <LinearGradient
@@ -801,115 +699,6 @@ const styles = StyleSheet.create({
   },
   planButtonTextAlt: {
     color: Colors.whiteAlpha60,
-  },
-  spinsCard: {
-    padding: 20,
-    gap: 14,
-  },
-  spinsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  spinsTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  spinsIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: Colors.goldAlpha08,
-    borderWidth: 1,
-    borderColor: Colors.goldAlpha15,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  spinsInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  spinsTitle: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 18,
-    color: Colors.white,
-  },
-  spinsDesc: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    color: Colors.whiteAlpha30,
-  },
-  spinsTierRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 4,
-  },
-  spinsTierItem: {
-    flex: 1,
-    backgroundColor: Colors.whiteAlpha05,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.glassBorderLight,
-    paddingVertical: 14,
-    alignItems: "center",
-    gap: 4,
-    overflow: "hidden",
-  },
-  spinsTierBadge: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: Colors.goldAlpha15,
-    paddingVertical: 2,
-    alignItems: "center",
-  },
-  spinsTierBadgeText: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 7,
-    color: Colors.gold,
-    letterSpacing: 1.5,
-  },
-  spinsTierCount: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 24,
-    color: Colors.white,
-    marginTop: 6,
-  },
-  spinsTierLabel: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 10,
-    color: Colors.whiteAlpha30,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  spinsTierPriceWrap: {
-    marginTop: 6,
-    backgroundColor: Colors.goldAlpha10,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: Colors.goldAlpha20,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-  },
-  spinsTierPrice: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 12,
-    color: Colors.gold,
-  },
-  spinsButton: {
-    backgroundColor: Colors.goldAlpha10,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: Colors.goldAlpha20,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  spinsPrice: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 16,
-    color: Colors.gold,
   },
   restoreBtn: {
     alignSelf: "center",

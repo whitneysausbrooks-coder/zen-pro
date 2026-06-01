@@ -287,7 +287,7 @@ export function CelebrationOverlay({ visible, winAmount, onFinish }: Props) {
           end={{ x: 1, y: 1 }}
         >
           <Text style={styles.winEmoji}>🎉</Text>
-          <Text style={styles.winTitle}>YOU WON!</Text>
+          <Text style={styles.winTitle}>MILESTONE REACHED!</Text>
           {winAmount !== undefined && winAmount > 0 && (
             <Text style={styles.winAmount}>+{winAmount} NE</Text>
           )}

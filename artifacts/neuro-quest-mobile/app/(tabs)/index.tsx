@@ -501,7 +501,7 @@ export default function HomeScreen() {
             </GlassCard>
             <GlassCard style={styles.personalCard} borderColor={Colors.glassBorderLight}>
               <Text style={styles.personalValue}>{spinsLeft}</Text>
-              <Text style={styles.personalLabel}>Spins</Text>
+              <Text style={styles.personalLabel}>Plays</Text>
             </GlassCard>
           </View>
 
@@ -715,7 +715,7 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 1 }}
               >
                 <Ionicons name="game-controller" size={22} color={Colors.forestDeep} />
-                <Text style={styles.primaryText}>Spin for Good</Text>
+                <Text style={styles.primaryText}>Play for Good</Text>
               </LinearGradient>
             </Pressable>
             <Pressable

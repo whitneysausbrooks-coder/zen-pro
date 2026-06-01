@@ -258,7 +258,7 @@ export function SlotMachine({ onSpin, spinsLeft, disabled }: SlotMachineProps) {
                 textAnchor="middle"
                 alignmentBaseline="central"
               >
-                SPIN
+                PLAY
               </SvgText>
             </Svg>
           </Animated.View>
@@ -287,7 +287,7 @@ export function SlotMachine({ onSpin, spinsLeft, disabled }: SlotMachineProps) {
               isDisabled && styles.spinButtonDisabled,
             ]}
             accessibilityRole="button"
-            accessibilityLabel={spinning ? "Wheel is spinning" : spinsLeft > 0 ? `Spin the wheel, ${spinsLeft} spins left` : "No spins remaining"}
+            accessibilityLabel={spinning ? "Wheel is playing" : spinsLeft > 0 ? `Play the wheel, ${spinsLeft} plays left` : "No plays remaining"}
           >
             <LinearGradient
               colors={!isDisabled ? [Colors.goldLight, Colors.gold, Colors.goldDim] : ["#555", "#444", "#333"]}
@@ -296,10 +296,10 @@ export function SlotMachine({ onSpin, spinsLeft, disabled }: SlotMachineProps) {
               end={{ x: 1, y: 1 }}
             >
               <Text style={styles.spinText}>
-                {spinning ? "Spinning..." : spinsLeft > 0 ? "SPIN" : "No Spins"}
+                {spinning ? "Playing..." : spinsLeft > 0 ? "PLAY" : "No Plays"}
               </Text>
               <Text style={styles.spinsCount}>
-                {spinsLeft} spin{spinsLeft !== 1 ? "s" : ""} left
+                {spinsLeft} play{spinsLeft !== 1 ? "s" : ""} left
               </Text>
             </LinearGradient>
           </Pressable>

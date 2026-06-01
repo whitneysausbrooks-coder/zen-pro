@@ -392,7 +392,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
         <Text style={s.badge}>HOLD & GROW</Text>
         <Text style={s.title}>Neural Hold</Text>
         <Text style={s.sub}>
-          Hold your best reels, respin for a match
+          Hold your best symbols, replay for a match
         </Text>
       </View>
 
@@ -403,7 +403,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
             onPress={() => toggleHold(i)}
             disabled={phase !== "hold"}
             accessibilityRole="button"
-            accessibilityLabel={`Reel ${i + 1}: ${SYMBOLS[displayReels[i]]}${held[i] ? ", held" : ""}`}
+            accessibilityLabel={`Symbol ${i + 1}: ${SYMBOLS[displayReels[i]]}${held[i] ? ", held" : ""}`}
           >
             <Animated.View
               style={[
@@ -433,7 +433,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
             color={Colors.balanceAmber}
           />
           <Text style={s.holdInstructionText}>
-            Tap reels to hold, then respin
+            Tap symbols to hold, then replay
           </Text>
         </View>
       )}
@@ -468,8 +468,8 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
       </View>
 
       <View style={s.oddsRow}>
-        <Text style={s.oddsLabel}>Match Chances:</Text>
-        <Text style={s.oddsText}>Triple 11% · Pair 19% · Miss 70%</Text>
+        <Text style={s.oddsLabel}>How it works:</Text>
+        <Text style={s.oddsText}>Match symbols to earn Neural Energy</Text>
       </View>
 
       {phase === "hold" ? (
@@ -478,7 +478,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
             onPress={handleRespin}
             style={({ pressed }) => [pressed && { opacity: 0.9 }]}
             accessibilityRole="button"
-            accessibilityLabel="Respin unheld reels"
+            accessibilityLabel="Replay unheld symbols"
           >
             <LinearGradient
               colors={[Colors.goldLight, Colors.gold, Colors.goldDim]}
@@ -486,11 +486,11 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <Text style={s.spinText}>RESPIN</Text>
+              <Text style={s.spinText}>REPLAY</Text>
             </LinearGradient>
           </Pressable>
-          <Pressable onPress={handleSkipHold} style={s.skipBtn} accessibilityRole="button" accessibilityLabel="Respin all reels without holding">
-            <Text style={s.skipText}>Respin All</Text>
+          <Pressable onPress={handleSkipHold} style={s.skipBtn} accessibilityRole="button" accessibilityLabel="Replay all symbols without holding">
+            <Text style={s.skipText}>Replay All</Text>
           </Pressable>
         </View>
       ) : (
@@ -505,7 +505,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
           accessibilityLabel={
             !canAfford
               ? "Insufficient Neural Energy"
-              : `Spin for ${TIERS[selectedTier].label}`
+              : `Play for ${TIERS[selectedTier].label}`
           }
         >
           <LinearGradient
@@ -520,10 +520,10 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
           >
             <Text style={s.spinText}>
               {phase === "spinning" || phase === "respin"
-                ? "SPINNING..."
+                ? "PLAYING..."
                 : !canAfford
                 ? "NEED MORE NE"
-                : `SPIN — ${TIERS[selectedTier].label}`}
+                : `PLAY — ${TIERS[selectedTier].label}`}
             </Text>
           </LinearGradient>
         </Pressable>
