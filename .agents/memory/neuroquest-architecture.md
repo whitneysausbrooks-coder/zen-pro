@@ -21,13 +21,21 @@ There are TWO independent user identity + scoring tracks. Confusing them wastes 
 `neuro_resilience_score`; they do NOT have eri/cps/nsb/cohesion/wri. Any UI that wants those
 four sub-metrics can only get real values for enterprise users.
 
-## Resilience-tab demo-data trap
-`app/(tabs)/resilience.tsx` is an ungated tab (every user sees it) but is built around the
-ENTERPRISE score shape AND its `fetchScores` is never invoked (the mount `useEffect(()=>{},[])`
-is empty). So it always renders a hardcoded `demoScore` (eri 72 / cps 76 / nsb 58 / …) for
-everyone. This is fabricated static data — an App-Review and paid-user-trust risk. Real
-individual data for this tab would have to come from `/api/app-user/:id/baseline`, which lacks
-the 4 sub-metrics, so populating it honestly requires redesigning which metrics it shows.
+## Resilience-tab demo-data trap (FIXED)
+`app/(tabs)/resilience.tsx` used to be an ungated tab built around the ENTERPRISE score shape
+whose `fetchScores` was never invoked (empty mount effect), so it always rendered a hardcoded
+`demoScore` (eri 72 / cps 76 / nsb 58 / …) to every user — fabricated static data, an
+App-Review/paid-user-trust risk.
+**Now rebuilt** around the individual user's REAL data: fetches `fetchBaseline()` on focus
+(`useFocusEffect`), shows the real `neuro_resilience_score` ring + 7-day EMA + trend +
+session count, status pill derived from the server `suggestion.type`, and the score-driving
+components (HRV 50% / Sleep 35% / Activity 15%) read locally via `readLatestMetrics()` with
+"Not synced" fallbacks. Has three distinct non-score states: loading, **load error** (had a
+stored userId but `fetchBaseline()` returned null → offline/server, offers Retry), and
+**building baseline** (genuinely no score yet → CTA to /wearable). Breathing Reset Protocol kept.
+**Why the load-error split matters:** `fetchBaseline()` returns null for BOTH "no identity" and
+"request failed", so without the userId check a connectivity blip would falsely show
+"building baseline" to a user who actually has data. Don't collapse these states back together.
 
 ## IAP (paid users)
 Real & production-ready: `lib/iap.ts` (expo-iap, iOS-only) → `POST /api/iap/validate`

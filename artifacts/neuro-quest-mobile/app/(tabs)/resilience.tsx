@@ -9,25 +9,19 @@ import {
   Animated,
   Easing,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { GlassCard } from "@/components/GlassCard";
 import Colors from "@/constants/colors";
+import { fetchBaseline, getStoredUserId, type BaselineResponse } from "@/lib/userAuth";
+import { readLatestMetrics, type WearableMetrics } from "@/lib/health";
 
 const nd = Platform.OS !== "web";
-
-interface ScoreData {
-  eri: number;
-  cps: number;
-  nsb: number;
-  cohesion: number;
-  wri: number;
-  burnout_risk: number;
-  created_at: string;
-}
 
 function ScoreRing({
   score,
@@ -114,49 +108,29 @@ function ScoreRing({
   );
 }
 
-function MetricBar({
+function ComponentRow({
   label,
   value,
+  weight,
   color,
   icon,
 }: {
   label: string;
-  value: number;
+  value: string;
+  weight: string;
   color: string;
   icon: string;
 }) {
-  const animWidth = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(animWidth, {
-      toValue: Math.min(value, 100),
-      duration: 1000,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [value]);
-
   return (
-    <View style={styles.metricRow}>
-      <View style={styles.metricLabelRow}>
-        <MaterialCommunityIcons name={icon as any} size={15} color={color} />
-        <Text style={styles.metricLabel}>{label}</Text>
-        <Text style={[styles.metricValue, { color }]}>{Math.round(value)}</Text>
+    <View style={styles.componentRow}>
+      <View style={[styles.componentIcon, { backgroundColor: color + "14" }]}>
+        <MaterialCommunityIcons name={icon as any} size={18} color={color} />
       </View>
-      <View style={styles.metricTrack}>
-        <Animated.View
-          style={[
-            styles.metricFill,
-            {
-              backgroundColor: color,
-              width: animWidth.interpolate({
-                inputRange: [0, 100],
-                outputRange: ["0%", "100%"],
-              }),
-            },
-          ]}
-        />
+      <View style={styles.componentText}>
+        <Text style={styles.componentLabel}>{label}</Text>
+        <Text style={styles.componentWeight}>{weight} of your score</Text>
       </View>
+      <Text style={[styles.componentValue, { color }]}>{value}</Text>
     </View>
   );
 }
@@ -186,52 +160,86 @@ function StatusPill({ label, color }: { label: string; color: string }) {
 
 export default function ResilienceScreen() {
   const insets = useSafeAreaInsets();
-  const [scores, setScores] = useState<ScoreData | null>(null);
-  const [history, setHistory] = useState<ScoreData[]>([]);
+  const router = useRouter();
+  const [baseline, setBaseline] = useState<BaselineResponse | null>(null);
+  const [metrics, setMetrics] = useState<WearableMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [breathingActive, setBreathingActive] = useState(false);
   const [breathPhase, setBreathPhase] = useState<"inhale" | "hold" | "exhale">("inhale");
   const [breathTimer, setBreathTimer] = useState(0);
   const breathScale = useRef(new Animated.Value(1)).current;
   const breathIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchScores = useCallback(async (userId: string) => {
-    if (!userId) return;
-    try {
-      const base = Platform.OS === "web" ? "" : `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
-      const apiKey = process.env.EXPO_PUBLIC_ENTERPRISE_KEY || "";
-      const res = await fetch(`${base}/api/enterprise/scores/${userId}`, {
-        headers: { "x-enterprise-key": apiKey },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.scores?.length > 0) {
-          setHistory(data.scores);
-          setScores(data.scores[0]);
-        }
+  const load = useCallback(async () => {
+    const b = await fetchBaseline();
+    // fetchBaseline() returns null both when there's no identity AND when the
+    // request fails. If we DO have a stored user id but got null back, treat it
+    // as a load error (offline / server) rather than implying "no data yet".
+    if (b === null) {
+      const id = await getStoredUserId();
+      setLoadError(!!id);
+    } else {
+      setLoadError(false);
+    }
+    setBaseline(b);
+    if (nd) {
+      try {
+        setMetrics(await readLatestMetrics());
+      } catch {
+        // Local health read is best-effort; the score itself comes from the server.
       }
-    } catch {}
+    }
+    setLoading(false);
   }, []);
 
-  useEffect(() => {}, []);
+  const retry = useCallback(() => {
+    setLoading(true);
+    load();
+  }, [load]);
 
-  const demoScore: ScoreData = scores || {
-    eri: 72,
-    cps: 76,
-    nsb: 58,
-    cohesion: 65,
-    wri: 70.2,
-    burnout_risk: 29.8,
-    created_at: new Date().toISOString(),
-  };
+  useFocusEffect(
+    useCallback(() => {
+      load();
+      return undefined;
+    }, [load]),
+  );
 
-  const burnoutLevel =
-    demoScore.burnout_risk > 70
-      ? { label: "High Risk", color: "#EF4444", icon: "alert-circle" as const }
-      : demoScore.burnout_risk > 40
-      ? { label: "Moderate", color: "#FBBF24", icon: "alert-triangle" as const }
-      : { label: "Low Risk", color: "#4ADE80", icon: "shield-checkmark" as const };
+  const score = baseline?.latest?.neuro_resilience_score ?? null;
+  const ema = baseline?.ema_7day ?? null;
+  const trend = baseline?.trend ?? "insufficient_data";
+  const sessionCount = baseline?.session_count ?? 0;
+  const suggestion = baseline?.suggestion;
+  const hasScore = score != null && sessionCount > 0;
 
-  const energyRecovery = Math.round(100 - demoScore.burnout_risk);
+  const status =
+    suggestion?.type === "growth"
+      ? { label: "Thriving", color: "#4ADE80" }
+      : suggestion?.type === "recovery"
+      ? { label: "Recovery", color: "#FBBF24" }
+      : suggestion?.type === "burnout_alert"
+      ? { label: "Rest Needed", color: "#EF4444" }
+      : { label: "Building Baseline", color: "#7C8CF8" };
+
+  const trendIcon =
+    trend === "rising"
+      ? ("trending-up" as const)
+      : trend === "falling"
+      ? ("trending-down" as const)
+      : ("trending-neutral" as const);
+  const trendLabel =
+    trend === "rising"
+      ? "Trending up"
+      : trend === "falling"
+      ? "Trending down"
+      : trend === "steady"
+      ? "Holding steady"
+      : "Building trend";
+
+  const hrv = metrics?.hrv ?? null;
+  const sleepHours =
+    metrics?.sleep_duration_minutes != null ? metrics.sleep_duration_minutes / 60 : null;
+  const steps = metrics?.steps ?? null;
 
   const startBreathing = useCallback(() => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -271,7 +279,7 @@ export default function ResilienceScreen() {
         if (breathIntervalRef.current) clearInterval(breathIntervalRef.current);
         setBreathingActive(false);
         if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("Session Complete", "Energy Recovery Score improved. Your nervous system thanks you.");
+        Alert.alert("Session Complete", "Nicely done. A calmer nervous system supports your recovery.");
       }
     }, 1000);
   }, []);
@@ -317,7 +325,7 @@ export default function ResilienceScreen() {
           <Text style={styles.breathTimerText}>
             {Math.floor(breathTimer / 60)}:{String(breathTimer % 60).padStart(2, "0")}
           </Text>
-          <Text style={styles.breathReward}>Improving your Energy Recovery Score</Text>
+          <Text style={styles.breathReward}>A moment of calm for your nervous system</Text>
         </View>
       </View>
     );
@@ -337,37 +345,141 @@ export default function ResilienceScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>WORKFORCE RESILIENCE</Text>
-          <Text style={styles.title}>Your Resilience</Text>
+          <Text style={styles.eyebrow}>YOUR RESILIENCE</Text>
+          <Text style={styles.title}>Resilience</Text>
         </View>
 
-        <GlassCard style={styles.mainScoreCard} borderColor="rgba(255,255,255,0.06)">
-          <View style={styles.scoreRow}>
-            <ScoreRing
-              score={demoScore.wri}
-              size={130}
-              label="Resilience Index"
-              sublabel="out of 100"
-              color="#7C8CF8"
-            />
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator color="#7C8CF8" />
           </View>
-          <View style={{ height: 16 }} />
-          <View style={styles.pillRow}>
-            <StatusPill label={burnoutLevel.label} color={burnoutLevel.color} />
-            <StatusPill label={`Recovery: ${energyRecovery}%`} color="#7C8CF8" />
-          </View>
-        </GlassCard>
+        ) : loadError ? (
+          <GlassCard style={styles.emptyCard} borderColor="rgba(239,68,68,0.18)">
+            <View style={[styles.emptyIcon, { backgroundColor: "rgba(239,68,68,0.10)" }]}>
+              <MaterialCommunityIcons name="cloud-off-outline" size={28} color="#FCA5A5" />
+            </View>
+            <Text style={styles.emptyTitle}>Couldn't load your score</Text>
+            <Text style={styles.emptyBody}>
+              We couldn't reach your resilience data just now. Check your connection and try again.
+            </Text>
+            <Pressable
+              onPress={retry}
+              style={({ pressed }) => [styles.emptyCta, pressed && { opacity: 0.9 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading your resilience score"
+            >
+              <MaterialCommunityIcons name="refresh" size={16} color="#0f0f23" />
+              <Text style={styles.emptyCtaText}>Try Again</Text>
+            </Pressable>
+          </GlassCard>
+        ) : !hasScore ? (
+          <GlassCard style={styles.emptyCard} borderColor="rgba(124,140,248,0.18)">
+            <View style={styles.emptyIcon}>
+              <MaterialCommunityIcons name="heart-pulse" size={28} color="#7C8CF8" />
+            </View>
+            <Text style={styles.emptyTitle}>Building your baseline</Text>
+            <Text style={styles.emptyBody}>
+              Sync your HRV, sleep, and activity to calculate your personal Resilience Index.
+              The more you sync, the smarter your AI baseline becomes.
+            </Text>
+            <Pressable
+              onPress={() => router.push("/wearable")}
+              style={({ pressed }) => [styles.emptyCta, pressed && { opacity: 0.9 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Sync your health data"
+            >
+              <MaterialCommunityIcons name="sync" size={16} color="#0f0f23" />
+              <Text style={styles.emptyCtaText}>Sync Health Data</Text>
+            </Pressable>
+          </GlassCard>
+        ) : (
+          <>
+            <GlassCard style={styles.mainScoreCard} borderColor="rgba(255,255,255,0.06)">
+              <View style={styles.scoreRow}>
+                <ScoreRing
+                  score={score!}
+                  size={130}
+                  label="Resilience Index"
+                  sublabel="out of 100"
+                  color="#7C8CF8"
+                />
+              </View>
+              <View style={{ height: 16 }} />
+              <View style={styles.pillRow}>
+                <StatusPill label={status.label} color={status.color} />
+                {ema != null && (
+                  <StatusPill label={`7-day avg: ${ema.toFixed(0)}`} color="#7C8CF8" />
+                )}
+              </View>
+              <View style={styles.trendRow}>
+                <MaterialCommunityIcons name={trendIcon} size={14} color={Colors.whiteAlpha50} />
+                <Text style={styles.trendText}>{trendLabel}</Text>
+                <Text style={styles.trendDot}>·</Text>
+                <Text style={styles.trendText}>
+                  {sessionCount} {sessionCount === 1 ? "session" : "sessions"}
+                </Text>
+              </View>
+            </GlassCard>
 
-        <View style={{ height: 12 }} />
+            <View style={{ height: 12 }} />
 
-        <GlassCard style={styles.metricsCard} borderColor="rgba(255,255,255,0.05)">
-          <Text style={styles.sectionLabel}>Component Scores</Text>
-          <View style={{ height: 4 }} />
-          <MetricBar label="Emotional Resilience" value={demoScore.eri} color="#F472B6" icon="heart-pulse" />
-          <MetricBar label="Cognitive Performance" value={demoScore.cps} color="#60A5FA" icon="head-cog" />
-          <MetricBar label="Nervous System Balance" value={demoScore.nsb} color="#4ADE80" icon="leaf" />
-          <MetricBar label="Team Cohesion" value={demoScore.cohesion} color="#FBBF24" icon="account-group" />
-        </GlassCard>
+            <GlassCard style={styles.metricsCard} borderColor="rgba(255,255,255,0.05)">
+              <Text style={styles.sectionLabel}>What Drives Your Score</Text>
+              <View style={{ height: 4 }} />
+              <ComponentRow
+                label="Heart Rate Variability"
+                value={hrv != null ? `${Math.round(hrv)} ms` : "Not synced"}
+                weight="50%"
+                color="#F472B6"
+                icon="heart-pulse"
+              />
+              <ComponentRow
+                label="Sleep"
+                value={sleepHours != null ? `${sleepHours.toFixed(1)} h` : "Not synced"}
+                weight="35%"
+                color="#60A5FA"
+                icon="sleep"
+              />
+              <ComponentRow
+                label="Activity"
+                value={steps != null ? `${steps.toLocaleString()} steps` : "Not synced"}
+                weight="15%"
+                color="#4ADE80"
+                icon="walk"
+              />
+              {(hrv == null && sleepHours == null && steps == null) && (
+                <Text style={styles.componentHint}>
+                  Sync from the Wearable tab to see the live readings behind your score.
+                </Text>
+              )}
+            </GlassCard>
+
+            <View style={{ height: 12 }} />
+
+            {suggestion ? (
+              <GlassCard style={styles.insightsCard} borderColor="rgba(255,255,255,0.05)">
+                <Text style={styles.sectionLabel}>AI Insight</Text>
+                <View style={{ height: 4 }} />
+                <View style={styles.insightRow}>
+                  <Ionicons
+                    name={
+                      suggestion.type === "burnout_alert"
+                        ? "alert-circle"
+                        : suggestion.type === "recovery"
+                        ? "leaf"
+                        : suggestion.type === "growth"
+                        ? "flash"
+                        : "sparkles"
+                    }
+                    size={18}
+                    color={status.color}
+                  />
+                  <Text style={styles.insightText}>{suggestion.message}</Text>
+                </View>
+              </GlassCard>
+            ) : null}
+          </>
+        )}
 
         <View style={{ height: 12 }} />
 
@@ -393,61 +505,14 @@ export default function ResilienceScreen() {
 
         <View style={{ height: 12 }} />
 
-        <GlassCard style={styles.insightsCard} borderColor="rgba(255,255,255,0.05)">
-          <Text style={styles.sectionLabel}>Insights</Text>
-          <View style={{ height: 4 }} />
-          {demoScore.nsb < 50 && (
-            <View style={styles.insightRow}>
-              <View style={[styles.insightDot, { backgroundColor: "#FBBF24" }]} />
-              <Text style={styles.insightText}>
-                Nervous system balance is below optimal. Consider the Reset Protocol or a brief walk.
-              </Text>
-            </View>
-          )}
-          {demoScore.cps > 70 && (
-            <View style={styles.insightRow}>
-              <View style={[styles.insightDot, { backgroundColor: "#60A5FA" }]} />
-              <Text style={styles.insightText}>
-                Cognitive performance is strong. Ideal window for deep focus work.
-              </Text>
-            </View>
-          )}
-          {demoScore.eri > 60 && (
-            <View style={styles.insightRow}>
-              <View style={[styles.insightDot, { backgroundColor: "#F472B6" }]} />
-              <Text style={styles.insightText}>
-                Emotional resilience is healthy. Capacity for empathy is elevated.
-              </Text>
-            </View>
-          )}
-          {demoScore.burnout_risk > 50 && (
-            <View style={styles.insightRow}>
-              <View style={[styles.insightDot, { backgroundColor: "#EF4444" }]} />
-              <Text style={styles.insightText}>
-                Elevated burnout risk detected. Prioritize rest and recovery today.
-              </Text>
-            </View>
-          )}
-          {demoScore.nsb >= 50 && demoScore.cps <= 70 && demoScore.eri <= 60 && demoScore.burnout_risk <= 50 && (
-            <View style={styles.insightRow}>
-              <View style={[styles.insightDot, { backgroundColor: "#4ADE80" }]} />
-              <Text style={styles.insightText}>
-                All metrics within healthy range. Keep up the good work.
-              </Text>
-            </View>
-          )}
-        </GlassCard>
-
-        <View style={{ height: 12 }} />
-
         <GlassCard style={styles.privacyCard} borderColor="rgba(255,255,255,0.04)">
           <View style={styles.privacyHeader}>
             <Ionicons name="lock-closed" size={14} color={Colors.whiteAlpha30} />
             <Text style={styles.privacyTitle}>Privacy</Text>
           </View>
           <Text style={styles.privacyText}>
-            Your individual scores are never shared with your employer. Only anonymized team
-            averages are visible to managers. Data is encrypted at rest and in transit.
+            Your scores and biometrics are tied to your private account on this device and are
+            encrypted in transit and at rest. We never sell your health data.
           </Text>
         </GlassCard>
       </ScrollView>
@@ -475,9 +540,61 @@ const styles = StyleSheet.create({
     color: "#F0F0F5",
     letterSpacing: -0.3,
   },
+  loadingBox: { paddingVertical: 60, alignItems: "center" },
+  emptyCard: { padding: 26, alignItems: "center" },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(124,140,248,0.10)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  emptyTitle: {
+    fontFamily: "PlayfairDisplay_700Bold",
+    fontSize: 20,
+    color: "#F0F0F5",
+    marginBottom: 8,
+  },
+  emptyBody: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.55)",
+    lineHeight: 20,
+    textAlign: "center",
+    marginBottom: 18,
+  },
+  emptyCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#7C8CF8",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 100,
+  },
+  emptyCtaText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: "#0f0f23",
+    letterSpacing: 0.3,
+  },
   mainScoreCard: { padding: 28, alignItems: "center" },
   scoreRow: { marginBottom: 0 },
   pillRow: { flexDirection: "row", gap: 10, justifyContent: "center" },
+  trendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 14,
+  },
+  trendText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: Colors.whiteAlpha50,
+  },
+  trendDot: { color: Colors.whiteAlpha30, fontSize: 12 },
   sectionLabel: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 13,
@@ -486,17 +603,42 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   metricsCard: { padding: 22 },
-  metricRow: { marginBottom: 18 },
-  metricLabelRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
-  metricLabel: { fontFamily: "Inter_400Regular", fontSize: 13, color: "rgba(255,255,255,0.55)", flex: 1 },
-  metricValue: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
-  metricTrack: {
-    height: 5,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderRadius: 3,
-    overflow: "hidden",
+  componentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
   },
-  metricFill: { height: "100%", borderRadius: 3 },
+  componentIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  componentText: { flex: 1 },
+  componentLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    color: "rgba(255,255,255,0.75)",
+    marginBottom: 2,
+  },
+  componentWeight: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.35)",
+  },
+  componentValue: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+  },
+  componentHint: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.35)",
+    lineHeight: 18,
+    marginTop: 2,
+  },
   resetCard: { padding: 22 },
   resetRow: { flexDirection: "row", alignItems: "center", gap: 14 },
   resetIconCircle: {
@@ -520,17 +662,11 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.40)",
   },
   insightsCard: { padding: 22 },
-  insightRow: { flexDirection: "row", gap: 12, marginBottom: 14, alignItems: "flex-start" },
-  insightDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: 6,
-  },
+  insightRow: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   insightText: {
     fontFamily: "Inter_400Regular",
     fontSize: 13,
-    color: "rgba(255,255,255,0.50)",
+    color: "rgba(255,255,255,0.65)",
     flex: 1,
     lineHeight: 20,
   },
