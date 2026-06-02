@@ -9,9 +9,11 @@ import {
   Text,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { GlassCard } from "@/components/GlassCard";
 import Colors from "@/constants/colors";
+import { useProAccess } from "@/contexts/ProAccessContext";
 import {
   useNeuralAudio,
   NEURAL_PRESETS,
@@ -50,6 +52,10 @@ interface Props {
 
 export function NeuralSoundscape({ onClose }: Props) {
   const audio = useNeuralAudio();
+  const router = useRouter();
+  // Exclusive Zen Pro soundscapes are playable only for members. A single Pro
+  // purchase/restore flips `isPro` here and unlocks every premium sound at once.
+  const { isPro } = useProAccess();
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const waveAnim = useRef(new Animated.Value(0)).current;
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -85,11 +91,20 @@ export function NeuralSoundscape({ onClose }: Props) {
   });
 
   const handleToggle = useCallback(
-    (presetId: string) => {
+    (preset: NeuralPreset) => {
+      // Exclusive Zen Pro sounds are locked for non-members — route them to the
+      // shop instead of playing. Members fall through and play normally.
+      if (preset.pro && !isPro) {
+        if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        audio.stop();
+        onClose();
+        router.push("/(tabs)/shop");
+        return;
+      }
       if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      audio.toggle(presetId);
+      audio.toggle(preset.id);
     },
-    [audio]
+    [audio, isPro, onClose, router]
   );
 
   const handleExpand = useCallback((id: string) => {
@@ -214,14 +229,25 @@ export function NeuralSoundscape({ onClose }: Props) {
               {presets.map((preset) => {
                 const isActive = audio.activePreset === preset.id;
                 const isExpanded = expandedId === preset.id;
+                const isLocked = !!preset.pro && !isPro;
                 return (
                   <View key={preset.id}>
                     <Pressable
-                      onPress={() => handleToggle(preset.id)}
+                      onPress={() => handleToggle(preset)}
                       style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        isLocked
+                          ? `${preset.name}, exclusive Zen Pro sound, locked. Tap to unlock with Zen Pro.`
+                          : `${isActive ? "Stop" : "Play"} ${preset.name}`
+                      }
                     >
                       <GlassCard
-                        style={[styles.presetCard, isActive && styles.presetCardActive]}
+                        style={[
+                          styles.presetCard,
+                          isActive && styles.presetCardActive,
+                          isLocked && styles.presetCardLocked,
+                        ]}
                         borderColor={isActive ? preset.color + "40" : Colors.glassBorderLight}
                       >
                         {isActive && (
@@ -236,12 +262,26 @@ export function NeuralSoundscape({ onClose }: Props) {
                               <Text style={styles.presetIcon}>{preset.icon}</Text>
                             </View>
                             <View style={styles.presetInfo}>
-                              <Text style={styles.presetName}>{preset.name}</Text>
-                              <Text style={styles.presetDesc}>{preset.description}</Text>
+                              <View style={styles.presetNameRow}>
+                                <Text style={styles.presetName}>{preset.name}</Text>
+                                {preset.pro && (
+                                  <View style={styles.proTag}>
+                                    <Ionicons name="sparkles" size={9} color={Colors.gold} />
+                                    <Text style={styles.proTagText}>ZEN PRO</Text>
+                                  </View>
+                                )}
+                              </View>
+                              <Text style={styles.presetDesc}>
+                                {isLocked ? "Unlock with Zen Pro" : preset.description}
+                              </Text>
                             </View>
                           </View>
                           <View style={styles.presetRight}>
-                            {isActive ? (
+                            {isLocked ? (
+                              <View style={[styles.playBtn, styles.playBtnLocked]}>
+                                <Ionicons name="lock-closed" size={16} color={Colors.gold} />
+                              </View>
+                            ) : isActive ? (
                               <View style={[styles.playBtn, { backgroundColor: preset.color + "25", borderColor: preset.color + "40" }]}>
                                 <Animated.View
                                   style={[
@@ -533,6 +573,31 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   presetCardActive: {},
+  presetCardLocked: {
+    opacity: 0.75,
+  },
+  presetNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  proTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.goldAlpha08,
+    borderWidth: 1,
+    borderColor: Colors.goldAlpha20,
+    borderRadius: 100,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  proTagText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 8,
+    color: Colors.gold,
+    letterSpacing: 1,
+  },
   presetRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -579,6 +644,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+  },
+  playBtnLocked: {
+    backgroundColor: Colors.goldAlpha08,
+    borderColor: Colors.goldAlpha20,
   },
   playingPulse: {
     position: "absolute",

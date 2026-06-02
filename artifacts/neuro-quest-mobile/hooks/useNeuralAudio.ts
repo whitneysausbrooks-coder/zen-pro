@@ -12,6 +12,12 @@ export interface NeuralPreset {
   baseFreq: number;
   beatFreq?: number;
   color: string;
+  /**
+   * Exclusive "Zen Pro" soundscape — playable only for members. Free users see
+   * it locked with an upsell. Gated in the UI via `useProAccess()` so a single
+   * purchase unlocks every premium perk at once.
+   */
+  pro?: boolean;
 }
 
 export const NEURAL_PRESETS: NeuralPreset[] = [
@@ -58,6 +64,7 @@ export const NEURAL_PRESETS: NeuralPreset[] = [
     baseFreq: 220,
     beatFreq: 40,
     color: "#F472B6",
+    pro: true,
   },
   {
     id: "solfeggio_528",
@@ -68,6 +75,7 @@ export const NEURAL_PRESETS: NeuralPreset[] = [
     science: "528Hz is called the 'Miracle Tone.' Research in the Journal of Addiction Research & Therapy found it reduces cortisol and increases oxytocin. Used in sound therapy for cellular regeneration.",
     baseFreq: 528,
     color: "#4ADE80",
+    pro: true,
   },
   {
     id: "solfeggio_432",
@@ -78,6 +86,7 @@ export const NEURAL_PRESETS: NeuralPreset[] = [
     science: "432Hz aligns with the Schumann Resonance of the Earth. Studies show it reduces heart rate and blood pressure more effectively than 440Hz standard tuning (Calamassi & Pomponi, 2019).",
     baseFreq: 432,
     color: "#E8DFC8",
+    pro: true,
   },
   {
     id: "solfeggio_396",
@@ -88,6 +97,7 @@ export const NEURAL_PRESETS: NeuralPreset[] = [
     science: "396Hz targets the root chakra frequency, associated with releasing deep-seated fear patterns. EEG studies show reduced amygdala activation during exposure to this frequency.",
     baseFreq: 396,
     color: "#F97316",
+    pro: true,
   },
   {
     id: "brown_noise",
