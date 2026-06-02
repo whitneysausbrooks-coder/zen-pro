@@ -21,11 +21,11 @@
  *      Server re-derives `device_secret` from the headers and verifies.
  *   3. Signed `:id` must equal `req.params.id` — closes the IDOR gap.
  *
- * Soft-mode rollout: this push runs in soft mode — every request is checked
- * and the result is logged (`signature_ok | missing | invalid | expired |
- * id_mismatch`), but no request is rejected. Once the next mobile build is
- * in TestFlight and active installs are upgraded, flip `SOFT_MODE = false`
- * (or remove this comment + the env override) to start enforcing.
+ * Enforcement: hard mode is now the default — invalid / unsigned / spoofed
+ * requests to per-:id endpoints are rejected with 401. The soft-mode rollout is
+ * complete. Every non-ok verdict is still logged (`device_signature:<status>`)
+ * for observability. As an emergency rollback ONLY, soft mode can be temporarily
+ * re-enabled with `DEVICE_AUTH_SOFT_MODE=1` (checked + logged, never rejected).
  *
  * Replay protection: 5-minute clock-skew window only this round. A nonce
  * table is on the next-sprint backlog.
@@ -40,8 +40,16 @@ function singleHeader(v: string | string[] | undefined): string | undefined {
   return v;
 }
 
-// Soft-mode default. Override with `DEVICE_AUTH_HARD_MODE=1` to enforce.
-const HARD_MODE = process.env["DEVICE_AUTH_HARD_MODE"] === "1";
+// Hard mode (enforcement) is now the default: invalid / unsigned / spoofed
+// requests to per-:id endpoints are rejected with 401. The soft-mode rollout is
+// over. As an emergency rollback ONLY, soft mode can be re-enabled by setting
+// `DEVICE_AUTH_SOFT_MODE=1` (every request is still checked + logged, but no
+// request is rejected). `DEVICE_AUTH_HARD_MODE=1` is still honored as an
+// explicit opt-in and takes precedence over the soft-mode escape hatch.
+const SOFT_MODE_OVERRIDE =
+  process.env["DEVICE_AUTH_SOFT_MODE"] === "1" &&
+  process.env["DEVICE_AUTH_HARD_MODE"] !== "1";
+const HARD_MODE = !SOFT_MODE_OVERRIDE;
 const CLOCK_SKEW_MS = 5 * 60 * 1000;
 const ISSUED_AT_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000; // 1 year — re-mint on rotation.
 
@@ -163,8 +171,10 @@ export function verifyDeviceSignature(req: Request, expectedUserId: string): Ver
 
 /**
  * Express middleware that verifies the signature against `req.params.id`.
- * In soft mode (default) it logs the verdict and always calls `next()`;
- * in hard mode it 401s on anything other than `ok`.
+ * In hard mode (default) it 401s on anything other than `ok` (except when no
+ * server key is configured, which is treated as misconfiguration and allowed
+ * through rather than locking everyone out). In the emergency soft-mode
+ * rollback it logs the verdict and always calls `next()`.
  *
  * Mount AFTER `express.json()` so `req.body` is available for hashing.
  */
