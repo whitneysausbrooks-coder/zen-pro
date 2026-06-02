@@ -90,6 +90,12 @@ uri = "file://attached_assets/app_store_screenshots/10_zenpro.png"
 type = "image"
 title = "Zen Pro premium"
 
+[[generated]]
+id = "Qt4xg6LkUt-cpU51IfMHk"
+uri = "file://attached_assets/generated_images/zen_pro_annual_promo.png"
+type = "image"
+title = "zen pro annual promo"
+
 [[outputs]]
 id = "wpWIJfZp3S9ptbGnfeCYJ"
 uri = "file://APP_STORE_SUBMISSION.md"
@@ -491,3 +497,9 @@ id = "Sml3iqriMmpjat7UhpFs_"
 uri = "file://docs/architecture-reference.md"
 type = "text"
 title = "NeuroQuest Architecture Reference Guide"
+
+[[outputs]]
+id = "OI2-BdJ8gU2KSNLFdhgfR"
+uri = "file://attached_assets/generated_images/zen_pro_annual_promo.png"
+type = "image"
+title = "Zen Pro Annual — Promotional Image (1024×1024)"
