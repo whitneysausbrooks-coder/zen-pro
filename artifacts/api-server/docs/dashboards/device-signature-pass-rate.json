@@ -1,0 +1,325 @@
+{
+  "title": "[NeuroQuest API] device-signature pass rate — signed-login success vs rejection",
+  "description": "Live view of the device-signature handshake pass rate (ok-vs-rejected) for the per-:id app-user endpoints.\n\nSuccessful signed logins are SAMPLED (`device_signature:ok`, ~1% by default) while every rejection is logged in full, so a raw count comparison would massively understate success. Each tile recovers the true success volume by scaling the sampled count back up:\n\n  scaled_ok = ok_count / sample_rate\n  pass_rate = scaled_ok / (scaled_ok + rejected_count)\n\nThe scale-up factor uses `@extra.sample_rate` carried on every ok capture (NOT a hardcoded 0.01) so the math stays correct even after `DEVICE_AUTH_SUCCESS_SAMPLE_RATE` is changed. Pass rate is broken down by route (`@route`) and enforcement flag (`@extra.hard_mode`).\n\nSignal source: captureMessage('device_signature:ok' | ':<status>') in artifacts/api-server/src/lib/deviceAuth.ts, shipped to Datadog Logs by artifacts/api-server/src/lib/errorMonitoring.ts when DATADOG_API_KEY is set.",
+  "layout_type": "ordered",
+  "reflow_type": "fixed",
+  "widgets": [
+    {
+      "definition": {
+        "type": "note",
+        "content": "## Device-signature pass rate\n\n**pass_rate = (ok_count / sample_rate) / ((ok_count / sample_rate) + rejected_count)**\n\nSuccesses are sampled (`device_signature:ok`, `@extra.sample_rate` per capture); rejections are always logged. The sampled successes are scaled back to true volume using the per-capture `sample_rate`, so this stays correct if `DEVICE_AUTH_SUCCESS_SAMPLE_RATE` changes. Rejections = `missing | invalid | expired | id_mismatch | issued_at_too_old | replayed` (excludes `no_server_key`, which is allowed through, not rejected).",
+        "background_color": "blue",
+        "font_size": "14",
+        "text_align": "left",
+        "vertical_align": "top",
+        "show_tick": false,
+        "tick_pos": "50%",
+        "tick_edge": "left",
+        "has_padding": true
+      },
+      "layout": { "x": 0, "y": 0, "width": 12, "height": 2 }
+    },
+    {
+      "definition": {
+        "title": "Overall pass rate (last 4h, sample-scaled)",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "query_value",
+        "requests": [
+          {
+            "formulas": [
+              {
+                "formula": "100 * (ok / rate) / ((ok / rate) + rejected)",
+                "number_format": {
+                  "unit": { "type": "canonical_unit", "unit_name": "percent" }
+                }
+              }
+            ],
+            "queries": [
+              {
+                "name": "ok",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production \"device_signature:ok\"" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "count" },
+                "storage": "hot"
+              },
+              {
+                "name": "rate",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production \"device_signature:ok\"" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "avg", "metric": "@extra.sample_rate" },
+                "storage": "hot"
+              },
+              {
+                "name": "rejected",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production (\"device_signature:missing\" OR \"device_signature:invalid\" OR \"device_signature:expired\" OR \"device_signature:id_mismatch\" OR \"device_signature:issued_at_too_old\" OR \"device_signature:replayed\")" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "count" },
+                "storage": "hot"
+              }
+            ],
+            "response_format": "scalar"
+          }
+        ],
+        "autoscale": false,
+        "precision": 2,
+        "timeseries_background": { "type": "area" }
+      },
+      "layout": { "x": 0, "y": 2, "width": 4, "height": 3 }
+    },
+    {
+      "definition": {
+        "title": "Scaled successful logins (last 4h)",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "query_value",
+        "requests": [
+          {
+            "formulas": [{ "formula": "ok / rate" }],
+            "queries": [
+              {
+                "name": "ok",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production \"device_signature:ok\"" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "count" },
+                "storage": "hot"
+              },
+              {
+                "name": "rate",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production \"device_signature:ok\"" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "avg", "metric": "@extra.sample_rate" },
+                "storage": "hot"
+              }
+            ],
+            "response_format": "scalar"
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": { "x": 4, "y": 2, "width": 4, "height": 3 }
+    },
+    {
+      "definition": {
+        "title": "Rejected signed logins (last 4h, full count)",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "query_value",
+        "requests": [
+          {
+            "formulas": [{ "formula": "rejected" }],
+            "queries": [
+              {
+                "name": "rejected",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production (\"device_signature:missing\" OR \"device_signature:invalid\" OR \"device_signature:expired\" OR \"device_signature:id_mismatch\" OR \"device_signature:issued_at_too_old\" OR \"device_signature:replayed\")" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "count" },
+                "storage": "hot"
+              }
+            ],
+            "response_format": "scalar"
+          }
+        ],
+        "autoscale": true,
+        "precision": 0
+      },
+      "layout": { "x": 8, "y": 2, "width": 4, "height": 3 }
+    },
+    {
+      "definition": {
+        "title": "Pass-rate trend by route (slow-degradation watch)",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "timeseries",
+        "requests": [
+          {
+            "formulas": [
+              {
+                "formula": "100 * (ok / rate) / ((ok / rate) + rejected)",
+                "alias": "pass rate %"
+              }
+            ],
+            "queries": [
+              {
+                "name": "ok",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production \"device_signature:ok\"" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "count" },
+                "group_by": [
+                  { "facet": "@route", "limit": 10, "sort": { "order": "desc", "aggregation": "count" } }
+                ],
+                "storage": "hot"
+              },
+              {
+                "name": "rate",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production \"device_signature:ok\"" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "avg", "metric": "@extra.sample_rate" },
+                "group_by": [
+                  { "facet": "@route", "limit": 10, "sort": { "order": "desc", "aggregation": "count" } }
+                ],
+                "storage": "hot"
+              },
+              {
+                "name": "rejected",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production (\"device_signature:missing\" OR \"device_signature:invalid\" OR \"device_signature:expired\" OR \"device_signature:id_mismatch\" OR \"device_signature:issued_at_too_old\" OR \"device_signature:replayed\")" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "count" },
+                "group_by": [
+                  { "facet": "@route", "limit": 10, "sort": { "order": "desc", "aggregation": "count" } }
+                ],
+                "storage": "hot"
+              }
+            ],
+            "response_format": "timeseries",
+            "style": { "palette": "dog_classic", "line_type": "solid", "line_width": "normal" },
+            "display_type": "line"
+          }
+        ],
+        "yaxis": { "scale": "linear", "min": "0", "max": "100", "include_zero": false }
+      },
+      "layout": { "x": 0, "y": 5, "width": 6, "height": 4 }
+    },
+    {
+      "definition": {
+        "title": "Pass-rate trend by enforcement mode (hard_mode)",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "timeseries",
+        "requests": [
+          {
+            "formulas": [
+              {
+                "formula": "100 * (ok / rate) / ((ok / rate) + rejected)",
+                "alias": "pass rate %"
+              }
+            ],
+            "queries": [
+              {
+                "name": "ok",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production \"device_signature:ok\"" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "count" },
+                "group_by": [
+                  { "facet": "@extra.hard_mode", "limit": 2, "sort": { "order": "desc", "aggregation": "count" } }
+                ],
+                "storage": "hot"
+              },
+              {
+                "name": "rate",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production \"device_signature:ok\"" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "avg", "metric": "@extra.sample_rate" },
+                "group_by": [
+                  { "facet": "@extra.hard_mode", "limit": 2, "sort": { "order": "desc", "aggregation": "count" } }
+                ],
+                "storage": "hot"
+              },
+              {
+                "name": "rejected",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production (\"device_signature:missing\" OR \"device_signature:invalid\" OR \"device_signature:expired\" OR \"device_signature:id_mismatch\" OR \"device_signature:issued_at_too_old\" OR \"device_signature:replayed\")" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "count" },
+                "group_by": [
+                  { "facet": "@extra.hard_mode", "limit": 2, "sort": { "order": "desc", "aggregation": "count" } }
+                ],
+                "storage": "hot"
+              }
+            ],
+            "response_format": "timeseries",
+            "style": { "palette": "cool", "line_type": "solid", "line_width": "normal" },
+            "display_type": "line"
+          }
+        ],
+        "yaxis": { "scale": "linear", "min": "0", "max": "100", "include_zero": false }
+      },
+      "layout": { "x": 6, "y": 5, "width": 6, "height": 4 }
+    },
+    {
+      "definition": {
+        "title": "Pass rate broken down by route × hard_mode",
+        "title_size": "16",
+        "title_align": "left",
+        "type": "query_table",
+        "requests": [
+          {
+            "formulas": [
+              {
+                "formula": "100 * (ok / rate) / ((ok / rate) + rejected)",
+                "alias": "pass rate %",
+                "limit": { "count": 50, "order": "asc" },
+                "cell_display_mode": "bar"
+              },
+              { "formula": "ok / rate", "alias": "scaled successes" },
+              { "formula": "rejected", "alias": "rejections" }
+            ],
+            "queries": [
+              {
+                "name": "ok",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production \"device_signature:ok\"" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "count" },
+                "group_by": [
+                  { "facet": "@route", "limit": 25, "sort": { "order": "desc", "aggregation": "count" } },
+                  { "facet": "@extra.hard_mode", "limit": 2, "sort": { "order": "desc", "aggregation": "count" } }
+                ],
+                "storage": "hot"
+              },
+              {
+                "name": "rate",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production \"device_signature:ok\"" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "avg", "metric": "@extra.sample_rate" },
+                "group_by": [
+                  { "facet": "@route", "limit": 25, "sort": { "order": "desc", "aggregation": "count" } },
+                  { "facet": "@extra.hard_mode", "limit": 2, "sort": { "order": "desc", "aggregation": "count" } }
+                ],
+                "storage": "hot"
+              },
+              {
+                "name": "rejected",
+                "data_source": "logs",
+                "search": { "query": "service:neuroquest-api env:production (\"device_signature:missing\" OR \"device_signature:invalid\" OR \"device_signature:expired\" OR \"device_signature:id_mismatch\" OR \"device_signature:issued_at_too_old\" OR \"device_signature:replayed\")" },
+                "indexes": ["*"],
+                "compute": { "aggregation": "count" },
+                "group_by": [
+                  { "facet": "@route", "limit": 25, "sort": { "order": "desc", "aggregation": "count" } },
+                  { "facet": "@extra.hard_mode", "limit": 2, "sort": { "order": "desc", "aggregation": "count" } }
+                ],
+                "storage": "hot"
+              }
+            ],
+            "response_format": "scalar"
+          }
+        ],
+        "has_search_bar": "auto"
+      },
+      "layout": { "x": 0, "y": 9, "width": 12, "height": 4 }
+    }
+  ],
+  "template_variables": [],
+  "_runbook": {
+    "why": "The sampled `device_signature:ok` capture now makes a true ok-vs-rejected ratio computable, but until now that ratio only existed implicitly in the log stream. This dashboard surfaces it as a single visible number plus trend lines so slow degradations (a pass rate drifting from 99.8% down over days) are obvious at a glance, complementing the spike-only device-signature-lockout monitor.",
+    "math": "scaled_ok = ok_count / sample_rate; pass_rate = scaled_ok / (scaled_ok + rejected_count). Successes are sampled so ok_count understates true success volume — scaling by 1/sample_rate recovers it. Implemented in Datadog formulas as 100 * (ok / rate) / ((ok / rate) + rejected).",
+    "sample_rate_source": "`rate` query = avg(@extra.sample_rate) over the device_signature:ok captures. Each capture emits @extra.sample_rate (the live DEVICE_AUTH_SUCCESS_SAMPLE_RATE, default 0.01, overridable). Using the emitted value — NOT a hardcoded 0.01 — keeps the scale-up correct after the env var is changed. @extra.sample_rate must be defined as a Datadog measure facet for the avg() to work; create it from a device_signature:ok log if it is not auto-detected.",
+    "ok_signal": "captureMessage('device_signature:ok', { route, extra: { hard_mode, sampled, sample_rate } }) in artifacts/api-server/src/lib/deviceAuth.ts — emitted on a Math.random() < SUCCESS_SAMPLE_RATE fraction of accepted signed requests.",
+    "rejected_signal": "captureMessage('device_signature:<status>', { route, extra: { hard_mode, active_install, reason } }). Rejections counted: missing, invalid, expired, id_mismatch, issued_at_too_old, replayed. no_server_key is EXCLUDED — that verdict is allowed through (treated as misconfig), not rejected, so it is not a login failure.",
+    "breakdown": "Grouped by @route (req.method + req.path) and @extra.hard_mode. In soft mode (hard_mode=false) nothing is actually rejected, so that series shows the pass rate the gate WOULD enforce if hard mode were on.",
+    "import": "Datadog dashboard JSON. Import via Datadog UI (Dashboards > New > Import dashboard JSON) or the Dashboards API (POST /api/v1/dashboard). Adjust env:production in the queries if viewing a non-prod env. Pairs with docs/monitors/device-signature-lockout.json (the paging alert)."
+  }
+}
