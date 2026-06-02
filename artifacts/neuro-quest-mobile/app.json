@@ -52,7 +52,7 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "NeuroQuest reads your Heart Rate Variability, Sleep Analysis, and Step Count from Apple Health to compute your personal Neuro Resilience Score. With your permission, the app silently refreshes your score in the background when your Watch records new data, so your morning protocol is ready before you open the app. Your individual readings are only used to show your own score; anything shared with your employer is anonymized into aggregates of 5 or more employees, and your name is never attached.",
+          "NSHealthShareUsageDescription": "NeuroQuest reads your Heart Rate Variability, Sleep Analysis, and Step Count from Apple Health to compute your personal Neuro Resilience Score. With your permission, the app silently refreshes your score in the background when your Watch records new data, so your morning protocol is ready before you open the app. Your readings are used only to show your own score and are never shared.",
           "background": true
         }
       ],
