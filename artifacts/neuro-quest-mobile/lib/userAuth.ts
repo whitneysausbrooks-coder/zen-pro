@@ -452,6 +452,49 @@ export async function syncProfileToBackend(): Promise<void> {
   } catch {}
 }
 
+export interface ServerEntitlement {
+  product_id: string;
+  kind: string;
+  status: string;
+  expires_at: string | null;
+}
+
+export interface ServerEntitlements {
+  proActive: boolean;
+  entitlements: ServerEntitlement[];
+}
+
+/**
+ * Cross-device fallback for Pro status. The on-device Adapty profile is the
+ * authoritative source for the purchasing device, but a second device of the
+ * same user (or a fresh reinstall before Adapty re-syncs) reads Pro state from
+ * the server mirror via GET /iap/entitlements. The route authenticates with the
+ * per-device HMAC signature (signedFetch) plus the X-User-Id header naming the
+ * app_users.id the signature is bound to. Returns null on any failure so the
+ * caller can fall back to the Adapty profile alone.
+ */
+export async function getServerEntitlements(): Promise<ServerEntitlements | null> {
+  const id = await getStoredUserId();
+  if (!id) return null;
+  try {
+    const res = await signedFetch(`${getApiBase()}/api/iap/entitlements`, {
+      method: "GET",
+      headers: { "X-User-Id": id },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      pro_active?: boolean;
+      entitlements?: ServerEntitlement[];
+    };
+    return {
+      proActive: !!json.pro_active,
+      entitlements: Array.isArray(json.entitlements) ? json.entitlements : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function heartbeat(): Promise<void> {
   const id = await getStoredUserId();
   if (!id) return;

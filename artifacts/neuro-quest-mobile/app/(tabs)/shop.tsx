@@ -20,10 +20,10 @@ import Colors from "@/constants/colors";
 import {
   getProPlacement,
   isAdaptySupported,
-  isProActive,
   purchaseProduct,
   restorePurchases,
 } from "@/lib/adapty";
+import { useProAccess } from "@/contexts/ProAccessContext";
 
 const PRODUCT_MAP: Record<string, string> = {
   pro: "pro.neuroquestzen.app.zenpro.monthly",
@@ -136,9 +136,10 @@ export default function ShopScreen() {
   const [adaptyProducts, setAdaptyProducts] = useState<
     Record<string, AdaptyPaywallProduct>
   >({});
-  // Whether the user already holds the Adapty "premium" access level. Drives
-  // the "you're already Pro" banner so we don't push purchases at members.
-  const [proActive, setProActive] = useState(false);
+  // App-wide Pro signal. Drives the "you're already Pro" banner so we don't
+  // push purchases at members, and is refreshed after purchase/restore so the
+  // unlock is reflected everywhere immediately.
+  const { isPro: proActive, refresh: refreshPro, setProActive } = useProAccess();
 
   const handleGoHome = useCallback(() => {
     if (nd) Haptics.selectionAsync();
@@ -157,11 +158,6 @@ export default function ShopScreen() {
         setAdaptyProducts(byVendorId);
       })
       .catch((e) => console.warn("Adapty paywall setup:", e));
-    isProActive()
-      .then((active) => {
-        if (!cancelled) setProActive(active);
-      })
-      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -208,6 +204,10 @@ export default function ShopScreen() {
         setPurchasing(planKey);
         const result = await purchaseProduct(product);
         if (result.proActive) setProActive(true);
+        // Reconcile the app-wide signal against Adapty + the server mirror so
+        // every premium gate unlocks immediately (and stays correct even if
+        // the on-device profile lags the purchase).
+        refreshPro().catch(() => {});
         if (nd)
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
@@ -279,6 +279,8 @@ export default function ShopScreen() {
       setRestoring(true);
       const result = await restorePurchases();
       setProActive(result.proActive);
+      // Reconcile against Adapty + the server mirror after restore.
+      refreshPro().catch(() => {});
       Alert.alert(
         "Restore Complete",
         result.proActive

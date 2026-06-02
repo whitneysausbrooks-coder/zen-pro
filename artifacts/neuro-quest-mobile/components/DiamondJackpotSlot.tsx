@@ -33,6 +33,8 @@ interface Props {
   neuralEnergy: number;
   onSpinStart: (cost: number) => boolean;
   onResult: (result: DiamondResult, cost: number) => void;
+  /** Pro members play for free — bypasses the Neural Energy cost gate. */
+  unlimited?: boolean;
 }
 
 type DiamondOutcome = "mega" | "four" | "three" | "pair" | "miss";
@@ -147,7 +149,7 @@ function evaluateDiamondReels(finals: number[]): {
   return { outcome: "miss", matchSym: "", matchCount: 0 };
 }
 
-export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
+export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult, unlimited }: Props) {
   const [displayReels, setDisplayReels] = useState([0, 1, 2, 3, 4]);
   const [phase, setPhase] = useState<"ready" | "spinning" | "result">("ready");
   const [selectedTier, setSelectedTier] = useState(0);
@@ -300,7 +302,7 @@ export function DiamondJackpotSlot({ neuralEnergy, onSpinStart, onResult }: Prop
     timeoutRefs.current.push(rid);
   }, [selectedTier, onResult]);
 
-  const canAfford = neuralEnergy >= TIERS[selectedTier].cost;
+  const canAfford = !!unlimited || neuralEnergy >= TIERS[selectedTier].cost;
 
   return (
     <View style={s.container}>

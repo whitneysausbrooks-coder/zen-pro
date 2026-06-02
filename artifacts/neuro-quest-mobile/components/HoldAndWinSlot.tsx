@@ -34,6 +34,8 @@ interface Props {
   neuralEnergy: number;
   onSpinStart: (cost: number) => boolean;
   onResult: (result: HoldWinResult, cost: number) => void;
+  /** Pro members play for free — bypasses the Neural Energy cost gate. */
+  unlimited?: boolean;
 }
 
 type Outcome = "triple" | "pair" | "miss";
@@ -141,7 +143,7 @@ function evaluateReels(reels: number[]): {
   return { outcome: "miss", matchSymbol: "" };
 }
 
-export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
+export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult, unlimited }: Props) {
   const [reels, setReels] = useState([0, 2, 4]);
   const [held, setHeld] = useState([false, false, false]);
   const [phase, setPhase] = useState<
@@ -380,7 +382,7 @@ export function HoldAndWinSlot({ neuralEnergy, onSpinStart, onResult }: Props) {
     });
   }, [phase, reels, spinReels, finishSpin]);
 
-  const canAfford = neuralEnergy >= TIERS[selectedTier].cost;
+  const canAfford = !!unlimited || neuralEnergy >= TIERS[selectedTier].cost;
 
   return (
     <View style={s.container}>

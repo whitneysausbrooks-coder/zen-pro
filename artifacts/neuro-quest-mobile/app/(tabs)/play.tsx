@@ -24,6 +24,7 @@ import { DiamondJackpotSlot, DiamondResult } from "@/components/DiamondJackpotSl
 import { CelebrationOverlay } from "@/components/CelebrationOverlay";
 import Colors from "@/constants/colors";
 import { useRouter } from "expo-router";
+import { useProAccess } from "@/contexts/ProAccessContext";
 
 const { width: screenW } = Dimensions.get("window");
 const nd = Platform.OS !== "web";
@@ -105,9 +106,19 @@ export default function PlayScreen() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationAmount, setCelebrationAmount] = useState(0);
 
+  // Pro members get unlimited daily plays and play premium games for free.
+  // Mirror into a ref so the spin callbacks read the latest value without
+  // forcing the games to re-render mid-spin.
+  const { isPro } = useProAccess();
+  const isProRef = useRef(isPro);
+
   useEffect(() => {
     neRef.current = neuralEnergy;
   }, [neuralEnergy]);
+
+  useEffect(() => {
+    isProRef.current = isPro;
+  }, [isPro]);
 
   useEffect(() => {
     const load = async () => {
@@ -238,9 +249,12 @@ export default function PlayScreen() {
     async (wheelResult: WheelResult) => {
       await incrementSpinCount();
 
-      const newSpins = Math.max(0, spinsLeft - 1);
-      setSpinsLeft(newSpins);
-      await AsyncStorage.setItem(SPINS_KEY, String(newSpins));
+      // Pro members have unlimited plays — never decrement their counter.
+      if (!isProRef.current) {
+        const newSpins = Math.max(0, spinsLeft - 1);
+        setSpinsLeft(newSpins);
+        await AsyncStorage.setItem(SPINS_KEY, String(newSpins));
+      }
 
       if (wheelResult.isWin && !wheelResult.isBoost) {
         const payout = Math.round(WHEEL_SPIN_COST * wheelResult.multiplier);
@@ -278,6 +292,15 @@ export default function PlayScreen() {
   const handlePremiumSpinStart = useCallback(
     (cost: number): boolean => {
       if (spinLockRef.current) return false;
+
+      // Pro members play all premium games for free — no NE check, no deduction.
+      if (isProRef.current) {
+        spinLockRef.current = true;
+        setTimeout(() => {
+          if (spinLockRef.current) spinLockRef.current = false;
+        }, 15000);
+        return true;
+      }
 
       const currentNE = neRef.current;
       if (currentNE < cost) {
@@ -437,7 +460,7 @@ export default function PlayScreen() {
             <View style={styles.balanceDivider} />
             <View style={styles.balanceItem}>
               <Text style={styles.balanceLabel}>Plays Left</Text>
-              <Text style={[styles.balanceValue, { color: Colors.empathyGreen }]}>{spinsLeft}</Text>
+              <Text style={[styles.balanceValue, { color: Colors.empathyGreen }]}>{isPro ? "∞" : spinsLeft}</Text>
               <Text style={styles.balanceSub}>Compassion Reels</Text>
             </View>
             <View style={styles.balanceDivider} />
@@ -449,7 +472,7 @@ export default function PlayScreen() {
           </View>
         </GlassCard>
 
-        <SlotMachine onSpin={handleWheelSpin} spinsLeft={spinsLeft} />
+        <SlotMachine onSpin={handleWheelSpin} spinsLeft={spinsLeft} unlimited={isPro} />
 
         <View style={styles.premiumDivider}>
           <View style={styles.premiumLine} />
@@ -460,7 +483,9 @@ export default function PlayScreen() {
         <View style={styles.premiumInfo}>
           <Ionicons name="information-circle-outline" size={14} color={Colors.whiteAlpha30} />
           <Text style={styles.premiumInfoText}>
-            Premium games cost Neural Energy. Rewards = NE spent × Multiplier. Balance deducted before play.
+            {isPro
+              ? "Zen Pro: all premium games are free to play. Rewards = base cost × Multiplier."
+              : "Premium games cost Neural Energy. Rewards = NE spent × Multiplier. Balance deducted before play."}
           </Text>
         </View>
 
@@ -468,11 +493,13 @@ export default function PlayScreen() {
           neuralEnergy={neuralEnergy}
           onSpinStart={handlePremiumSpinStart}
           onResult={handleHoldWinResult}
+          unlimited={isPro}
         />
         <DiamondJackpotSlot
           neuralEnergy={neuralEnergy}
           onSpinStart={handlePremiumSpinStart}
           onResult={handleDiamondResult}
+          unlimited={isPro}
         />
 
         <GlassCard style={styles.microDonationCard} borderColor="rgba(74,222,128,0.2)" elevated>
@@ -577,7 +604,7 @@ export default function PlayScreen() {
           </View>
         </GlassCard>
 
-        {(spinsLeft === 0 && neuralEnergy < 10) && (
+        {(!isPro && spinsLeft === 0 && neuralEnergy < 10) && (
           <GlassCard style={styles.noSpinsCard} borderColor={Colors.goldAlpha20}>
             <LinearGradient
               colors={[Colors.goldAlpha05, "transparent"]}

@@ -36,6 +36,7 @@ import {
   syncProfileToBackend,
 } from "@/lib/userAuth";
 import { activateAdapty, identifyAdapty } from "@/lib/adapty";
+import { ProAccessProvider } from "@/contexts/ProAccessContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -299,7 +300,9 @@ export default function RootLayout() {
                   }}
                 />
               ) : (
-                <AuthenticatedShell />
+                <ProAccessProvider>
+                  <AuthenticatedShell />
+                </ProAccessProvider>
               )}
             </KeyboardProvider>
           </GestureHandlerRootView>

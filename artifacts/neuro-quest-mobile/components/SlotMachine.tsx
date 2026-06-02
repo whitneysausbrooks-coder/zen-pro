@@ -81,9 +81,11 @@ interface SlotMachineProps {
   onSpin: (result: WheelResult) => void;
   spinsLeft: number;
   disabled?: boolean;
+  /** Pro members get unlimited plays — bypasses the spinsLeft cap. */
+  unlimited?: boolean;
 }
 
-export function SlotMachine({ onSpin, spinsLeft, disabled }: SlotMachineProps) {
+export function SlotMachine({ onSpin, spinsLeft, disabled, unlimited }: SlotMachineProps) {
   const [spinning, setSpinning] = useState(false);
   const [lastWinIndex, setLastWinIndex] = useState<number | null>(null);
   const spinAnim = useRef(new Animated.Value(0)).current;
@@ -113,7 +115,7 @@ export function SlotMachine({ onSpin, spinsLeft, disabled }: SlotMachineProps) {
   }, []);
 
   const handleSpin = useCallback(() => {
-    if (spinning || spinsLeft <= 0 || disabled) return;
+    if (spinning || (spinsLeft <= 0 && !unlimited) || disabled) return;
 
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
@@ -174,14 +176,14 @@ export function SlotMachine({ onSpin, spinsLeft, disabled }: SlotMachineProps) {
         prizeLabel: segment.label,
       });
     });
-  }, [spinning, spinsLeft, disabled, onSpin]);
+  }, [spinning, spinsLeft, disabled, unlimited, onSpin]);
 
   const wheelRotation = spinAnim.interpolate({
     inputRange: [0, 360],
     outputRange: ["0deg", "360deg"],
   });
 
-  const isDisabled = spinning || spinsLeft <= 0 || !!disabled;
+  const isDisabled = spinning || (spinsLeft <= 0 && !unlimited) || !!disabled;
 
   return (
     <View style={styles.container}>
@@ -287,7 +289,7 @@ export function SlotMachine({ onSpin, spinsLeft, disabled }: SlotMachineProps) {
               isDisabled && styles.spinButtonDisabled,
             ]}
             accessibilityRole="button"
-            accessibilityLabel={spinning ? "Wheel is playing" : spinsLeft > 0 ? `Play the wheel, ${spinsLeft} plays left` : "No plays remaining"}
+            accessibilityLabel={spinning ? "Wheel is playing" : unlimited ? "Play the wheel, unlimited plays" : spinsLeft > 0 ? `Play the wheel, ${spinsLeft} plays left` : "No plays remaining"}
           >
             <LinearGradient
               colors={!isDisabled ? [Colors.goldLight, Colors.gold, Colors.goldDim] : ["#555", "#444", "#333"]}
@@ -296,10 +298,12 @@ export function SlotMachine({ onSpin, spinsLeft, disabled }: SlotMachineProps) {
               end={{ x: 1, y: 1 }}
             >
               <Text style={styles.spinText}>
-                {spinning ? "Playing..." : spinsLeft > 0 ? "PLAY" : "No Plays"}
+                {spinning ? "Playing..." : unlimited || spinsLeft > 0 ? "PLAY" : "No Plays"}
               </Text>
               <Text style={styles.spinsCount}>
-                {spinsLeft} play{spinsLeft !== 1 ? "s" : ""} left
+                {unlimited
+                  ? "Unlimited plays"
+                  : `${spinsLeft} play${spinsLeft !== 1 ? "s" : ""} left`}
               </Text>
             </LinearGradient>
           </Pressable>
