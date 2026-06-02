@@ -56,6 +56,37 @@ const SOFT_MODE_OVERRIDE =
   process.env["DEVICE_AUTH_SOFT_MODE"] === "1" &&
   process.env["DEVICE_AUTH_HARD_MODE"] !== "1";
 const HARD_MODE = !SOFT_MODE_OVERRIDE;
+
+// Sampling rate for SUCCESS (`device_signature:ok`) captures. Non-ok verdicts
+// are always logged (they're rare and high-signal), but successful signed
+// logins are the overwhelming majority of traffic, so logging every one would
+// blow up log volume and cost. We instead emit a capture for a small, random
+// fraction of successes; monitoring can then compute the true pass rate as:
+//
+//   pass_rate ≈ (ok_count / SUCCESS_SAMPLE_RATE)
+//             / ((ok_count / SUCCESS_SAMPLE_RATE) + rejected_count)
+//
+// i.e. scale the sampled `device_signature:ok` count back up by
+// 1 / SUCCESS_SAMPLE_RATE to recover true success volume, then divide by total
+// (scaled successes + always-logged rejections). The sampled count is also
+// emitted as `sample_rate` in each capture so the scale-up factor travels with
+// the data and stays correct even if this constant changes later.
+//
+// Override with `DEVICE_AUTH_SUCCESS_SAMPLE_RATE` (a float in (0, 1]); set to
+// `1` to log every success (e.g. during a short investigation). Out-of-range
+// or unparseable values fall back to the 1% default.
+const DEFAULT_SUCCESS_SAMPLE_RATE = 0.01;
+function resolveSuccessSampleRate(): number {
+  const raw = process.env["DEVICE_AUTH_SUCCESS_SAMPLE_RATE"];
+  if (!raw) return DEFAULT_SUCCESS_SAMPLE_RATE;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1) {
+    return DEFAULT_SUCCESS_SAMPLE_RATE;
+  }
+  return parsed;
+}
+const SUCCESS_SAMPLE_RATE = resolveSuccessSampleRate();
+
 const CLOCK_SKEW_MS = 5 * 60 * 1000;
 const ISSUED_AT_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000; // 1 year — re-mint on rotation.
 
@@ -257,7 +288,19 @@ export const requireDeviceSignature: RequestHandler = async (req, res, next) => 
   // Attach for downstream handlers / observability.
   (req as any).signatureCheck = result;
 
-  if (result.status === "ok") return next();
+  if (result.status === "ok") {
+    // Record a SAMPLED success so monitoring can compute a true pass rate
+    // (ok vs rejected), not just confirm the absence of failures. Scale the
+    // sampled count back up by 1 / sample_rate to recover true volume.
+    if (Math.random() < SUCCESS_SAMPLE_RATE) {
+      captureMessage("device_signature:ok", {
+        user_id: userId,
+        route: `${req.method} ${req.path}`,
+        extra: { hard_mode: HARD_MODE, sampled: true, sample_rate: SUCCESS_SAMPLE_RATE },
+      });
+    }
+    return next();
+  }
 
   // Surface every non-ok verdict in monitoring so we can spot regressions.
   captureMessage(`device_signature:${result.status}`, {
