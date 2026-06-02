@@ -46,6 +46,37 @@ function singleHeader(v: string | string[] | undefined): string | undefined {
   return v;
 }
 
+// The four headers a device-aware (handshake-capable) client sends. We only
+// need ONE of them to be present to know the request came from an install that
+// KNOWS about the handshake — i.e. an "active install".
+const DEVICE_AUTH_HEADERS = [
+  "x-device-id",
+  "x-issued-at",
+  "x-timestamp",
+  "x-signature",
+] as const;
+
+/**
+ * Did this request come from a device-aware ("active") install?
+ *
+ * Wrongful-lockout monitoring has to tell two populations apart:
+ *   - OLD / pre-handshake installs: they send NONE of the device-auth headers,
+ *     so they always land on `missing`. A small, steady tail of these is normal
+ *     (users who haven't updated to a handshake-capable build) and must NOT page.
+ *   - ACTIVE installs: a build that DOES know the handshake sends at least one
+ *     device-auth header. If such a request is rejected, that's a real member
+ *     getting locked out — exactly what we want to alert on.
+ *
+ * Presence of ANY device-auth header is the discriminator: a handshake-capable
+ * client always sets all four on a signed request, so even a partial set means
+ * the client tried to sign and something went wrong (a regression worth paging).
+ */
+export function isActiveInstall(req: Request): boolean {
+  return DEVICE_AUTH_HEADERS.some(
+    (h) => singleHeader(req.headers[h]) !== undefined,
+  );
+}
+
 // Hard mode (enforcement) is now the default: invalid / unsigned / spoofed
 // requests to per-:id endpoints are rejected with 401. The soft-mode rollout is
 // over. As an emergency rollback ONLY, soft mode can be re-enabled by setting
@@ -303,10 +334,18 @@ export const requireDeviceSignature: RequestHandler = async (req, res, next) => 
   }
 
   // Surface every non-ok verdict in monitoring so we can spot regressions.
+  // `active_install` lets the lockout monitor isolate REAL members getting
+  // rejected (device-aware clients) from the harmless steady tail of
+  // pre-handshake installs that never send the headers. See
+  // docs/monitors/device-signature-lockout.json for the alert that consumes it.
   captureMessage(`device_signature:${result.status}`, {
     user_id: userId,
     route: `${req.method} ${req.path}`,
-    extra: { reason: result.reason ?? null, hard_mode: HARD_MODE },
+    extra: {
+      reason: result.reason ?? null,
+      hard_mode: HARD_MODE,
+      active_install: isActiveInstall(req),
+    },
   });
 
   if (HARD_MODE && result.status !== "no_server_key") {

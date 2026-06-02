@@ -37,6 +37,20 @@ emergency rollback trigger is such a spike. First check ran over a short,
 low-traffic post-deploy window — keep watching after higher-volume traffic
 before declaring enforcement fully battle-tested.
 
+**Wrongful-lockout alerting:** non-ok captures carry `extra.active_install`
+(`isActiveInstall` = request sent >=1 of the four device-auth headers). The
+lockout monitor (`artifacts/api-server/docs/monitors/device-signature-lockout.json`,
+a Datadog log-alert-as-code; the live monitor is provisioned in the Datadog tool)
+fires on `device_signature:missing|invalid|id_mismatch` with
+`@extra.active_install:true`. **Why active_install:** old/pre-handshake installs
+send NO headers → always `missing` → a normal steady tail that must NOT page;
+device-aware clients send headers, so a rejection there is a real member locked
+out. `expired`/`issued_at_too_old`/`replayed`/`no_server_key` are deliberately
+EXCLUDED (not wrongful lockouts). Baseline ~0, so threshold is low (warn 5 /
+crit 15 over 15m); the alert body points to the `DEVICE_AUTH_SOFT_MODE=1`
+rollback. At higher volume convert to a ratio using sampled `device_signature:ok`
+as denominator.
+
 **Replay protection (accept-once):** a valid signature must also be a FIRST
 use. `consumeRequestNonce` records `SHA256(user_id:signature)` in
 `device_request_nonces` after a verified `ok`; a reused nonce → `replayed` →

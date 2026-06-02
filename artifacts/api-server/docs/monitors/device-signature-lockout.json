@@ -1,0 +1,32 @@
+{
+  "name": "[NeuroQuest API] device-signature lockout spike — real installs being rejected",
+  "type": "log alert",
+  "query": "logs(\"service:neuroquest-api env:production status:warn (\\\"device_signature:missing\\\" OR \\\"device_signature:invalid\\\" OR \\\"device_signature:id_mismatch\\\") @extra.active_install:true\").index(\"*\").rollup(\"count\").last(\"15m\") > 15",
+  "message": "{{#is_alert}}\n@pagerduty-NeuroQuest-Backend\n\n**Device-signature enforcement is rejecting real (active) installs.**\n\nMore than the warning/critical threshold of `device_signature:missing|invalid|id_mismatch` rejections from device-aware clients (`@extra.active_install:true`) fired in the last 15 minutes. The normal baseline is ~0 — a spike means a change has started wrongly locking legitimate members out of the per-:id app-user endpoints.\n\n**EMERGENCY ROLLBACK (do this first, it does not require a redeploy):**\n1. Set the secret `DEVICE_AUTH_SOFT_MODE=1` on the `api-server` deployment. This puts `requireDeviceSignature` back into verify-and-log mode (it still records every verdict but rejects nothing), so members stop getting 401s immediately.\n2. Confirm recovery: this monitor should recover within ~15m as the active-install rejection count drops back toward 0.\n3. Then investigate the regression (recent deploy to `artifacts/api-server/src/lib/deviceAuth.ts` or the mobile signer in `artifacts/neuro-quest-mobile/lib/userAuth.ts`) before removing `DEVICE_AUTH_SOFT_MODE` to re-enable enforcement.\n\nNote: `requireDeviceSignatureStrict` (GDPR export/erasure) and `requireUserOrDevice` (IAP entitlements) intentionally IGNORE the soft-mode flag and keep hard-rejecting — soft mode only relaxes the general app-user gate.\n{{/is_alert}}\n{{#is_recovery}}\nDevice-signature active-install rejection rate is back below threshold.\n{{/is_recovery}}",
+  "tags": [
+    "service:neuroquest-api",
+    "team:backend",
+    "feature:device-auth",
+    "severity:high"
+  ],
+  "options": {
+    "thresholds": {
+      "critical": 15,
+      "warning": 5
+    },
+    "enable_logs_sample": true,
+    "notify_no_data": false,
+    "renotify_interval": 30,
+    "include_tags": true,
+    "new_group_delay": 60,
+    "groupby_simple_monitor": false,
+    "escalation_message": "Active-install device-signature rejections are STILL above threshold. If you have not already, set DEVICE_AUTH_SOFT_MODE=1 to stop locking members out."
+  },
+  "_runbook": {
+    "why": "Validation of device-signature enforcement previously relied on a person manually fetching prod logs and eyeballing them. This monitor automates the wrongful-lockout signal so the documented emergency rollback can be triggered fast.",
+    "signal": "captureMessage('device_signature:<status>', { extra: { active_install } }) in artifacts/api-server/src/lib/deviceAuth.ts. Only missing|invalid|id_mismatch indicate a wrongful lockout; expired (clock skew), issued_at_too_old (rotation), replayed (replay defense) and no_server_key (misconfig) are deliberately EXCLUDED from this monitor.",
+    "active_install_filter": "@extra.active_install:true isolates device-aware clients (sent >=1 device-auth header) from the harmless steady tail of pre-handshake installs that send no headers and always land on `missing`. Without this filter the old-install tail would page.",
+    "threshold_tuning": "Production baseline of active-install rejections is ~0 (post-enforcement prod-log checks found zero non-ok verdicts from active installs). warning=5 / critical=15 over a 15m window tolerates a handful of genuinely broken clients (corrupted keychain, extreme clock skew that slips past the skew window) while paging well before a systemic regression locks out the member base. Revisit if traffic grows materially — at high volume convert to a ratio (active-install rejections / total signed attempts) using the sampled device_signature:ok captures as the denominator.",
+    "rollback": "Set DEVICE_AUTH_SOFT_MODE=1 (no redeploy needed) to return requireDeviceSignature to verify-and-log-without-reject. See .agents/memory/device-signature-enforcement.md."
+  }
+}
