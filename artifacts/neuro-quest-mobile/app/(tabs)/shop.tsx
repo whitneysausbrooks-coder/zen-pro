@@ -20,6 +20,7 @@ import Colors from "@/constants/colors";
 import {
   getProPlacement,
   isAdaptySupported,
+  isProActive,
   purchaseProduct,
   restorePurchases,
 } from "@/lib/adapty";
@@ -135,6 +136,9 @@ export default function ShopScreen() {
   const [adaptyProducts, setAdaptyProducts] = useState<
     Record<string, AdaptyPaywallProduct>
   >({});
+  // Whether the user already holds the Adapty "premium" access level. Drives
+  // the "you're already Pro" banner so we don't push purchases at members.
+  const [proActive, setProActive] = useState(false);
 
   const handleGoHome = useCallback(() => {
     if (nd) Haptics.selectionAsync();
@@ -153,10 +157,25 @@ export default function ShopScreen() {
         setAdaptyProducts(byVendorId);
       })
       .catch((e) => console.warn("Adapty paywall setup:", e));
+    isProActive()
+      .then((active) => {
+        if (!cancelled) setProActive(active);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Live, localized price for a plan from the Adapty remote paywall. Falls back
+  // to the static label only when the product hasn't loaded (offline / Expo Go).
+  const priceFor = useCallback(
+    (planId: string): string | null => {
+      const vendorId = PRODUCT_MAP[planId];
+      return adaptyProducts[vendorId]?.price?.localizedString ?? null;
+    },
+    [adaptyProducts],
+  );
 
   const handleSelect = useCallback((id: string) => {
     if (nd) Haptics.selectionAsync();
@@ -188,6 +207,7 @@ export default function ShopScreen() {
       try {
         setPurchasing(planKey);
         const result = await purchaseProduct(product);
+        if (result.proActive) setProActive(true);
         if (nd)
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
@@ -228,20 +248,23 @@ export default function ShopScreen() {
       : "Payment will be processed securely through the App Store. Subscriptions auto-renew unless cancelled at least 24 hours before the end of the current period.";
 
     const ctaLabel = plan.oneTime ? "Buy" : "Subscribe";
+    // Prefer the live localized Adapty price so the modal matches the card.
+    const livePrice = priceFor(plan.id);
+    const priceLabel = livePrice ?? `${plan.price}${plan.period}`;
 
     Alert.alert(
       `${ctaLabel === "Buy" ? "Purchase" : "Subscribe to"} ${plan.title}`,
-      `${plan.price}${plan.period}\n\n${plan.donationNote}\n\nThis ${plan.oneTime ? "purchase" : "subscription"} includes:\n${plan.features.slice(0, 4).map((f) => `• ${f}`).join("\n")}\n\n${billingNote}`,
+      `${priceLabel}\n\n${plan.donationNote}\n\nThis ${plan.oneTime ? "purchase" : "subscription"} includes:\n${plan.features.slice(0, 4).map((f) => `• ${f}`).join("\n")}\n\n${billingNote}`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: `${ctaLabel} ${plan.price}${plan.period}`,
+          text: `${ctaLabel} ${priceLabel}`,
           style: "default",
           onPress: () => runPurchase(id),
         },
       ]
     );
-  }, [runPurchase]);
+  }, [runPurchase, priceFor]);
 
   const handleRestore = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -255,6 +278,7 @@ export default function ShopScreen() {
     try {
       setRestoring(true);
       const result = await restorePurchases();
+      setProActive(result.proActive);
       Alert.alert(
         "Restore Complete",
         result.proActive
@@ -328,6 +352,21 @@ export default function ShopScreen() {
           </View>
         </GlassCard>
 
+        {proActive && (
+          <GlassCard style={styles.impactBanner} borderColor={Colors.goldAlpha30} elevated>
+            <LinearGradient
+              colors={[Colors.goldAlpha08, Colors.goldAlpha05]}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.proActiveRow}>
+              <Ionicons name="checkmark-circle" size={22} color={Colors.gold} />
+              <Text style={styles.proActiveText}>
+                You're a Zen Pro member — all premium features are unlocked.
+              </Text>
+            </View>
+          </GlassCard>
+        )}
+
         {PLANS.map((plan) => {
           const isSelected = selectedPlan === plan.id;
 
@@ -364,7 +403,7 @@ export default function ShopScreen() {
                   <Text style={styles.planTitle}>{plan.title}</Text>
                   <View style={styles.priceRow}>
                     <Text style={[styles.planPrice, isSelected && styles.planPriceSelected]}>
-                      {plan.price}
+                      {priceFor(plan.id) ?? plan.price}
                     </Text>
                     <Text style={styles.planPeriod}>{plan.period}</Text>
                   </View>
@@ -750,6 +789,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.whiteAlpha30,
     textDecorationLine: "underline",
+  },
+  proActiveRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  proActiveText: {
+    flex: 1,
+    fontFamily: "Inter_500Medium",
+    fontSize: 14,
+    color: Colors.white,
+    lineHeight: 20,
   },
   disclaimer: {
     fontFamily: "Inter_400Regular",
