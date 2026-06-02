@@ -1,1 +1,2 @@
 - [Adapty monetization](adapty-monetization.md) — Adapty is the single iOS purchase/entitlement source; guard native module in Expo Go/web; webhook must only mutate on directional events.
+- [Adapty remote paywall](adapty-remote-paywall.md) — shop screen merges plan cards from Adapty products + paywall Remote Config (`{plans:{<id>:{...}}}`) over static fallback; dashboard config is manual.

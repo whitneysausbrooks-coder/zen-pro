@@ -1,7 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -107,6 +107,45 @@ const PLANS = [
   },
 ];
 
+type Plan = (typeof PLANS)[number];
+
+// Copy that products don't carry (features, badge, cta, etc.) can be overridden
+// per plan from the Adapty paywall's Remote Config JSON, so marketing copy can
+// change from the dashboard without an app release. Shape (all fields optional):
+//   { "plans": { "<planId>": { "badge": "...", "features": ["..."],
+//     "cta": "...", "donationNote": "...", "highlight": true } } }
+type PlanCopyOverride = Partial<
+  Pick<Plan, "title" | "badge" | "period" | "cta" | "donationNote" | "highlight">
+> & { features?: string[] };
+
+// Parse the per-plan copy overrides out of the paywall Remote Config, defending
+// against any malformed/partial JSON the dashboard might hold.
+function parseRemoteCopy(
+  data: unknown,
+): Record<string, PlanCopyOverride> {
+  const out: Record<string, PlanCopyOverride> = {};
+  if (!data || typeof data !== "object") return out;
+  const plans = (data as Record<string, unknown>).plans;
+  if (!plans || typeof plans !== "object") return out;
+  for (const [planId, raw] of Object.entries(plans as Record<string, unknown>)) {
+    if (!raw || typeof raw !== "object") continue;
+    const r = raw as Record<string, unknown>;
+    const override: PlanCopyOverride = {};
+    if (typeof r.title === "string") override.title = r.title;
+    if (typeof r.period === "string") override.period = r.period;
+    if (typeof r.cta === "string") override.cta = r.cta;
+    if (typeof r.donationNote === "string") override.donationNote = r.donationNote;
+    if (typeof r.badge === "string") override.badge = r.badge;
+    if (typeof r.highlight === "boolean") override.highlight = r.highlight;
+    if (Array.isArray(r.features))
+      override.features = r.features.filter(
+        (f): f is string => typeof f === "string",
+      );
+    out[planId] = override;
+  }
+  return out;
+}
+
 const ENTERPRISE_FEATURES = [
   { icon: "people", title: "Team Dashboard", desc: "Real-time wellness metrics across your organization" },
   { icon: "analytics", title: "ROI Analytics", desc: "Measure engagement, retention, and productivity impact" },
@@ -136,6 +175,12 @@ export default function ShopScreen() {
   const [adaptyProducts, setAdaptyProducts] = useState<
     Record<string, AdaptyPaywallProduct>
   >({});
+  // Per-plan marketing copy overrides fetched from the Adapty paywall's Remote
+  // Config, so badges/features/CTAs can change from the dashboard without a
+  // build. Empty until (and unless) the remote paywall loads.
+  const [remoteCopy, setRemoteCopy] = useState<
+    Record<string, PlanCopyOverride>
+  >({});
   // App-wide Pro signal. Drives the "you're already Pro" banner so we don't
   // push purchases at members, and is refreshed after purchase/restore so the
   // unlock is reflected everywhere immediately.
@@ -156,6 +201,7 @@ export default function ShopScreen() {
           byVendorId[product.vendorProductId] = product;
         }
         setAdaptyProducts(byVendorId);
+        setRemoteCopy(parseRemoteCopy(placement.paywall.remoteConfig?.data));
       })
       .catch((e) => console.warn("Adapty paywall setup:", e));
     return () => {
@@ -163,14 +209,29 @@ export default function ShopScreen() {
     };
   }, []);
 
-  // Live, localized price for a plan from the Adapty remote paywall. Falls back
-  // to the static label only when the product hasn't loaded (offline / Expo Go).
-  const priceFor = useCallback(
-    (planId: string): string | null => {
-      const vendorId = PRODUCT_MAP[planId];
-      return adaptyProducts[vendorId]?.price?.localizedString ?? null;
-    },
-    [adaptyProducts],
+  // Plan cards rendered from the Adapty remote paywall: titles + localized
+  // prices come from the fetched products, and marketing copy from the paywall
+  // Remote Config. Each field falls back to the static PLANS value only when the
+  // remote data is missing (offline / Expo Go / fetch failure), so pricing and
+  // copy can change from the Adapty dashboard without an app release.
+  const displayPlans = useMemo<Plan[]>(
+    () =>
+      PLANS.map((plan) => {
+        const product = adaptyProducts[PRODUCT_MAP[plan.id]];
+        const copy = remoteCopy[plan.id] ?? {};
+        return {
+          ...plan,
+          title: product?.localizedTitle ?? copy.title ?? plan.title,
+          price: product?.price?.localizedString ?? plan.price,
+          period: copy.period ?? plan.period,
+          badge: copy.badge ?? plan.badge,
+          features: copy.features ?? plan.features,
+          cta: copy.cta ?? plan.cta,
+          donationNote: copy.donationNote ?? plan.donationNote,
+          highlight: copy.highlight ?? plan.highlight,
+        };
+      }),
+    [adaptyProducts, remoteCopy],
   );
 
   const handleSelect = useCallback((id: string) => {
@@ -240,7 +301,7 @@ export default function ShopScreen() {
 
   const handlePurchase = useCallback((id: string) => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const plan = PLANS.find((p) => p.id === id);
+    const plan = displayPlans.find((p) => p.id === id);
     if (!plan) return;
 
     const billingNote = plan.oneTime
@@ -248,9 +309,9 @@ export default function ShopScreen() {
       : "Payment will be processed securely through the App Store. Subscriptions auto-renew unless cancelled at least 24 hours before the end of the current period.";
 
     const ctaLabel = plan.oneTime ? "Buy" : "Subscribe";
-    // Prefer the live localized Adapty price so the modal matches the card.
-    const livePrice = priceFor(plan.id);
-    const priceLabel = livePrice ?? `${plan.price}${plan.period}`;
+    // The merged plan already carries the live localized Adapty price (falling
+    // back to static), so the modal matches the card.
+    const priceLabel = `${plan.price}${plan.period}`;
 
     Alert.alert(
       `${ctaLabel === "Buy" ? "Purchase" : "Subscribe to"} ${plan.title}`,
@@ -264,7 +325,7 @@ export default function ShopScreen() {
         },
       ]
     );
-  }, [runPurchase, priceFor]);
+  }, [runPurchase, displayPlans]);
 
   const handleRestore = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -369,7 +430,7 @@ export default function ShopScreen() {
           </GlassCard>
         )}
 
-        {PLANS.map((plan) => {
+        {displayPlans.map((plan) => {
           const isSelected = selectedPlan === plan.id;
 
           return (
@@ -405,7 +466,7 @@ export default function ShopScreen() {
                   <Text style={styles.planTitle}>{plan.title}</Text>
                   <View style={styles.priceRow}>
                     <Text style={[styles.planPrice, isSelected && styles.planPriceSelected]}>
-                      {priceFor(plan.id) ?? plan.price}
+                      {plan.price}
                     </Text>
                     <Text style={styles.planPeriod}>{plan.period}</Text>
                   </View>
