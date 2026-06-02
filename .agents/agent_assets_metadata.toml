@@ -503,3 +503,15 @@ id = "OI2-BdJ8gU2KSNLFdhgfR"
 uri = "file://attached_assets/generated_images/zen_pro_annual_promo.png"
 type = "image"
 title = "Zen Pro Annual — Promotional Image (1024×1024)"
+
+[[outputs]]
+id = "Way0ytxl68os5dbP0m8d9"
+uri = "file://screenshots/annual_plan_screenshot.jpg"
+type = "image"
+title = "Zen Pro · Annual — actual in-app screenshot"
+
+[[outputs]]
+id = "Uyicvtjl1GlapqnMNUyqy"
+uri = "file://screenshots/shop_full.jpg"
+type = "image"
+title = "Full shop screen (Founder / Annual / Zen Pro)"
