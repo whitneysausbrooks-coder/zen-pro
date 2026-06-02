@@ -271,6 +271,45 @@ test("subscription_refunded flips an active row to expired", async () => {
   assert.equal(row!.status, "expired");
 });
 
+test("out-of-order subscription_expired (stale period) leaves an active renewed member untouched", async () => {
+  const userId = newUserId();
+  const firstPeriod = new Date(Date.now() + 10 * 86_400_000).toISOString();
+  const renewedPeriod = new Date(Date.now() + 40 * 86_400_000).toISOString();
+
+  // Member subscribes, then renews — mirror now reflects the later period.
+  await postWebhook(activatingEvent(userId, "subscription_started", firstPeriod));
+  await postWebhook(activatingEvent(userId, "subscription_renewed", renewedPeriod));
+
+  // A stale subscription_expired for the FIRST (already-superseded) period
+  // arrives late. It must NOT revoke the still-active member.
+  const res = await postWebhook(activatingEvent(userId, "subscription_expired", firstPeriod));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, "superseded");
+
+  const row = await getMirrorRow(userId);
+  assert.equal(row!.status, "active", "stale expired event must not revoke a renewed member");
+  assert.equal(
+    new Date(row!.expires_at!).toISOString(),
+    renewedPeriod,
+    "renewed expiry must be preserved",
+  );
+});
+
+test("in-order subscription_expired for the current period still expires", async () => {
+  const userId = newUserId();
+  const period = new Date(Date.now() + 30 * 86_400_000).toISOString();
+
+  await postWebhook(activatingEvent(userId, "subscription_started", period));
+
+  // Expired event for the SAME period the mirror reflects -> genuine expiry.
+  const res = await postWebhook(activatingEvent(userId, "subscription_expired", period));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, "expired");
+
+  const row = await getMirrorRow(userId);
+  assert.equal(row!.status, "expired");
+});
+
 test("missing customer_user_id is ignored (no row created)", async () => {
   const res = await postWebhook({
     event_type: "subscription_started",

@@ -164,11 +164,29 @@ router.post("/iap/adapty-webhook", async (req, res) => {
   }
 
   if (DEACTIVATING_EVENTS.has(eventType)) {
-    await query(
+    // Adapty does NOT guarantee event ordering, so a stale deactivating event
+    // can arrive AFTER a renewal that already extended the subscription. We must
+    // not revoke a member whose mirror row reflects a newer (later) period than
+    // this event describes. Guard the flip by comparing the event's own expiry
+    // against the stored expiry: only expire when the stored row is NOT already
+    // superseded by a later activation. When the event carries no expiry (or the
+    // row has none, e.g. a non-consumable), fall back to the unconditional flip.
+    const eventExpiry = parseExpiry(props);
+    const result = await query(
       `UPDATE iap_entitlements SET status = 'expired', updated_at = NOW()
-       WHERE user_id = $1 AND product_id = $2`,
-      [customerUserId, ADAPTY_ACCESS_LEVEL],
+       WHERE user_id = $1 AND product_id = $2
+         AND (
+           $3::timestamptz IS NULL
+           OR expires_at IS NULL
+           OR expires_at <= $3::timestamptz
+         )`,
+      [customerUserId, ADAPTY_ACCESS_LEVEL, eventExpiry],
     );
+    if (result.rowCount === 0) {
+      // Either no mirror row exists, or it was superseded by a newer activation
+      // (stored expiry is later than this event's expiry). Leave it untouched.
+      return res.json({ ok: true, eventType, status: "superseded" });
+    }
     return res.json({ ok: true, eventType, status: "expired" });
   }
 
