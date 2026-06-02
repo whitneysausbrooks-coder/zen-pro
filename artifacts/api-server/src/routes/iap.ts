@@ -152,12 +152,21 @@ router.post("/iap/adapty-webhook", async (req, res) => {
 
   if (ACTIVATING_EVENTS.has(eventType)) {
     const expiresAt = parseExpiry(props);
+    // Adapty does NOT guarantee event ordering, so a stale activating event
+    // (e.g. an earlier-period subscription_renewed / subscription_started) can
+    // arrive AFTER a newer renewal that already extended the subscription. We
+    // must never move `expires_at` backwards, or the late event would shorten a
+    // member's access. GREATEST keeps the later of the stored vs. incoming
+    // expiry; it ignores NULLs (returning NULL only when both are NULL), so a
+    // non-consumable's NULL expiry is preserved and a first activation still
+    // takes the incoming value.
     await query(
       `INSERT INTO iap_entitlements (user_id, product_id, kind, status, expires_at, updated_at)
        VALUES ($1, $2, $3, 'active', $4, NOW())
        ON CONFLICT (user_id, product_id)
        DO UPDATE SET kind = EXCLUDED.kind, status = 'active',
-                     expires_at = EXCLUDED.expires_at, updated_at = NOW()`,
+                     expires_at = GREATEST(iap_entitlements.expires_at, EXCLUDED.expires_at),
+                     updated_at = NOW()`,
       [customerUserId, ADAPTY_ACCESS_LEVEL, kind, expiresAt],
     );
     return res.json({ ok: true, eventType, status: "active" });

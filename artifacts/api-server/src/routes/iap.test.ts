@@ -213,6 +213,32 @@ test("renewal extends expiry and stays active", async () => {
   );
 });
 
+test("out-of-order stale activation (earlier period) never shortens access", async () => {
+  const userId = newUserId();
+  const firstPeriod = new Date(Date.now() + 10 * 86_400_000).toISOString();
+  const renewedPeriod = new Date(Date.now() + 40 * 86_400_000).toISOString();
+
+  // Member subscribes, then renews — mirror now reflects the later period.
+  await postWebhook(activatingEvent(userId, "subscription_started", firstPeriod));
+  await postWebhook(activatingEvent(userId, "subscription_renewed", renewedPeriod));
+
+  // A stale activation for the FIRST (already-superseded) period arrives late.
+  // It must NOT pull the stored expiry back to the earlier date.
+  const res = await postWebhook(
+    activatingEvent(userId, "subscription_renewed", firstPeriod),
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, "active");
+
+  const row = await getMirrorRow(userId);
+  assert.equal(row!.status, "active");
+  assert.equal(
+    new Date(row!.expires_at!).toISOString(),
+    renewedPeriod,
+    "stale activation must not move expiry backwards",
+  );
+});
+
 test("non-directional events leave the mirror unchanged", async () => {
   const userId = newUserId();
   const expiry = new Date(Date.now() + 30 * 86_400_000).toISOString();
