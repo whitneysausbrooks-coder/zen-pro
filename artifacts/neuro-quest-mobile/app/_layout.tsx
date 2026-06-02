@@ -30,10 +30,12 @@ import { useIdleTimeout } from "@/hooks/useIdleTimeout";
 import { enableBackgroundHealthSync, getLoginMode, getHealthChoice, onSignOut, signOutAndReset } from "@/lib/health";
 import {
   clearIndividualAccount,
+  getStoredUserId,
   heartbeat,
   reconcileLocalIdentity,
   syncProfileToBackend,
 } from "@/lib/userAuth";
+import { activateAdapty, identifyAdapty } from "@/lib/adapty";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -107,6 +109,12 @@ export default function RootLayout() {
     }
   }, []);
 
+  // Activate the Adapty SDK once at startup (no-op on web / Expo Go). This is
+  // what powers in-app purchases, remote paywalls, and revenue analytics.
+  useEffect(() => {
+    activateAdapty().catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (Platform.OS === "web") {
       try {
@@ -168,6 +176,13 @@ export default function RootLayout() {
     if (loginDone && healthDone) {
       syncProfileToBackend().catch(() => {});
       heartbeat().catch(() => {});
+      // Bind the Adapty profile to our app user id so server webhooks carry
+      // the same customer_user_id we store entitlements against.
+      getStoredUserId()
+        .then((uid) => {
+          if (uid) identifyAdapty(uid).catch(() => {});
+        })
+        .catch(() => {});
     }
   }, [loginDone, healthDone]);
 

@@ -250,4 +250,25 @@ export async function runMigrations(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_compassion_donations_batch
     ON compassion_donations(batch_id)
   `);
+
+  // Adapty entitlement mirror. Adapty is the source of truth for purchases;
+  // this table is updated only by the Adapty server webhook (POST
+  // /iap/adapty-webhook) and read back by GET /iap/entitlements for backend /
+  // cross-device Pro checks. One row per (user_id, access_level).
+  await query(`
+    CREATE TABLE IF NOT EXISTS iap_entitlements (
+      id serial PRIMARY KEY,
+      user_id varchar(255) NOT NULL,
+      product_id varchar(128) NOT NULL,
+      kind varchar(32) NOT NULL,
+      status varchar(32) NOT NULL,
+      expires_at timestamptz,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (user_id, product_id)
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_iap_ent_user
+    ON iap_entitlements(user_id)
+  `);
 }

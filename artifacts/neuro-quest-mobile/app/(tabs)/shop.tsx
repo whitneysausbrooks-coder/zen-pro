@@ -14,15 +14,15 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import type { AdaptyPaywallProduct } from "react-native-adapty";
 import { GlassCard } from "@/components/GlassCard";
 import Colors from "@/constants/colors";
 import {
-  initIAP,
-  endIAP,
-  getProducts,
+  getProPlacement,
+  isAdaptySupported,
   purchaseProduct,
   restorePurchases,
-} from "@/lib/iap";
+} from "@/lib/adapty";
 
 const PRODUCT_MAP: Record<string, string> = {
   pro: "pro.neuroquestzen.app.zenpro.monthly",
@@ -130,6 +130,11 @@ export default function ShopScreen() {
   const [selectedPlan, setSelectedPlan] = useState("founder");
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
+  // Products fetched from the Adapty remote paywall, keyed by vendor product id
+  // so we can match them to the locally-defined plan cards.
+  const [adaptyProducts, setAdaptyProducts] = useState<
+    Record<string, AdaptyPaywallProduct>
+  >({});
 
   const handleGoHome = useCallback(() => {
     if (nd) Haptics.selectionAsync();
@@ -137,13 +142,19 @@ export default function ShopScreen() {
   }, [router]);
 
   useEffect(() => {
-    if (Platform.OS === "ios") {
-      initIAP()
-        .then(() => getProducts())
-        .catch((e) => console.warn("IAP setup:", e));
-    }
+    let cancelled = false;
+    getProPlacement()
+      .then((placement) => {
+        if (cancelled || !placement) return;
+        const byVendorId: Record<string, AdaptyPaywallProduct> = {};
+        for (const product of placement.products) {
+          byVendorId[product.vendorProductId] = product;
+        }
+        setAdaptyProducts(byVendorId);
+      })
+      .catch((e) => console.warn("Adapty paywall setup:", e));
     return () => {
-      endIAP();
+      cancelled = true;
     };
   }, []);
 
@@ -152,35 +163,60 @@ export default function ShopScreen() {
     setSelectedPlan(id);
   }, []);
 
-  const runPurchase = useCallback(async (planKey: string) => {
-    const productId = PRODUCT_MAP[planKey];
-    if (!productId) return;
+  const runPurchase = useCallback(
+    async (planKey: string) => {
+      const productId = PRODUCT_MAP[planKey];
+      if (!productId) return;
 
-    if (Platform.OS !== "ios") {
-      Alert.alert("iOS only", "In-app purchases are currently available on iOS.");
-      return;
-    }
+      if (!isAdaptySupported()) {
+        Alert.alert(
+          "Not available here",
+          "In-app purchases require the full iOS app. They are not available on the web or in Expo Go.",
+        );
+        return;
+      }
 
-    try {
-      setPurchasing(planKey);
-      const result = await purchaseProduct(productId);
-      if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        "Purchase Successful",
-        result.duplicate
-          ? "This transaction has already been applied to your account."
-          : "Your purchase has been confirmed. Thank you for being a member.",
-        [{ text: "OK" }]
-      );
-    } catch (e: any) {
-      const msg = String(e?.message || e);
-      if (msg.includes("cancel") || msg.includes("E_USER_CANCELLED")) return;
-      if (nd) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Purchase Failed", msg || "Something went wrong. Please try again.");
-    } finally {
-      setPurchasing(null);
-    }
-  }, []);
+      const product = adaptyProducts[productId];
+      if (!product) {
+        Alert.alert(
+          "Unavailable",
+          "This plan isn't available right now. Please try again in a moment.",
+        );
+        return;
+      }
+
+      try {
+        setPurchasing(planKey);
+        const result = await purchaseProduct(product);
+        if (nd)
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          "Purchase Successful",
+          result.proActive
+            ? "Your purchase has been confirmed. Thank you for being a member."
+            : "Your purchase is being processed and will activate shortly.",
+          [{ text: "OK" }],
+        );
+      } catch (e: any) {
+        const msg = String(e?.message || e);
+        if (
+          msg.includes("cancel") ||
+          msg.toLowerCase().includes("cancelled") ||
+          msg.includes("E_USER_CANCELLED")
+        )
+          return;
+        if (nd)
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert(
+          "Purchase Failed",
+          msg || "Something went wrong. Please try again.",
+        );
+      } finally {
+        setPurchasing(null);
+      }
+    },
+    [adaptyProducts],
+  );
 
   const handlePurchase = useCallback((id: string) => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -209,8 +245,11 @@ export default function ShopScreen() {
 
   const handleRestore = useCallback(async () => {
     if (nd) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (Platform.OS !== "ios") {
-      Alert.alert("iOS only", "Restore Purchases is available on iOS.");
+    if (!isAdaptySupported()) {
+      Alert.alert(
+        "Not available here",
+        "Restore Purchases requires the full iOS app.",
+      );
       return;
     }
     try {
@@ -218,10 +257,10 @@ export default function ShopScreen() {
       const result = await restorePurchases();
       Alert.alert(
         "Restore Complete",
-        result.restored.length > 0
-          ? `Restored: ${result.restored.length} purchase(s).`
-          : "No previous purchases found on this Apple ID.",
-        [{ text: "OK" }]
+        result.proActive
+          ? "Your Pro access has been restored."
+          : "No active purchases found on this Apple ID.",
+        [{ text: "OK" }],
       );
     } catch (e: any) {
       Alert.alert("Restore Failed", String(e?.message || e));

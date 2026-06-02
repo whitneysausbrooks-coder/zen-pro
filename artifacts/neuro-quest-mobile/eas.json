@@ -4,6 +4,16 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "neuroquestzen.pro"
+      },
+      "ios": {
+        "buildConfiguration": "Debug"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "env": {

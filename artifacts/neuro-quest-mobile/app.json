@@ -48,7 +48,7 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-iap",
+      "react-native-adapty",
       [
         "@kingstinct/react-native-healthkit",
         {
