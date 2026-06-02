@@ -110,11 +110,23 @@ async function insertRow(
   );
 }
 
+// `CREATE TABLE IF NOT EXISTS` is not race-safe when test files run in
+// parallel (two concurrent creates collide on a pg_catalog unique index).
+// Swallow the duplicate-object errors — the table still ends up existing.
+async function ensureTable(ddl: string): Promise<void> {
+  try {
+    await query(ddl);
+  } catch (err: any) {
+    if (err?.code === "23505" || err?.code === "42P07") return;
+    throw err;
+  }
+}
+
 before(async () => {
   // Self-contained: ensure the mirror table exists even on a fresh DB. Mirrors
   // the definition in lib/migrate.ts; IF NOT EXISTS makes it a no-op against an
   // already-migrated database.
-  await query(`
+  await ensureTable(`
     CREATE TABLE IF NOT EXISTS iap_entitlements (
       id serial PRIMARY KEY,
       user_id varchar(255) NOT NULL,
@@ -124,6 +136,15 @@ before(async () => {
       expires_at timestamptz,
       updated_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE (user_id, product_id)
+    )
+  `);
+  // Replay-protection nonce table (see lib/migrate.ts). Required so the device
+  // signature path records nonces instead of failing open on a missing table.
+  await ensureTable(`
+    CREATE TABLE IF NOT EXISTS device_request_nonces (
+      nonce varchar(64) PRIMARY KEY,
+      user_id varchar(255),
+      seen_at timestamptz NOT NULL DEFAULT now()
     )
   `);
 
@@ -141,6 +162,9 @@ before(async () => {
 after(async () => {
   if (createdUserIds.size > 0) {
     await query(`DELETE FROM iap_entitlements WHERE user_id = ANY($1)`, [
+      [...createdUserIds],
+    ]);
+    await query(`DELETE FROM device_request_nonces WHERE user_id = ANY($1)`, [
       [...createdUserIds],
     ]);
   }

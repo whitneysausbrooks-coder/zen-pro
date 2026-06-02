@@ -271,4 +271,23 @@ export async function runMigrations(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_iap_ent_user
     ON iap_entitlements(user_id)
   `);
+
+  // Replay protection for the device HMAC handshake (lib/deviceAuth.ts).
+  // The 5-minute clock-skew window alone lets a captured signed request be
+  // replayed any number of times inside that window. Each accepted signed
+  // request now records a one-time nonce (a hash of its signature, bound to
+  // the user) here; a reused nonce is rejected. Rows older than the skew
+  // window can never be replayed (the timestamp check rejects them first) and
+  // are pruned opportunistically, so this table stays small.
+  await query(`
+    CREATE TABLE IF NOT EXISTS device_request_nonces (
+      nonce varchar(64) PRIMARY KEY,
+      user_id varchar(255),
+      seen_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await query(`
+    CREATE INDEX IF NOT EXISTS idx_device_request_nonces_seen
+    ON device_request_nonces(seen_at)
+  `);
 }

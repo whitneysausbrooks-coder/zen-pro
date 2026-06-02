@@ -6,13 +6,14 @@ import {
   mintDeviceCredentials,
   requireDeviceSignature,
   verifyDeviceSignature,
+  consumeRequestNonce,
 } from "../lib/deviceAuth";
 
 // Strict GDPR-only signature gate. Unlike the global `requireDeviceSignature`,
 // this one HARD-401s when the signature is anything other than `ok`. Architect
 // blocker (Apr 30 2026): export and erasure endpoints must not honor the
 // global soft-mode rollout because they leak / destroy regulated data.
-function requireDeviceSignatureStrict(req: Request, res: Response, next: NextFunction) {
+async function requireDeviceSignatureStrict(req: Request, res: Response, next: NextFunction) {
   const rawId = req.params["id"];
   const userId = Array.isArray(rawId) ? (rawId[0] ?? "") : (rawId ?? "");
   const result = verifyDeviceSignature(req, userId);
@@ -21,6 +22,14 @@ function requireDeviceSignatureStrict(req: Request, res: Response, next: NextFun
     return res.status(401).json({
       error: "Authentication failed",
       details: { reason: result.status, scope: "gdpr_strict" },
+    });
+  }
+  // Accept-once: a replayed export/erasure request (same captured signature
+  // inside the skew window) must be rejected even though the crypto is valid.
+  if ((await consumeRequestNonce(req, userId)) === "replayed") {
+    return res.status(401).json({
+      error: "Authentication failed",
+      details: { reason: "replayed", scope: "gdpr_strict" },
     });
   }
   return next();

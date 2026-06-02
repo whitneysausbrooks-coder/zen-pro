@@ -19,20 +19,32 @@ import { Router, type IRouter } from "express";
 import crypto from "crypto";
 import { z } from "zod";
 import { query } from "../lib/db";
-import { verifyDeviceSignature } from "../lib/deviceAuth";
+import { verifyDeviceSignature, consumeRequestNonce } from "../lib/deviceAuth";
 import { captureMessage } from "../lib/errorMonitoring";
 import { analyzeTripleWeightBaseline } from "../lib/tripleWeightAi";
 
 const router: IRouter = Router();
 
-function requireUserOrDevice(req: any, res: any): string | null {
+async function requireUserOrDevice(req: any, res: any): Promise<string | null> {
   const headerUserId = req.headers["x-user-id"];
   const deviceUserId = Array.isArray(headerUserId)
     ? headerUserId[0]
     : headerUserId;
   if (typeof deviceUserId === "string" && deviceUserId.length > 0) {
     const result = verifyDeviceSignature(req, deviceUserId);
-    if (result.status === "ok") return deviceUserId;
+    if (result.status === "ok") {
+      // Accept-once: reject a replayed (already-seen) signature even when the
+      // crypto verifies, so a captured request can't be reused in the window.
+      if ((await consumeRequestNonce(req, deviceUserId)) === "replayed") {
+        captureMessage("ai_device_auth:replayed", {
+          route: `${req.method} ${req.path}`,
+          extra: { reason: "nonce_reused", user_id_provided: deviceUserId.slice(0, 8) },
+        });
+        res.status(401).json({ error: "Unauthorized" });
+        return null;
+      }
+      return deviceUserId;
+    }
     captureMessage(`ai_device_auth:${result.status}`, {
       route: `${req.method} ${req.path}`,
       extra: {
@@ -62,7 +74,7 @@ function hashUserId(userId: string): string {
 }
 
 router.post("/ai/analyze-baseline", async (req, res) => {
-  const userId = requireUserOrDevice(req, res);
+  const userId = await requireUserOrDevice(req, res);
   if (!userId) return;
 
   const parsed = analyzeBodySchema.safeParse(req.body ?? {});

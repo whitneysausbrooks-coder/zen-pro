@@ -27,12 +27,18 @@
  * for observability. As an emergency rollback ONLY, soft mode can be temporarily
  * re-enabled with `DEVICE_AUTH_SOFT_MODE=1` (checked + logged, never rejected).
  *
- * Replay protection: 5-minute clock-skew window only this round. A nonce
- * table is on the next-sprint backlog.
+ * Replay protection: in addition to the 5-minute clock-skew window, every
+ * accepted signed request records a one-time nonce server-side (a hash of its
+ * signature, bound to the user, in `device_request_nonces`). The skew window
+ * bounds HOW LONG a captured request could be replayed; the nonce table makes
+ * it accept-ONCE — a reused signature inside the window is rejected. Nonces
+ * older than the window can never be replayed (the timestamp check rejects
+ * them first) and are pruned opportunistically.
  */
 import crypto from "node:crypto";
 import type { Request, RequestHandler } from "express";
 import { captureMessage } from "./errorMonitoring";
+import { query } from "./db";
 
 /** Express headers can come in as string | string[] | undefined. Normalize. */
 function singleHeader(v: string | string[] | undefined): string | undefined {
@@ -95,7 +101,8 @@ export type SignatureCheck =
   | "expired"
   | "id_mismatch"
   | "no_server_key"
-  | "issued_at_too_old";
+  | "issued_at_too_old"
+  | "replayed";
 
 export interface VerifyResult {
   status: SignatureCheck;
@@ -169,6 +176,59 @@ export function verifyDeviceSignature(req: Request, expectedUserId: string): Ver
   return { status: "ok" };
 }
 
+export type ReplayCheck = "fresh" | "replayed" | "skipped";
+
+/**
+ * Record the one-time nonce for an already-verified signed request and report
+ * whether this signature has been seen before.
+ *
+ * The nonce is `SHA256(user_id || ':' || signature)`. A replayed request is,
+ * by definition, the exact same bytes — so it carries the exact same
+ * signature, which collides on the table's primary key. The very first insert
+ * wins (`fresh`); any later insert of the same nonce is a no-op (`replayed`).
+ *
+ * MUST be called only AFTER `verifyDeviceSignature` returns `ok`, so an
+ * attacker can't pre-seed the table with arbitrary nonces.
+ *
+ * Fails OPEN (`skipped`) when there is no signature header or the DB is
+ * unreachable — a nonce-store outage must not lock every member out. The
+ * clock-skew window still bounds the exposure in that degraded case.
+ */
+export async function consumeRequestNonce(
+  req: Request,
+  expectedUserId: string,
+): Promise<ReplayCheck> {
+  const signature = singleHeader(req.headers["x-signature"]);
+  if (!signature) return "skipped";
+
+  const nonce = sha256Hex(`${expectedUserId}:${signature.toLowerCase()}`);
+  try {
+    const result = await query(
+      `INSERT INTO device_request_nonces (nonce, user_id)
+       VALUES ($1, $2)
+       ON CONFLICT (nonce) DO NOTHING`,
+      [nonce, expectedUserId || null],
+    );
+
+    // Opportunistic cleanup (~1% of requests): drop nonces older than twice
+    // the skew window. Anything that old is already rejected by the timestamp
+    // check, so it can never be replayed and is safe to forget.
+    if (Math.random() < 0.01) {
+      void query(
+        `DELETE FROM device_request_nonces WHERE seen_at < now() - interval '15 minutes'`,
+      ).catch(() => {});
+    }
+
+    return (result.rowCount ?? 0) > 0 ? "fresh" : "replayed";
+  } catch (err) {
+    captureMessage("device_nonce:db_error", {
+      user_id: expectedUserId,
+      extra: { error: err instanceof Error ? err.message : String(err) },
+    });
+    return "skipped";
+  }
+}
+
 /**
  * Express middleware that verifies the signature against `req.params.id`.
  * In hard mode (default) it 401s on anything other than `ok` (except when no
@@ -178,10 +238,22 @@ export function verifyDeviceSignature(req: Request, expectedUserId: string): Ver
  *
  * Mount AFTER `express.json()` so `req.body` is available for hashing.
  */
-export const requireDeviceSignature: RequestHandler = (req, res, next) => {
+export const requireDeviceSignature: RequestHandler = async (req, res, next) => {
   const rawId = req.params["id"];
   const userId = Array.isArray(rawId) ? (rawId[0] ?? "") : (rawId ?? "");
-  const result = verifyDeviceSignature(req, userId);
+  let result = verifyDeviceSignature(req, userId);
+
+  // A cryptographically valid signature still has to be a FIRST use. In hard
+  // mode, a replayed (already-seen) signature is downgraded to `replayed` and
+  // rejected below. In soft mode we leave the verdict as `ok` so nothing is
+  // rejected, matching the rest of the soft-mode escape hatch.
+  if (result.status === "ok" && HARD_MODE) {
+    const replay = await consumeRequestNonce(req, userId);
+    if (replay === "replayed") {
+      result = { status: "replayed", reason: "nonce_reused" };
+    }
+  }
+
   // Attach for downstream handlers / observability.
   (req as any).signatureCheck = result;
 

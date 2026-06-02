@@ -25,3 +25,15 @@ redeploy.
 IAP entitlements path (`requireUserOrDevice`) already hard-reject independently
 and ignore both flags — don't route them through the soft-mode escape hatch.
 Non-ok verdicts are logged as `device_signature:<status>` for monitoring.
+
+**Replay protection (accept-once):** a valid signature must also be a FIRST
+use. `consumeRequestNonce` records `SHA256(user_id:signature)` in
+`device_request_nonces` after a verified `ok`; a reused nonce → `replayed` →
+401. The nonce IS the signature (a replay is byte-identical, so it collides),
+so the mobile client needed no change. It runs in hard-reject paths and in the
+soft-tolerant middleware only when HARD_MODE (soft mode rejects nothing,
+including replays). **Fails OPEN** (`skipped`) on a missing signature header or
+any DB error — a nonce-store outage must not lock everyone out; the 5-min skew
+window still bounds exposure. Nonces older than the window are pruned
+opportunistically (the timestamp check already rejects them).
+**Why:** the skew window alone allowed unlimited replays inside 5 min.

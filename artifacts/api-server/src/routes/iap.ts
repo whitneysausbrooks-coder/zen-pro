@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { timingSafeEqual } from "crypto";
 import { query } from "../lib/db";
-import { verifyDeviceSignature } from "../lib/deviceAuth";
+import { verifyDeviceSignature, consumeRequestNonce } from "../lib/deviceAuth";
 import { captureMessage } from "../lib/errorMonitoring";
 
 const router: IRouter = Router();
@@ -25,12 +25,22 @@ const ADAPTY_ACCESS_LEVEL = process.env.ADAPTY_ACCESS_LEVEL || "premium";
  * The mobile client sends X-Device-Id, X-Issued-At, X-Timestamp, X-Signature
  * plus an X-User-Id header naming the app_users.id the signature is bound to.
  */
-function requireUserOrDevice(req: any, res: any): string | null {
+async function requireUserOrDevice(req: any, res: any): Promise<string | null> {
   const headerUserId = req.headers["x-user-id"];
   const deviceUserId = Array.isArray(headerUserId) ? headerUserId[0] : headerUserId;
   if (typeof deviceUserId === "string" && deviceUserId.length > 0) {
     const result = verifyDeviceSignature(req, deviceUserId);
     if (result.status === "ok") {
+      // Accept-once: reject a replayed (already-seen) signature even when the
+      // crypto verifies, so a captured request can't be reused in the window.
+      if ((await consumeRequestNonce(req, deviceUserId)) === "replayed") {
+        captureMessage("iap_device_auth:replayed", {
+          route: `${req.method} ${req.path}`,
+          extra: { reason: "nonce_reused", user_id_provided: deviceUserId.slice(0, 8) },
+        });
+        res.status(401).json({ error: "Unauthorized" });
+        return null;
+      }
       return deviceUserId;
     }
     captureMessage(`iap_device_auth:${result.status}`, {
@@ -51,7 +61,7 @@ function requireUserOrDevice(req: any, res: any): string | null {
  * server (and other devices) can see Pro status without an Apple round-trip.
  */
 router.get("/iap/entitlements", async (req, res) => {
-  const userId = requireUserOrDevice(req, res);
+  const userId = await requireUserOrDevice(req, res);
   if (!userId) return;
 
   const ents = await query(
