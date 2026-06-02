@@ -73,9 +73,14 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(ab, bb);
 }
 
-// Adapty subscription lifecycle event types that GRANT access. Note that a
+// Adapty subscription lifecycle event types that GRANT access. Every entry here
+// is UNAMBIGUOUSLY directional (it always means "now active") so we can mutate
+// the mirror row without inspecting further payload state. Note that a
 // cancellation (auto-renew off) is NOT here — the subscription stays active
-// until it actually expires.
+// until it actually expires. We deliberately do NOT handle generic, non-
+// directional events like "access_level_updated" here: those can represent
+// either activation OR deactivation and would corrupt the mirror if treated as
+// a blanket grant.
 const ACTIVATING_EVENTS = new Set([
   "subscription_started",
   "subscription_initial_purchase",
@@ -84,7 +89,6 @@ const ACTIVATING_EVENTS = new Set([
   "trial_started",
   "trial_converted",
   "non_subscription_purchase",
-  "access_level_updated",
 ]);
 
 // Event types that REVOKE access.
