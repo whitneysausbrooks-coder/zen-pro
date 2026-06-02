@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development tsx ./src/index.ts",
-    "build": "pnpm --filter @workspace/neuro-quest run build && tsx ./build.ts",
+    "build": "pnpm --filter @workspace/neuro-quest run build && tsx ./build.ts && tsx ./scripts/provision-monitors.ts",
+    "monitors:provision": "tsx ./scripts/provision-monitors.ts",
+    "monitors:check": "tsx ./scripts/provision-monitors.ts --check",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test \"src/**/*.test.ts\""
   },

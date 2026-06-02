@@ -1,3 +1,4 @@
 - [Adapty monetization](adapty-monetization.md) — Adapty is the single iOS purchase/entitlement source; guard native module in Expo Go/web; webhook must only mutate on directional events.
 - [Adapty remote paywall](adapty-remote-paywall.md) — shop screen merges plan cards from Adapty products + paywall Remote Config (`{plans:{<id>:{...}}}`) over static fallback; dashboard config is manual.
 - [Device signature enforcement](device-signature-enforcement.md) — per-:id device HMAC handshake is hard-mode by default; `DEVICE_AUTH_SOFT_MODE=1` is emergency rollback only; GDPR/IAP paths reject independently.
+- [Datadog monitor provisioning](datadog-monitor-provisioning.md) — `docs/monitors/*.json` auto-applied on api-server prod build, keyed by `monitor_key:<stem>` tag; never hand-create in UI; needs DATADOG_APP_KEY.
