@@ -17,7 +17,6 @@
  */
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
-import { getAuth } from "@clerk/express";
 import { z } from "zod";
 import { query } from "../lib/db";
 import { verifyDeviceSignature } from "../lib/deviceAuth";
@@ -27,11 +26,6 @@ import { analyzeTripleWeightBaseline } from "../lib/tripleWeightAi";
 const router: IRouter = Router();
 
 function requireUserOrDevice(req: any, res: any): string | null {
-  const auth = getAuth(req);
-  const clerkUserId = (auth?.sessionClaims?.userId || auth?.userId) as
-    | string
-    | undefined;
-  if (clerkUserId) return clerkUserId;
   const headerUserId = req.headers["x-user-id"];
   const deviceUserId = Array.isArray(headerUserId)
     ? headerUserId[0]

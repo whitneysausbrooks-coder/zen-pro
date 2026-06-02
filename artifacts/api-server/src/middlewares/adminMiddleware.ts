@@ -1,24 +1,21 @@
-import { getAuth } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  const adminIds = (process.env.ADMIN_USER_IDS ?? "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
-
-  if (adminIds.length === 0) {
+  const adminSecret = process.env.ADMIN_SECRET;
+  if (!adminSecret) {
     res.status(403).json({ error: "Admin access is not configured" });
     return;
   }
 
-  const auth = getAuth(req);
-  const userId = (auth?.sessionClaims?.userId || auth?.userId) as string | undefined;
-  if (!userId || !adminIds.includes(userId)) {
+  const authHeader = req.headers["authorization"];
+  const token = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  if (!token || token !== adminSecret) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
 
-  req.userId = userId;
   next();
 }

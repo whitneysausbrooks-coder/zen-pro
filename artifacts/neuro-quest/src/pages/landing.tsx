@@ -612,9 +612,7 @@ export default function Landing() {
             <Link href="/support" className="hover:text-white/70 transition-colors">
               Support
             </Link>
-            <Link href="/enterprise" className="hover:text-white/70 transition-colors">
-              For Teams
-            </Link>
+
           </nav>
           <p className="text-xs text-white/30 font-light">
             © {new Date().getFullYear()} NeuroQuest, Inc.

@@ -1,7 +1,6 @@
-import { useEffect, useRef } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { ClerkProvider, SignIn, SignUp, useClerk, useAuth as useClerkAuth } from "@clerk/react";
+import { useEffect } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthGate } from "@/components/auth-gate";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AnimatePresence, motion } from "framer-motion";
@@ -13,15 +12,11 @@ import Landing from "@/pages/landing";
 import MemoryMatch from "@/pages/memory-match";
 import SlotMachine from "@/pages/slot-machine";
 import Subscribe from "@/pages/subscribe";
-import Enterprise from "@/pages/enterprise";
 import Sponsor from "@/pages/sponsor";
 import AdminPanel from "@/pages/admin";
-import AdminDashboard from "@/pages/admin-dashboard";
 import Onboarding from "@/pages/onboarding";
 import WearableSetup from "@/pages/wearable-setup";
 import { BootstrapGate } from "@/components/bootstrap-gate";
-import JoinPage from "@/pages/join";
-import CompanyAdminPage from "@/pages/company-admin";
 import Blackjack from "@/pages/blackjack";
 import EQGame from "@/pages/eq-game";
 import PatternPulse from "@/pages/pattern-pulse";
@@ -39,19 +34,7 @@ import CbiPage from "@/pages/cbi";
 import TermsPage from "@/pages/terms";
 import SupportPage from "@/pages/support";
 
-const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function stripBase(path: string): string {
-  return basePath && path.startsWith(basePath)
-    ? path.slice(basePath.length) || "/"
-    : path;
-}
-
-if (!clerkPubKey) {
-  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
-}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,71 +62,12 @@ const pageTransition = {
   transition: { duration: 0.38, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
 };
 
-function SignInPage() {
-  // To update login providers, app branding, or OAuth settings use the Auth
-  // pane in the workspace toolbar. More information can be found in the Replit docs.
-  return (
-    <div style={{ display: "flex", justifyContent: "center", marginTop: "2rem" }}>
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
-    </div>
-  );
-}
-
-function SignUpPage() {
-  // To update login providers, app branding, or OAuth settings use the Auth
-  // pane in the workspace toolbar. More information can be found in the Replit docs.
-  return (
-    <div style={{ display: "flex", justifyContent: "center", marginTop: "2rem" }}>
-      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
-    </div>
-  );
-}
-
-function ClerkQueryClientCacheInvalidator() {
-  const { addListener } = useClerk();
-  const qc = useQueryClient();
-  const prevUserIdRef = useRef<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    const unsubscribe = addListener(({ user }) => {
-      const userId = user?.id ?? null;
-      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
-        qc.clear();
-      }
-      prevUserIdRef.current = userId;
-    });
-    return unsubscribe;
-  }, [addListener, qc]);
-
-  return null;
-}
-
-/**
- * Public front door at `/`.
- *
- * - Anonymous visitors see the D2C luxury Landing page (marketing).
- * - Signed-in members fall through to BootstrapGate → Dashboard, which
- *   preserves the existing onboarding → wearable → dashboard flow.
- *
- * We deliberately gate BEFORE BootstrapGate so its auto-redirect to
- * /onboarding never fires for anonymous marketing visitors.
- *
- * The `nq_onboarding_done` localStorage flag is also checked so returning
- * users who already completed onboarding (in a prior session, but are
- * currently signed out) are sent to /sign-in via BootstrapGate rather than
- * forced back through the marketing page.
- */
 function HomeGated() {
-  const { isLoaded, isSignedIn } = useClerkAuth();
   const onboardingDone =
     typeof window !== "undefined" &&
     ["1", "true"].includes(localStorage.getItem("nq_onboarding_done") ?? "");
 
-  // Clerk still bootstrapping — render nothing rather than flash Landing
-  // and then immediately swap to Dashboard for signed-in returning users.
-  if (!isLoaded) return null;
-
-  if (isSignedIn || onboardingDone) {
+  if (onboardingDone) {
     return (
       <BootstrapGate>
         <Dashboard />
@@ -170,21 +94,14 @@ function AppRoutes() {
           <Route path="/"            component={HomeGated} />
           <Route path="/onboarding"  component={Onboarding} />
           <Route path="/wearable-setup" component={WearableSetup} />
-          <Route path="/join"        component={JoinPage} />
-          <Route path="/sign-in/*?"  component={SignInPage} />
-          <Route path="/sign-up/*?"  component={SignUpPage} />
           <Route path="/brain-game"  component={() => <ProtectedGame component={MemoryMatch}  name="Neural Challenge" />} />
           <Route path="/blackjack"   component={() => <ProtectedGame component={Blackjack}    name="Mind-Reader Challenge" />} />
           <Route path="/eq-game"     component={() => <ProtectedGame component={EQGame}       name="Emotional EQ" />} />
           <Route path="/pattern-pulse" component={() => <ProtectedGame component={PatternPulse} name="Pattern Pulse" />} />
           <Route path="/wellness"    component={() => <ProtectedGame component={SlotMachine}  name="Compassion Wheel" />} />
           <Route path="/subscribe"   component={Subscribe} />
-          <Route path="/enterprise"  component={Enterprise} />
           <Route path="/sponsor"     component={Sponsor} />
           <Route path="/admin"       component={AdminPanel} />
-          <Route path="/admin-dashboard" component={AdminDashboard} />
-          <Route path="/owner-dashboard" component={AdminDashboard} />
-          <Route path="/company-admin" component={CompanyAdminPage} />
           <Route path="/elon"        component={ElonPage} />
           <Route path="/payment"     component={PaymentPage} />
           <Route path="/share"       component={SharePage} />
@@ -201,33 +118,10 @@ function AppRoutes() {
   );
 }
 
-function ClerkProviderWithRoutes() {
-  const [, setLocation] = useLocation();
-
-  return (
-    <ClerkProvider
-      publishableKey={clerkPubKey}
-      proxyUrl={clerkProxyUrl}
-      routerPush={(to) => setLocation(stripBase(to))}
-      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
-    >
-      <QueryClientProvider client={queryClient}>
-        <ClerkQueryClientCacheInvalidator />
-        <AppRoutes />
-        <MobileNav />
-      </QueryClientProvider>
-    </ClerkProvider>
-  );
-}
-
 function App() {
   return (
     <ErrorBoundary
       onError={(error, componentStack) => {
-        // Surface in browser console for dev + production crash reporting
-        // tools (the user's Datadog browser SDK, when wired, will pick this
-        // up automatically via console capture).
-        // eslint-disable-next-line no-console
         console.error("[NeuroQuest] Unhandled render error:", error, {
           componentStack,
         });
@@ -236,7 +130,10 @@ function App() {
       <TooltipProvider>
         <AgeGate>
           <WouterRouter base={basePath}>
-            <ClerkProviderWithRoutes />
+            <QueryClientProvider client={queryClient}>
+              <AppRoutes />
+              <MobileNav />
+            </QueryClientProvider>
           </WouterRouter>
           <InstallPrompt />
           <Toaster />

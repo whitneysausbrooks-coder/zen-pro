@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Shield, AlertTriangle } from "lucide-react"
 
 const AGE_KEY = "nq_age_verified"
-const LEGAL_PATHS = ["/privacy", "/terms", "/copyright"]
-const ENTERPRISE_PATHS = ["/admin-dashboard", "/admin", "/enterprise"]
+const BYPASS_PATHS = ["/privacy", "/terms", "/copyright", "/admin"]
 
 export function AgeGate({ children }: { children: React.ReactNode }) {
   const [verified, setVerified] = useState<boolean | null>(null)
@@ -19,11 +18,8 @@ export function AgeGate({ children }: { children: React.ReactNode }) {
   const basePath = import.meta.env.BASE_URL?.replace(/\/$/, "") || ""
   const relativePath = basePath ? pathname.replace(basePath, "") : pathname
 
-  const isLegalPage = LEGAL_PATHS.some(p => relativePath.endsWith(p))
-  if (isLegalPage) return <>{children}</>
-
-  const isEnterprisePage = ENTERPRISE_PATHS.some(p => relativePath.startsWith(p))
-  if (isEnterprisePage) return <>{children}</>
+  const isBypassPage = BYPASS_PATHS.some(p => relativePath.startsWith(p) || relativePath.endsWith(p))
+  if (isBypassPage) return <>{children}</>
 
   if (verified === null) return null
 

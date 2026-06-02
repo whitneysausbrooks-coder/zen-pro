@@ -1,6 +1,4 @@
 import app from "./app";
-import { startReconciliationScheduler } from "./lib/billingReconciliation";
-import { startDailyRecognitionScheduler } from "./lib/revenueRecognition";
 import { runMigrations } from "./lib/migrate";
 import { initErrorMonitoring } from "./lib/errorMonitoring";
 
@@ -18,22 +16,17 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// Run migrations BEFORE binding the listener. Otherwise the server can accept
-// /api/app-user/* traffic (load balancer health checks, eager mobile clients)
-// before tables exist, returning "relation does not exist" on first hit.
 async function start() {
   initErrorMonitoring();
   try {
     await runMigrations();
-    console.log("Migrations applied (app_users tables + sprint additions)");
+    console.log("Migrations applied");
   } catch (err) {
     console.error("Migration failed — refusing to start:", err);
     process.exit(1);
   }
   app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
-    startReconciliationScheduler();
-    startDailyRecognitionScheduler();
   });
 }
 

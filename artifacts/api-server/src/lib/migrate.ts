@@ -13,6 +13,16 @@ import { query } from "./db";
  * needed for the AI personalization engine.
  */
 export async function runMigrations(): Promise<void> {
+  // Drop enterprise tables that are no longer part of the individual-only product.
+  // Order matters: child tables with FKs referencing enterprise_users must be
+  // dropped first, then the parent tables. IF EXISTS makes this idempotent.
+  await query(`DROP TABLE IF EXISTS sso_sessions CASCADE`);
+  await query(`DROP TABLE IF EXISTS sso_configurations CASCADE`);
+  await query(`DROP TABLE IF EXISTS enterprise_inquiries CASCADE`);
+  await query(`DROP TABLE IF EXISTS enterprise_leads CASCADE`);
+  await query(`DROP TABLE IF EXISTS enterprise_users CASCADE`);
+  await query(`DROP TABLE IF EXISTS companies CASCADE`);
+
   await query(`
     CREATE TABLE IF NOT EXISTS app_users (
       id varchar PRIMARY KEY,

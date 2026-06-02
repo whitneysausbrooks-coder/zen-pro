@@ -17,12 +17,11 @@ export interface SyncResult {
 }
 
 const EMAIL_KEY = "nq_enterprise_email";
-const INVITE_KEY = "nq_enterprise_invite_code";
 const LAST_SYNC_KEY = "nq_health_last_sync";
 const LOGIN_DONE_KEY = "nq_login_done";
 const HEALTH_CHOICE_KEY = "nq_health_choice";
 
-export type LoginMode = "enterprise" | "individual";
+export type LoginMode = "individual";
 export type HealthChoice = "apple_health" | "health_connect" | "manual" | "skipped";
 
 /**
@@ -84,16 +83,9 @@ export function friendlyServerError(rawError: unknown, status?: number): string 
     return "Network error. Please check your connection and try again.";
   }
 
-  // STEP 2 — narrow, EXACT allowlist of pilot-safe actionable messages.
-  // Curated to match strings the backend is known to emit. Anything
-  // outside this set collapses to the generic message below — it is
-  // strictly safer to be slightly less specific than to leak internals.
+  // STEP 2 — narrow, EXACT allowlist of actionable messages to pass through.
   const pilotSafeExact = new Set<string>([
     "Too many requests. Please wait a moment.",
-    "Invite code not recognized. Double-check it with your admin.",
-    "This invite code has already been used.",
-    "Your team is at its seat cap. Please contact your admin.",
-    "Email already enrolled.",
     "No recent biometric data was found.",
   ]);
   if (raw && pilotSafeExact.has(raw)) {
@@ -106,7 +98,7 @@ export function friendlyServerError(rawError: unknown, status?: number): string 
 export async function getLoginMode(): Promise<LoginMode | null> {
   try {
     const v = await AsyncStorage.getItem(LOGIN_DONE_KEY);
-    return v === "enterprise" || v === "individual" ? v : null;
+    return v === "individual" ? v : null;
   } catch {
     return null;
   }
@@ -136,18 +128,13 @@ export async function setHealthChoice(choice: HealthChoice): Promise<void> {
 }
 
 /**
- * Sync user-entered health metrics. Used when the user opted for manual
- * entry instead of (or in addition to) Apple Health.
+ * Sync user-entered health metrics to the individual AI baseline endpoint.
  *  - hrv: milliseconds (e.g. 45)
- *  - sleep_hours: hours (e.g. 7.5) — converted to minutes server-side schema
+ *  - sleep_hours: hours (e.g. 7.5) — converted to minutes server-side
  *  - steps: integer
  * Any field can be null; at least one must be provided.
- * For individual (non-enterprise) users without an invite code, the
- * function persists locally only and reports success without server sync.
  */
 export async function syncManualMetrics(
-  email: string,
-  inviteCode: string | null,
   data: { hrv: number | null; sleep_hours: number | null; steps: number | null },
 ): Promise<SyncResult> {
   const { hrv, sleep_hours, steps } = data;
@@ -155,83 +142,24 @@ export async function syncManualMetrics(
     return { success: false, message: "Enter at least one of HRV, sleep, or steps." };
   }
 
-  const mode = await getLoginMode();
-
-  // Individual mode: sync to the personal AI baseline endpoint, which records
-  // the session against this device's UUID and returns the freshly computed
-  // Neuro-Resilience Score + EMA-7 trend. No enterprise credentials needed.
-  if (mode === "individual") {
-    const userId = await getStoredUserId();
-    if (!userId) {
-      await setLastSyncAt();
-      return {
-        success: true,
-        message: "Saved on this device. We'll sync once your account finishes setup.",
-      };
-    }
-    try {
-      const res = await fetch(`${getApiBase()}/api/app-user/biometrics`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: userId,
-          hrv,
-          sleep_hours,
-          steps,
-          data_source: "manual",
-        }),
-      });
-      const resData = await res.json().catch(() => ({}));
-      if (!res.ok || !resData.success) {
-        return { success: false, message: friendlyServerError(resData.error, res.status) };
-      }
-      await setLastSyncAt();
-      return {
-        success: true,
-        neuro_resilience_score: resData.neuro_resilience_score,
-        classification: resData.classification,
-      };
-    } catch (e: any) {
-      return { success: false, message: friendlyServerError(e?.message, 0) };
-    }
-  }
-
-  // Defense-in-depth: refuse the enterprise sync path unless the user is in
-  // enterprise login mode. Prevents stale enterprise credentials from leaking
-  // under a new individual user on the same device.
-  if (mode !== "enterprise") {
+  const userId = await getStoredUserId();
+  if (!userId) {
     await setLastSyncAt();
     return {
       success: true,
-      message:
-        "Saved on this device. Sign in as a pilot member to sync to your team baseline.",
+      message: "Saved on this device. We'll sync once your account finishes setup.",
     };
   }
-
-  if (!email.trim() || !inviteCode || !inviteCode.trim()) {
-    await setLastSyncAt();
-    return {
-      success: true,
-      message:
-        "Saved on this device. Sign in with your work email + invite code to sync to your team baseline.",
-    };
-  }
-
-  const sleep_duration =
-    sleep_hours != null ? Math.max(0, Math.min(1440, Math.round(sleep_hours * 60))) : null;
-
   try {
-    const res = await fetch(`${getApiBase()}/api/wearable/sync`, {
+    const res = await fetch(`${getApiBase()}/api/app-user/biometrics`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: email.trim().toLowerCase(),
-        invite_code: inviteCode.trim().toUpperCase(),
-        source: "manual",
+        user_id: userId,
         hrv,
-        sleep_duration,
+        sleep_hours,
         steps,
-        recorded_at: new Date().toISOString(),
+        data_source: "manual",
       }),
     });
     const resData = await res.json().catch(() => ({}));
@@ -305,24 +233,9 @@ export async function setStoredEmail(email: string): Promise<void> {
   } catch {}
 }
 
-export async function getStoredInviteCode(): Promise<string | null> {
-  try {
-    return await AsyncStorage.getItem(INVITE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export async function setStoredInviteCode(code: string): Promise<void> {
-  try {
-    await AsyncStorage.setItem(INVITE_KEY, code.trim().toUpperCase());
-  } catch {}
-}
-
 export async function clearStoredCredentials(): Promise<void> {
   try {
     await AsyncStorage.removeItem(EMAIL_KEY);
-    await AsyncStorage.removeItem(INVITE_KEY);
   } catch {}
 }
 
@@ -351,7 +264,7 @@ export async function signOutAndReset(): Promise<void> {
   try {
     await AsyncStorage.multiRemove([
       EMAIL_KEY,
-      INVITE_KEY,
+      "nq_enterprise_invite_code",
       LOGIN_DONE_KEY,
       HEALTH_CHOICE_KEY,
     ]);
@@ -371,16 +284,15 @@ export interface DeleteAccountResult {
 }
 
 export async function deleteAccount(): Promise<DeleteAccountResult> {
-  const email = await getStoredEmail();
-  const inviteCode = await getStoredInviteCode();
-  if (!email || !inviteCode) {
-    return { serverDeleted: false, message: "No enterprise account on file. Local data cleared." };
+  const userId = await getStoredUserId();
+  if (!userId) {
+    return { serverDeleted: false, message: "No account on file. Local data cleared." };
   }
   try {
     const res = await fetch(`${getApiBase()}/api/account/delete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, invite_code: inviteCode }),
+      body: JSON.stringify({ user_id: userId }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -750,29 +662,11 @@ export async function readLatestMetrics(): Promise<WearableMetrics> {
 }
 
 /**
- * Send the latest native-health metrics to the NeuroQuest server.
- * Identity is verified by BOTH the user's work email AND their company
- * invite code, which only legitimate pilot members possess. The data
- * source ("apple_health" or "health_connect") is auto-derived from the
- * current platform so server-side audit logs reflect the true origin.
+ * Sync the latest native-health metrics to the individual AI baseline endpoint.
+ * The data source ("apple_health" or "health_connect") is auto-derived from
+ * the current platform so server-side audit logs reflect the true origin.
  */
-export async function syncToServer(
-  email: string,
-  inviteCode: string,
-  metrics: WearableMetrics,
-): Promise<SyncResult> {
-  if (!email.trim()) return { success: false, message: "Work email is required" };
-  if (!inviteCode.trim()) return { success: false, message: "Company invite code is required" };
-  // Defense-in-depth: only enterprise-mode users may sync to the server.
-  // Stale credentials left on a shared device must not silently submit data
-  // under a previous user's identity.
-  const mode = await getLoginMode();
-  if (mode !== "enterprise") {
-    return {
-      success: false,
-      message: "Sign in as a pilot member to sync to your team baseline.",
-    };
-  }
+export async function syncToServer(metrics: WearableMetrics): Promise<SyncResult> {
   if (
     metrics.hrv == null &&
     metrics.sleep_duration_minutes == null &&
@@ -781,30 +675,35 @@ export async function syncToServer(
     const noDataMsg = isHealthConnectAvailable
       ? "No recent HRV, sleep, or step data found in Health Connect for the last 24 hours. If you just granted permissions, that's fine — Health Connect simply doesn't have anything to share yet. Tap \"Add Manually\" below to enter your own values, or wear your watch overnight and reopen the app tomorrow."
       : "No recent HRV, sleep, or step data found in Apple Health for the last 24 hours. If you just granted permissions, that's fine — Apple Health simply doesn't have anything to share yet (Apple intentionally hides which permissions you granted, so we can't tell the difference). Tap \"Add Manually\" below to enter your own values, or wear your Apple Watch overnight and reopen the app tomorrow.";
+    return { success: false, message: noDataMsg };
+  }
+
+  const userId = await getStoredUserId();
+  if (!userId) {
     return {
-      success: false,
-      message: noDataMsg,
+      success: true,
+      message: "Health data read. We'll sync once your account finishes setup.",
     };
   }
 
-  // Auto-derive the data source from the platform so server-side audit
-  // logs reflect the true origin (Apple Health vs Android Health Connect).
-  const dataSource = isHealthConnectAvailable ? "health_connect" : "apple_health";
+  const sleep_hours =
+    metrics.sleep_duration_minutes != null
+      ? Math.round((metrics.sleep_duration_minutes / 60) * 100) / 100
+      : null;
+
   try {
-    const res = await fetch(`${getApiBase()}/api/wearable/sync`, {
+    const res = await fetch(`${getApiBase()}/api/app-user/biometrics`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: email.trim().toLowerCase(),
-        invite_code: inviteCode.trim().toUpperCase(),
-        source: dataSource,
+        user_id: userId,
         hrv: metrics.hrv,
-        sleep_duration: metrics.sleep_duration_minutes,
+        sleep_hours,
         steps: metrics.steps,
-        recorded_at: metrics.recorded_at,
+        data_source: isHealthConnectAvailable ? "health_connect" : "apple_health",
       }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
       return { success: false, message: friendlyServerError(data.error, res.status) };
     }
@@ -921,10 +820,8 @@ export const WEARABLE_PROVIDERS: Record<WearableProviderId, WearableProvider | n
 //   2. Only runs once the user has completed health onboarding (so we don't
 //      observe before consent has been recorded). `_layout.tsx` only calls
 //      this after `healthDone === true` AND `loginDone === true`.
-//   3. Only fires the network sync if the user is in enterprise (pilot) mode
-//      AND credentials are present in SecureStore — same guard as foreground
-//      `syncToServer`. Individual-mode users do not sync to the team baseline.
-//   4. De-bounced server-side via existing /api/wearable/sync idempotency.
+//   3. Syncs to the individual AI baseline endpoint (keyed by app_users.id).
+//   4. De-bounced to avoid rapid multi-sample bursts from the Watch.
 //   5. Errors are SILENT — background invocations have no UI. We never throw.
 //
 // CALLER CONTRACT: Idempotent. Calling it more than once is safe — the
@@ -967,22 +864,11 @@ export async function enableBackgroundHealthSync(): Promise<() => void> {
   const fireSync = async () => {
     pendingTimer = null;
     try {
-      // Pull credentials from SecureStore on every fire — never cache them
-      // in a closure because the user could have signed out since the last
-      // background wake.
-      const [email, inviteCode, mode, userId] = await Promise.all([
-        getStoredEmail(),
-        getStoredInviteCode(),
-        getLoginMode(),
-        getStoredUserId(),
-      ]);
+      // Read userId fresh on every fire — never cache in a closure since the
+      // user could have signed out since the last background wake.
+      const userId = await getStoredUserId();
+      if (!userId) return;
 
-      // Read once, route to the appropriate endpoint based on login mode.
-      // Both enterprise pilots AND individual consumers need background
-      // sync so the Neuro Resilience Score stays warm without requiring
-      // the user to open the app — otherwise the burnout-detection promise
-      // (catch decline before the user feels it) silently fails for the
-      // 99% of users that aren't on a pilot.
       const metrics = await readLatestMetrics();
       if (
         metrics.hrv == null &&
@@ -992,39 +878,25 @@ export async function enableBackgroundHealthSync(): Promise<() => void> {
         return;
       }
 
-      if (mode === "enterprise" && email && inviteCode) {
-        await syncToServer(email, inviteCode, metrics);
-        return;
+      const sleep_hours =
+        metrics.sleep_duration_minutes != null
+          ? Math.round((metrics.sleep_duration_minutes / 60) * 100) / 100
+          : null;
+      try {
+        await fetch(`${getApiBase()}/api/app-user/biometrics`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userId,
+            hrv: metrics.hrv,
+            sleep_hours,
+            steps: metrics.steps,
+            data_source: "wearable",
+          }),
+        });
+      } catch {
+        // Background — silent.
       }
-
-      if (mode === "individual" && userId) {
-        // POST to the individual baseline endpoint — same source-of-truth
-        // server-side scoring, just keyed by app_users.id instead of
-        // enterprise email+invite. Mirrors the foreground path in
-        // syncManualMetrics so individual + enterprise stay symmetric.
-        const sleep_hours =
-          metrics.sleep_duration_minutes != null
-            ? Math.round((metrics.sleep_duration_minutes / 60) * 100) / 100
-            : null;
-        try {
-          await fetch(`${getApiBase()}/api/app-user/biometrics`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              user_id: userId,
-              hrv: metrics.hrv,
-              sleep_hours,
-              steps: metrics.steps,
-              data_source: "wearable",
-            }),
-          });
-        } catch {
-          // Background — silent.
-        }
-        return;
-      }
-
-      // Unknown mode or missing creds: silent no-op (signed out, etc.)
     } catch {
       // Background context has no UI to surface to — swallow.
     }

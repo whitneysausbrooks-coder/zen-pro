@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import { getAuth } from "@clerk/express";
 import { z } from "zod";
 import { query, withTransaction } from "../lib/db";
 import { verifyDeviceSignature } from "../lib/deviceAuth";
@@ -39,37 +38,14 @@ const NON_CONSUMABLES = new Set([
   "pro.neuroquestzen.app.founder",
 ]);
 
-function requireUserId(req: any, res: any): string | null {
-  const auth = getAuth(req);
-  const userId = (auth?.sessionClaims?.userId || auth?.userId) as string | undefined;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return null;
-  }
-  return userId;
-}
-
 /**
- * Accept either a Clerk session (web) OR a device-signed request (mobile).
- *
- * Clerk path is tried first so existing web behavior is unchanged. If no Clerk
- * session is present, falls back to the per-device HMAC handshake established
- * in lib/deviceAuth.ts: the mobile client sends X-Device-Id, X-Issued-At,
- * X-Timestamp, X-Signature plus an X-User-Id header naming the app_users.id
- * the signature is bound to. The server re-derives the device_secret from
+ * Authenticate via device HMAC signature (mobile individual track).
+ * The mobile client sends X-Device-Id, X-Issued-At, X-Timestamp, X-Signature
+ * plus an X-User-Id header naming the app_users.id the signature is bound to.
+ * The server re-derives the device_secret from
  * (SERVER_DEVICE_KEY, user_id, device_id, issued_at) and verifies the HMAC.
- *
- * On success we return the user_id (a Clerk userId for web callers, an
- * app_users.id UUID for mobile callers). Both are stored unchanged in
- * iap_entitlements.user_id (text column) so each install gets its own
- * entitlement scope. Cross-device sync is a separate future feature
- * (see /auth/claim-profile bridge).
  */
 function requireUserOrDevice(req: any, res: any): string | null {
-  const auth = getAuth(req);
-  const clerkUserId = (auth?.sessionClaims?.userId || auth?.userId) as string | undefined;
-  if (clerkUserId) return clerkUserId;
-
   const headerUserId = req.headers["x-user-id"];
   const deviceUserId = Array.isArray(headerUserId) ? headerUserId[0] : headerUserId;
   if (typeof deviceUserId === "string" && deviceUserId.length > 0) {
@@ -307,12 +283,6 @@ router.get("/iap/entitlements", async (req, res) => {
  * We MUST cryptographically verify the signature before mutating state, since
  * the endpoint is public and an attacker could otherwise forge a REFUND or
  * EXPIRED notification to flip a stranger's entitlement state.
- *
- * verifyAppleNotification() validates the x5c chain against the bundled
- * Apple Root CA G3, verifies the JWS signature, asserts the bundleId matches,
- * and only then returns the decoded payload. The decoded payload includes a
- * pre-verified signedTransactionInfo which we re-verify via the same path
- * before reading transaction fields.
  */
 router.post("/iap/webhook", async (req, res) => {
   const notification = req.body;
@@ -338,10 +308,6 @@ router.post("/iap/webhook", async (req, res) => {
     return res.json({ ok: true, ignored: "no transaction" });
   }
 
-  // Re-verify the inner transaction JWS using the same Apple-rooted chain
-  // (in the same environment that verified the outer envelope). This catches
-  // a maliciously-replaced inner payload even if the outer envelope happened
-  // to verify.
   const txResult = await verifyAppleTransaction(signedTx, verified.environment);
   if (!txResult.ok) {
     captureMessage("iap_webhook:tx_signature_invalid", {

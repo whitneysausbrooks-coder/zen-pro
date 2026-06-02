@@ -98,7 +98,7 @@ export default function ImpactPage() {
             </GlassCardHeader>
             <GlassCardContent className="pt-0 text-sm text-white/60 leading-relaxed space-y-3">
               <p>
-                <strong className="text-white/80">1% of net subscription and pilot revenue</strong> — after Apple, Stripe, and processor fees — is donated to{" "}
+                <strong className="text-white/80">1% of net subscription revenue</strong> — after Apple, Stripe, and processor fees — is donated to{" "}
                 <a
                   href="https://www.feedingamerica.org/"
                   target="_blank"
@@ -113,7 +113,7 @@ export default function ImpactPage() {
                 Donations are funded out of our gross margin, accrued monthly, and wired quarterly. Meal equivalents use Feeding America's published figure of <strong className="text-white/80">$0.10 = 1 meal</strong>.
               </p>
               <p>
-                <strong className="text-white/80">Donations are NOT triggered by gameplay, streaks, Neural Energy, or any chance mechanic.</strong> They are funded by paid subscriptions and pilots only. This keeps the loop simple, sybil-resistant, and free of gambling-adjacent design.
+                <strong className="text-white/80">Donations are NOT triggered by gameplay, streaks, Neural Energy, or any chance mechanic.</strong> They are funded by paid subscriptions only. This keeps the loop simple, sybil-resistant, and free of gambling-adjacent design.
               </p>
               <p>
                 Receipts from PayPal Giving Fund are posted to this page each quarter. If a number on this page does not reconcile with a receipt, email{" "}

@@ -26,9 +26,6 @@ import {
   syncToServer,
   syncManualMetrics,
   setHealthChoice,
-  getStoredEmail,
-  getStoredInviteCode,
-  getLoginMode,
   openAppSettings,
   friendlyServerError,
   type SyncResult,
@@ -112,32 +109,15 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
         return;
       }
       const metrics = await readLatestMetrics();
-      const email = (await getStoredEmail()) || "";
-      const code = await getStoredInviteCode();
-      const mode = await getLoginMode();
       const choice = isHealthConnectAvailable ? "health_connect" : "apple_health";
-      // Only sync to server when user signed in as enterprise pilot member.
-      // Individual users keep their data on-device — never assume an old
-      // enterprise identity left behind from a prior account on this device.
-      if (mode === "enterprise" && email && code) {
-        const result = await syncToServer(email, code, metrics);
-        if (!result.success) {
-          setError(result.message || "Sync failed. You can also add manually.");
-          setBusy(false);
-          return;
-        }
-        await setHealthChoice(choice);
-        showSuccess(result);
-      } else {
-        await setHealthChoice(choice);
-        showSuccess({
-          success: true,
-          message:
-            mode === "enterprise"
-              ? `${healthProviderLabel} connected. Sign in is needed to sync to your team baseline.`
-              : `${healthProviderLabel} connected. Your data stays on this device.`,
-        });
+      const result = await syncToServer(metrics);
+      if (!result.success) {
+        setError(result.message || "Sync failed. You can also add manually.");
+        setBusy(false);
+        return;
       }
+      await setHealthChoice(choice);
+      showSuccess(result);
     } catch (e: any) {
       setError(friendlyServerError(e?.message, 0));
     } finally {
@@ -165,9 +145,7 @@ export function OnboardingHealth({ onComplete, onBack }: Props) {
     }
     setBusy(true);
     try {
-      const email = (await getStoredEmail()) || "";
-      const code = await getStoredInviteCode();
-      const result = await syncManualMetrics(email, code, {
+      const result = await syncManualMetrics({
         hrv: hrvNum,
         sleep_hours: sleepNum,
         steps: stepsNum != null ? Math.round(stepsNum) : null,

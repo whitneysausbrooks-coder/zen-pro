@@ -46,17 +46,6 @@ export const activitiesTable = pgTable("activities", {
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const enterpriseLeadsTable = pgTable("enterprise_leads", {
-  id: serial("id").primaryKey(),
-  contact_name: text("contact_name").notNull(),
-  company: text("company").notNull(),
-  work_email: text("work_email").notNull(),
-  team_size: text("team_size").notNull(),
-  tier: text("tier").notNull().default("team"),
-  message: text("message"),
-  created_at: timestamp("created_at").notNull().defaultNow(),
-});
-
 export const sponsorLeadsTable = pgTable("sponsor_leads", {
   id: serial("id").primaryKey(),
   brand_name: text("brand_name").notNull(),
@@ -82,21 +71,14 @@ export const taskCompletionsTable = pgTable("task_completions", {
 ]);
 
 // ---- Compassion Reels: business-funded micro-donations (every.org) ----
-// One row per month tracks the HARD spending cap and how much the business has
-// already committed this period. The milestone endpoint locks this row
-// (SELECT ... FOR UPDATE) before accruing, so concurrent plays / bots can never
-// push committed giving past `budget_cents`.
 export const compassionBudgetTable = pgTable("compassion_budget", {
   id: serial("id").primaryKey(),
-  period: text("period").notNull().unique(), // "YYYY-MM"
+  period: text("period").notNull().unique(),
   budget_cents: integer("budget_cents").notNull(),
   accrued_cents: integer("accrued_cents").notNull().default(0),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Ledger of real, business-funded micro-donations accrued from Compassion
-// Milestones. Amounts are settled to the nonprofit in batches via every.org;
-// `status` walks accrued -> settling -> settled (or failed).
 export const compassionDonationsTable = pgTable("compassion_donations", {
   id: serial("id").primaryKey(),
   session_id: text("session_id"),
@@ -116,11 +98,8 @@ export type CompassionDonation = typeof compassionDonationsTable.$inferSelect;
 
 export const insertUserProfileSchema = createInsertSchema(userProfilesTable).omit({ id: true, updated_at: true });
 export const insertActivitySchema = createInsertSchema(activitiesTable).omit({ id: true, created_at: true });
-export const insertEnterpriseLeadSchema = createInsertSchema(enterpriseLeadsTable).omit({ id: true, created_at: true });
 
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type UserProfile = typeof userProfilesTable.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type Activity = typeof activitiesTable.$inferSelect;
-export type InsertEnterpriseLead = z.infer<typeof insertEnterpriseLeadSchema>;
-export type EnterpriseLead = typeof enterpriseLeadsTable.$inferSelect;

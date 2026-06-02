@@ -22,20 +22,13 @@ import {
   isHealthConnectAvailable,
   isHealthAvailable,
   healthProviderLabel,
-  getStoredEmail,
-  setStoredEmail,
-  getStoredInviteCode,
-  setStoredInviteCode,
-  clearStoredCredentials,
   getLastSyncAt,
   requestHealthPermissions,
   readLatestMetrics,
   syncToServer,
   syncManualMetrics,
-  getLoginMode,
   openAppSettings,
   type WearableMetrics,
-  type LoginMode,
 } from "@/lib/health";
 
 function fmtSync(iso: string | null): string {
@@ -51,9 +44,6 @@ function fmtSync(iso: string | null): string {
 export default function WearableScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
-  const [credsSaved, setCredsSaved] = useState(false);
   const [healthRequested, setHealthRequested] = useState(false);
   const [busy, setBusy] = useState(false);
   const [metrics, setMetrics] = useState<WearableMetrics | null>(null);
@@ -65,56 +55,9 @@ export default function WearableScreen() {
   const [manualSleep, setManualSleep] = useState("");
   const [manualSteps, setManualSteps] = useState("");
   const [manualBusy, setManualBusy] = useState(false);
-  const [loginMode, setLoginModeState] = useState<LoginMode | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const [storedEmail, storedCode, mode] = await Promise.all([
-        getStoredEmail(),
-        getStoredInviteCode(),
-        getLoginMode(),
-      ]);
-      setLoginModeState(mode);
-      // Only treat creds as "saved" when the user is in enterprise mode AND
-      // both pieces are present. Prevents stale creds on a shared device
-      // from auto-syncing under a previous identity.
-      if (mode === "enterprise" && storedEmail) setEmail(storedEmail);
-      if (mode === "enterprise" && storedCode) setInviteCode(storedCode);
-      if (mode === "enterprise" && storedEmail && storedCode) setCredsSaved(true);
-      setLastSync(await getLastSyncAt());
-    })();
-  }, []);
-
-  const blockedIfNotEnterprise = useCallback((): boolean => {
-    if (loginMode === "enterprise") return false;
-    Alert.alert(
-      "Sign in required",
-      "Sign in as a pilot member from your Profile to sync to your team baseline. Manual entry without sign-in stays on this device only.",
-    );
-    return true;
-  }, [loginMode]);
-
-  const onSaveCreds = useCallback(async () => {
-    const trimmedEmail = email.trim().toLowerCase();
-    const trimmedCode = inviteCode.trim().toUpperCase();
-    if (!trimmedEmail.includes("@") || !trimmedEmail.includes(".")) {
-      Alert.alert("Invalid email", "Please enter a valid work email.");
-      return;
-    }
-    if (trimmedCode.length < 4) {
-      Alert.alert("Invalid invite code", "Enter the company invite code your admin shared with you.");
-      return;
-    }
-    await Promise.all([setStoredEmail(trimmedEmail), setStoredInviteCode(trimmedCode)]);
-    setCredsSaved(true);
-    if (Platform.OS === "ios") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [email, inviteCode]);
-
-  const onChangeCreds = useCallback(async () => {
-    await clearStoredCredentials();
-    setEmail("");
-    setInviteCode("");
-    setCredsSaved(false);
+    getLastSyncAt().then(setLastSync);
   }, []);
 
   const onConnect = useCallback(async () => {
@@ -144,9 +87,6 @@ export default function WearableScreen() {
   }, []);
 
   const onSubmitManual = useCallback(async () => {
-    // Manual entry is allowed for everyone — the lib gracefully saves
-    // locally for non-enterprise users (no server sync) and pushes to the
-    // pilot baseline for enterprise users with valid creds.
     const hrvNum = manualHrv.trim() ? Number(manualHrv.trim()) : null;
     const sleepNum = manualSleep.trim() ? Number(manualSleep.trim()) : null;
     const stepsNum = manualSteps.trim() ? Number(manualSteps.trim()) : null;
@@ -167,7 +107,7 @@ export default function WearableScreen() {
     }
     setManualBusy(true);
     try {
-      const result = await syncManualMetrics(email, inviteCode, {
+      const result = await syncManualMetrics({
         hrv: hrvNum,
         sleep_hours: sleepNum,
         steps: stepsNum != null ? Math.round(stepsNum) : null,
@@ -187,22 +127,14 @@ export default function WearableScreen() {
     } finally {
       setManualBusy(false);
     }
-  }, [email, inviteCode, manualHrv, manualSleep, manualSteps]);
+  }, [manualHrv, manualSleep, manualSteps]);
 
   const onSync = useCallback(async () => {
-    if (blockedIfNotEnterprise()) return;
-    if (!credsSaved) {
-      Alert.alert(
-        "Confirm your email and code first",
-        "Save your work email and your company invite code so we can securely match your data."
-      );
-      return;
-    }
     setBusy(true);
     try {
       const m = await readLatestMetrics();
       setMetrics(m);
-      const result = await syncToServer(email, inviteCode, m);
+      const result = await syncToServer(m);
       if (!result.success) {
         const noData =
           m.hrv == null && m.sleep_duration_minutes == null && m.steps == null;
@@ -225,7 +157,7 @@ export default function WearableScreen() {
     } finally {
       setBusy(false);
     }
-  }, [credsSaved, email, inviteCode]);
+  }, []);
 
   const showWebNote = Platform.OS === "web";
 
@@ -252,7 +184,6 @@ export default function WearableScreen() {
           </View>
           <Text style={styles.cardSub}>
             Read your HRV, sleep, and step data from {healthProviderLabel} to power your personal Neuro-Resilience Score.
-            Your individual data is never shown to your employer.
             {isHealthConnectAvailable
               ? "\n\nWorks with Galaxy Watch (via Samsung Health), Pixel Watch, Wear OS watches, and any Android wearable that syncs to Health Connect."
               : ""}
@@ -269,54 +200,7 @@ export default function WearableScreen() {
         </GlassCard>
 
         <GlassCard style={styles.card}>
-          <Text style={styles.sectionLabel}>Step 1 — Verify you're a pilot member</Text>
-          <Text style={styles.cardSub}>
-            Enter the work email your admin used to add you, plus your company invite code.
-            We use both together to make sure no one else can submit data as you.
-          </Text>
-          {credsSaved ? (
-            <View style={styles.savedRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.savedEmail}>{email}</Text>
-                <Text style={styles.savedHint}>Code: {inviteCode} · Saved on this device</Text>
-              </View>
-              <Pressable onPress={onChangeCreds} style={styles.linkBtn}>
-                <Text style={styles.linkText}>Change</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="you@yourcompany.com"
-                placeholderTextColor="#7280A0"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Company invite code (e.g. SJK3M67C)"
-                placeholderTextColor="#7280A0"
-                autoCapitalize="characters"
-                autoCorrect={false}
-                value={inviteCode}
-                onChangeText={setInviteCode}
-              />
-              <Pressable
-                onPress={onSaveCreds}
-                style={[styles.primaryBtn, (!email || !inviteCode) && styles.btnDisabled]}
-                disabled={!email || !inviteCode}
-              >
-                <Text style={styles.primaryBtnText}>Save & verify</Text>
-              </Pressable>
-            </>
-          )}
-        </GlassCard>
-
-        <GlassCard style={styles.card}>
-          <Text style={styles.sectionLabel}>Step 2 — Grant Health permissions</Text>
+          <Text style={styles.sectionLabel}>Step 1 — Grant health permissions</Text>
           <Text style={styles.cardSub}>
             We request read-only access to: Heart Rate Variability, Sleep, and Step Count.
           </Text>
@@ -335,7 +219,7 @@ export default function WearableScreen() {
         </GlassCard>
 
         <GlassCard style={styles.card}>
-          <Text style={styles.sectionLabel}>Step 3 — Sync your data</Text>
+          <Text style={styles.sectionLabel}>Step 2 — Sync your data</Text>
           <View style={styles.syncRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.syncLabel}>Last sync</Text>
@@ -343,8 +227,8 @@ export default function WearableScreen() {
             </View>
             <Pressable
               onPress={onSync}
-              disabled={busy || !credsSaved}
-              style={[styles.primaryBtn, styles.syncBtn, (!credsSaved || busy) && styles.btnDisabled]}
+              disabled={busy}
+              style={[styles.primaryBtn, styles.syncBtn, busy && styles.btnDisabled]}
             >
               {busy ? (
                 <ActivityIndicator color="#fff" />
@@ -474,8 +358,7 @@ export default function WearableScreen() {
             <Text style={styles.privacyTitle}>Your privacy</Text>
           </View>
           <Text style={styles.cardSub}>
-            • Your individual scores are visible only to you{"\n"}
-            • HR sees aggregate trends only when 5+ teammates participate{"\n"}
+            • Your data is private and visible only to you{"\n"}
             • You can disconnect anytime in {isHealthConnectAvailable
               ? "Settings → Apps → Health Connect → Permissions"
               : "iOS Settings → Privacy → Health"}{"\n"}
@@ -529,11 +412,6 @@ const styles = StyleSheet.create({
   syncBtn: { paddingVertical: 11, paddingHorizontal: 14 },
   btnDisabled: { opacity: 0.45 },
   primaryBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  savedRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  savedEmail: { color: Colors.white, fontSize: 15, fontWeight: "600" },
-  savedHint: { color: "#7280A0", fontSize: 12, marginTop: 2 },
-  linkBtn: { paddingHorizontal: 10, paddingVertical: 6 },
-  linkText: { color: "#A78BFA", fontSize: 13, fontWeight: "600" },
   syncRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   syncLabel: { color: "#7280A0", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.8 },
   syncValue: { color: Colors.white, fontSize: 15, fontWeight: "600", marginTop: 2 },

@@ -1,6 +1,6 @@
 import React from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Crown, Building2, Flame, Megaphone, Globe, Share2, Layers, CheckCircle2, X } from "lucide-react"
+import { Brain, Heart, Clover, Sparkles, History, RotateCcw, Gamepad2, Zap, Crown, Flame, Megaphone, Globe, Share2, Layers, CheckCircle2, X } from "lucide-react"
 import { UserAuthButton } from "@/components/user-auth-button"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocation } from "wouter"
@@ -691,26 +691,6 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/30 rounded-full px-4 py-2 shrink-0">
                   <span className="text-sm font-bold text-primary font-serif">$9.99/mo</span>
-                </div>
-              </GlassCardContent>
-            </GlassCard>
-
-            <GlassCard
-              className="cursor-pointer group hover:border-violet-400/40 transition-colors"
-              onClick={() => navigate("/enterprise")}
-            >
-              <GlassCardContent className="p-6 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-violet-400/15 rounded-2xl border border-violet-400/30">
-                    <Building2 className="w-7 h-7 text-violet-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-serif font-semibold text-lg text-foreground">Corporate Wellness</h3>
-                    <p className="text-sm text-muted-foreground">Team licences · Analytics · SSO · Custom branding</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 bg-violet-400/10 border border-violet-400/25 rounded-full px-4 py-2 shrink-0">
-                  <span className="text-sm font-bold text-violet-400 font-serif">From $299/mo</span>
                 </div>
               </GlassCardContent>
             </GlassCard>

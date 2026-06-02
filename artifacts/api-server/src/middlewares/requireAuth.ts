@@ -1,4 +1,3 @@
-import { getAuth } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
 
 declare global {
@@ -10,12 +9,17 @@ declare global {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = getAuth(req);
-  const userId = auth?.sessionClaims?.userId || auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
+  const adminSecret = process.env.ADMIN_SECRET;
+  if (adminSecret) {
+    const authHeader = req.headers["authorization"];
+    const token = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
+    if (token && token === adminSecret) {
+      req.userId = "admin";
+      next();
+      return;
+    }
   }
-  req.userId = userId as string;
-  next();
+  res.status(401).json({ error: "Unauthorized" });
 }
