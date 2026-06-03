@@ -1,0 +1,64 @@
+{
+  "name": "[NeuroQuest API] device-signature pass rate SLO — signed-login success slowly drifting down",
+  "type": "log alert",
+  "query": "formula(\"100 * (ok / rate) / ((ok / rate) + rejected)\").last(\"4h\") < 98",
+  "message": "{{#is_alert}}\n@pagerduty-NeuroQuest-Backend\n\n**The device-signature signed-login pass rate has drifted below the SLO.**\n\nOver the last 4 hours the sample-scaled pass rate `(ok / sample_rate) / ((ok / sample_rate) + rejected)` fell below the critical threshold (98%). The healthy baseline is ~99.8%, so this signals a SLOW erosion — a gradual climb in rejections, or one route/enforcement mode quietly degrading — rather than the sudden active-install spike the `device-signature-lockout` monitor catches. The two alerts are complementary: lockout pages on an abrupt cliff in a 15m window; this one pages on a multi-hour slide that would otherwise only be visible to someone staring at the dashboard.\n\n**INVESTIGATE:**\n1. Open the **device-signature pass rate** dashboard (`artifacts/api-server/docs/dashboards/device-signature-pass-rate.json`) — the *Pass-rate trend by route* and *by enforcement mode (hard_mode)* tiles, plus the *route × hard_mode* table, show WHICH route or mode is dragging the ratio down.\n2. Check for a recent deploy touching `artifacts/api-server/src/lib/deviceAuth.ts` (shared verify / sampling) or the mobile signer `artifacts/neuro-quest-mobile/lib/userAuth.ts`.\n\n**EMERGENCY ROLLBACK (general per-:id gate, no redeploy needed):**\nSet the secret `DEVICE_AUTH_SOFT_MODE=1` on the `api-server` deployment to return `requireDeviceSignature` to verify-and-log-without-reject, so members stop getting 401s while you investigate. NOTE: the strict GDPR (`requireDeviceSignatureStrict`) and IAP (`requireUserOrDevice`) gates intentionally IGNORE soft mode — if the drift is concentrated on export/erasure/purchase routes, the only mitigation is reverting the offending build. See .agents/memory/device-signature-enforcement.md.\n{{/is_alert}}\n{{#is_warning}}\nDevice-signature pass rate has slipped below the warning threshold (99%) over the last 4h — watch the dashboard; it is trending toward the SLO breach.\n{{/is_warning}}\n{{#is_recovery}}\nDevice-signature pass rate has recovered back above the SLO threshold.\n{{/is_recovery}}",
+  "tags": [
+    "service:neuroquest-api",
+    "team:backend",
+    "feature:device-auth",
+    "severity:high"
+  ],
+  "options": {
+    "thresholds": {
+      "critical": 98,
+      "warning": 99
+    },
+    "variables": [
+      {
+        "data_source": "logs",
+        "name": "ok",
+        "indexes": ["*"],
+        "compute": { "aggregation": "count" },
+        "group_by": [],
+        "search": { "query": "service:neuroquest-api env:production \"device_signature:ok\"" },
+        "storage": "hot"
+      },
+      {
+        "data_source": "logs",
+        "name": "rate",
+        "indexes": ["*"],
+        "compute": { "aggregation": "avg", "metric": "@extra.sample_rate" },
+        "group_by": [],
+        "search": { "query": "service:neuroquest-api env:production \"device_signature:ok\"" },
+        "storage": "hot"
+      },
+      {
+        "data_source": "logs",
+        "name": "rejected",
+        "indexes": ["*"],
+        "compute": { "aggregation": "count" },
+        "group_by": [],
+        "search": { "query": "service:neuroquest-api env:production (\"device_signature:missing\" OR \"device_signature:invalid\" OR \"device_signature:expired\" OR \"device_signature:id_mismatch\" OR \"device_signature:issued_at_too_old\" OR \"device_signature:replayed\")" },
+        "storage": "hot"
+      }
+    ],
+    "enable_logs_sample": true,
+    "notify_no_data": false,
+    "require_full_window": false,
+    "renotify_interval": 60,
+    "include_tags": true,
+    "new_group_delay": 60,
+    "groupby_simple_monitor": false,
+    "escalation_message": "Device-signature pass rate is STILL below the SLO. Use the dashboard's route × hard_mode breakdown to isolate the degrading surface; set DEVICE_AUTH_SOFT_MODE=1 for the general gate, or revert the offending build for the strict GDPR/IAP gates (they ignore soft mode)."
+  },
+  "_runbook": {
+    "why": "The device-signature-lockout monitor only fires on a SUDDEN spike of active-install rejections in a 15m window. A gradual erosion of the pass rate (99.8% drifting toward 97% over days, or one route quietly degrading) never trips it — it would only be visible to someone watching the device-signature pass-rate dashboard. This ratio-based SLO monitor closes that gap so slow regressions page automatically.",
+    "math": "Reuses the SAME sample-scaled pass rate as the dashboard: scaled_ok = ok / sample_rate; pass_rate = scaled_ok / (scaled_ok + rejected). Datadog formula: 100 * (ok / rate) / ((ok / rate) + rejected). Successes are SAMPLED (device_signature:ok, ~1%) so the raw ok count understates true success volume; scaling by 1/sample_rate recovers it before forming the ratio.",
+    "sample_rate_source": "`rate` = avg(@extra.sample_rate) over the device_signature:ok captures — the LIVE DEVICE_AUTH_SUCCESS_SAMPLE_RATE emitted on every ok capture, NOT a hardcoded 0.01. This keeps the scale-up correct after the env var is changed, matching the dashboard exactly. @extra.sample_rate must exist as a Datadog measure facet for the avg() to evaluate.",
+    "rejected_signal": "Rejections counted: missing, invalid, expired, id_mismatch, issued_at_too_old, replayed — identical to the dashboard. no_server_key is EXCLUDED (that verdict is allowed through as misconfig, not a login failure). Unlike the spike lockout monitor, this SLO does NOT filter on @extra.active_install: the pass rate is a fleet-wide ratio and the pre-handshake 'missing' tail is already diluted by the (far larger) scaled success volume in the denominator.",
+    "window_and_thresholds": "4h evaluation window matches the dashboard's 'Overall pass rate (last 4h)' tile and is long enough to average out 1%-sampling noise in the ok count. warning=99 / critical=98 sit well below the ~99.8% baseline but well above the 97% drift the task calls out, so a slow slide pages with headroom. notify_no_data=false (low-traffic lulls produce 0/0, not a real regression). If sampling noise causes flapping at low traffic, widen the window (e.g. last 12h/24h) rather than lowering the threshold.",
+    "rollback": "General per-:id gate: set DEVICE_AUTH_SOFT_MODE=1 (no redeploy) to return requireDeviceSignature to verify-and-log-without-reject. Strict GDPR (requireDeviceSignatureStrict) and IAP (requireUserOrDevice) gates IGNORE soft mode by design — revert the offending build instead. See .agents/memory/device-signature-enforcement.md.",
+    "provisioning": "Auto-applied to the live Datadog account by scripts/provision-monitors.ts on the api-server production build, keyed by the injected monitor_key:device-signature-pass-rate-slo tag. Do NOT hand-create in the Datadog UI. See .agents/memory/datadog-monitor-provisioning.md."
+  }
+}
