@@ -5,6 +5,7 @@ import questRouter from "./quest";
 import stripeRouter from "./stripe";
 import sponsorRouter from "./sponsor";
 import adminRouter from "./admin";
+import backupRouter from "./backup";
 import notificationsRouter from "./notifications";
 import iapRouter from "./iap";
 import appUserRouter from "./app-user";
@@ -15,6 +16,7 @@ import donationsRouter from "./donations";
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(backupRouter);
 router.use(authRouter);
 router.use("/quest", questRouter);
 router.use(stripeRouter);

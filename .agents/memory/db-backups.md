@@ -1,24 +1,38 @@
 ---
 name: DB backups
-description: How automated Postgres backups work and why they must run as a scheduled deployment, not in-process.
+description: How automated Postgres backups work and why they run via an admin HTTP trigger hit by an external cron, not a Replit Scheduled Deployment.
 ---
 
 # Automated database backups
 
-`pnpm --filter @workspace/api-server run backup:db` runs `pg_dump` (custom
-format) → uploads to Replit object storage under `db-backups/<env>/` → prunes
-to `DB_BACKUP_RETENTION` (default 14, invalid values fall back to 14).
+Core logic lives in `src/lib/backupDb.ts` (`runBackup()`): `pg_dump` (custom
+format) → uploads to Replit object storage under `db-backups/<env>/` → prunes to
+`DB_BACKUP_RETENTION` (default 14, invalid values fall back to 14). Two callers:
+- CLI: `pnpm --filter @workspace/api-server run backup:db` (script delegates to `runBackup()`).
+- HTTP: `POST /api/admin/db-backup`, gated by `ADMIN_MASTER_KEY` via `x-admin-key`
+  header (same pattern as `/admin/donations/settle`).
 
-**Why a scheduled deployment, not in-process cron:** the api-server deploys as
-**autoscale**, which spins down when idle and can run multiple instances — an
-in-process timer would fire unreliably or multiple times. Backups must be a
-separate **Scheduled Deployment** running the `backup:db` command.
+**Why an HTTP trigger + external cron, NOT a Scheduled Deployment:** Replit
+publishes the whole project as ONE deployment (here: autoscale). You cannot run a
+separate Scheduled Deployment alongside the live app — switching the deployment
+type to Scheduled would take the live API/site offline. So automation is: an
+external cron service (cron-job.org, GitHub Actions, etc.) POSTs to the endpoint
+daily with the admin key. Autoscale also rules out an in-process timer (sleeps
+when idle, may run multiple instances).
+
+**Routing gotcha:** `backupRouter` MUST be mounted before `adminRouter` in
+`routes/index.ts`. `adminRouter` does `router.use("/admin", requireAdmin)` where
+`requireAdmin` checks `ADMIN_SECRET` (unset in this project) and 403s
+"Admin access is not configured" — so any `/admin/*` path it sees first is
+blocked. Mounting backupRouter earlier lets `/admin/db-backup` resolve first.
 
 **How to apply:**
-- The job must run in the **production** environment so it sees the production
-  `DATABASE_URL` and the production object-storage bucket (dev and prod each
-  have their own, separate). Running it in dev backs up the dev DB.
+- Production runs (real data) require hitting the endpoint on the deployed
+  (production) URL so it uses the production `DATABASE_URL`. Dev/prod each have
+  their own DB; the object-storage bucket is shared per-repl.
 - `pg_dump` is available in prod because `postgresql-16` is a declared module in
-  `.replit` (not an ambient dev-only binary).
-- Dev-safe by design: no `DATABASE_URL` → clean no-op exit 0; any real failure
-  (pg_dump/upload) → exit 1 for scheduled-job observability.
+  `.replit`.
+- Dev-safe: no `DATABASE_URL` → `{skipped:true}` no-op; any real failure throws
+  (CLI exit 1 / HTTP 500).
+- Caveat: backup runs synchronously in the request. Fine while the DB is small;
+  if it grows, watch for request/cron timeouts and consider a concurrency guard.
