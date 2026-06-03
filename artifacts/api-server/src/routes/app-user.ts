@@ -7,7 +7,9 @@ import {
   requireDeviceSignature,
   verifyDeviceSignature,
   consumeRequestNonce,
+  isActiveInstall,
 } from "../lib/deviceAuth";
+import { captureMessage } from "../lib/errorMonitoring";
 
 // Strict GDPR-only signature gate. Unlike the global `requireDeviceSignature`,
 // this one HARD-401s when the signature is anything other than `ok`. Architect
@@ -19,6 +21,20 @@ async function requireDeviceSignatureStrict(req: Request, res: Response, next: N
   const result = verifyDeviceSignature(req, userId);
   (req as any).signatureCheck = result;
   if (result.status !== "ok") {
+    // Surface every non-ok verdict with the SAME `active_install` discriminator
+    // the general gate uses, so the strict-path lockout monitor can isolate REAL
+    // members (device-aware clients) from the harmless pre-handshake tail. This
+    // path ignores DEVICE_AUTH_SOFT_MODE, so a regression here can ONLY be
+    // mitigated by reverting the bad deploy — see the strict/IAP monitor.
+    captureMessage(`device_signature_strict:${result.status}`, {
+      user_id: userId,
+      route: `${req.method} ${req.path}`,
+      extra: {
+        reason: result.reason ?? null,
+        scope: "gdpr_strict",
+        active_install: isActiveInstall(req),
+      },
+    });
     return res.status(401).json({
       error: "Authentication failed",
       details: { reason: result.status, scope: "gdpr_strict" },
@@ -27,6 +43,15 @@ async function requireDeviceSignatureStrict(req: Request, res: Response, next: N
   // Accept-once: a replayed export/erasure request (same captured signature
   // inside the skew window) must be rejected even though the crypto is valid.
   if ((await consumeRequestNonce(req, userId)) === "replayed") {
+    captureMessage("device_signature_strict:replayed", {
+      user_id: userId,
+      route: `${req.method} ${req.path}`,
+      extra: {
+        reason: "nonce_reused",
+        scope: "gdpr_strict",
+        active_install: isActiveInstall(req),
+      },
+    });
     return res.status(401).json({
       error: "Authentication failed",
       details: { reason: "replayed", scope: "gdpr_strict" },

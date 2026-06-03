@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { timingSafeEqual } from "crypto";
 import { query } from "../lib/db";
-import { verifyDeviceSignature, consumeRequestNonce } from "../lib/deviceAuth";
+import { verifyDeviceSignature, consumeRequestNonce, isActiveInstall } from "../lib/deviceAuth";
 import { captureMessage } from "../lib/errorMonitoring";
 
 const router: IRouter = Router();
@@ -36,16 +36,29 @@ async function requireUserOrDevice(req: any, res: any): Promise<string | null> {
       if ((await consumeRequestNonce(req, deviceUserId)) === "replayed") {
         captureMessage("iap_device_auth:replayed", {
           route: `${req.method} ${req.path}`,
-          extra: { reason: "nonce_reused", user_id_provided: deviceUserId.slice(0, 8) },
+          extra: {
+            reason: "nonce_reused",
+            user_id_provided: deviceUserId.slice(0, 8),
+            active_install: isActiveInstall(req),
+          },
         });
         res.status(401).json({ error: "Unauthorized" });
         return null;
       }
       return deviceUserId;
     }
+    // Tag the verdict with the SAME `active_install` discriminator the general
+    // gate uses so the strict/IAP lockout monitor isolates REAL members (device-
+    // aware clients) from the harmless pre-handshake tail. This path ignores
+    // DEVICE_AUTH_SOFT_MODE, so a regression here can ONLY be mitigated by
+    // reverting the bad deploy — see the strict/IAP monitor runbook.
     captureMessage(`iap_device_auth:${result.status}`, {
       route: `${req.method} ${req.path}`,
-      extra: { reason: result.reason ?? null, user_id_provided: deviceUserId.slice(0, 8) },
+      extra: {
+        reason: result.reason ?? null,
+        user_id_provided: deviceUserId.slice(0, 8),
+        active_install: isActiveInstall(req),
+      },
     });
   }
 
