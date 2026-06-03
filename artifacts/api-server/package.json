@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development tsx ./src/index.ts",
-    "build": "pnpm --filter @workspace/neuro-quest run build && tsx ./build.ts && tsx ./scripts/provision-monitors.ts",
+    "build": "pnpm --filter @workspace/neuro-quest run build && tsx ./build.ts && tsx ./scripts/provision-monitors.ts && tsx ./scripts/provision-dashboards.ts",
     "monitors:provision": "tsx ./scripts/provision-monitors.ts",
     "monitors:check": "tsx ./scripts/provision-monitors.ts --check",
+    "dashboards:provision": "tsx ./scripts/provision-dashboards.ts",
+    "dashboards:check": "tsx ./scripts/provision-dashboards.ts --check",
     "backup:db": "tsx ./scripts/backup-db.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test \"src/**/*.test.ts\""

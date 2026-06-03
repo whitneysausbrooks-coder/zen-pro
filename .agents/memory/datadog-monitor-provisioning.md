@@ -1,6 +1,6 @@
 ---
-name: Datadog monitor provisioning
-description: How committed Datadog monitor JSON gets applied to the live account, and the conventions for adding new monitors.
+name: Datadog monitor & dashboard provisioning
+description: How committed Datadog monitor/dashboard JSON gets applied to the live account, and the conventions for adding new ones.
 ---
 
 # Datadog monitor provisioning
@@ -35,3 +35,19 @@ must not cascade); pass `--strict` to make failures exit non-zero.
 `--check`) is read-only and exits 1 if any live monitor is missing, duplicated, or differs from its
 file in name/type/query/message/tags/declared options. Requires live creds, so it is a CI/manual
 guard, not part of the build.
+
+## Dashboards (same pattern, separate script)
+
+Committed dashboard-as-code lives in `artifacts/api-server/docs/dashboards/*.json`, reconciled by
+`scripts/provision-dashboards.ts`, also wired into the api-server build (`tsx ./scripts/provision-dashboards.ts`
+after the monitor step). Same dev-safe skip, same non-strict/`--strict` failure policy, same `--check`
+drift mode + `dashboards:check` / `dashboards:provision` package scripts, same `_`-prefix field strip.
+
+**Key difference — idempotency:** the Dashboards API (`/api/v1/dashboard`) has no searchable tag field
+like Monitors, so the key is a `[managed: dashboard_key:<stem>]` marker appended to the dashboard
+**description**. List all dashboards, match the marker in description, PUT if found else POST. The marker
+is stripped-then-reappended each run so it never stacks. Do NOT hand-edit the live description's marker.
+
+**Drift compare is shallow by design:** Datadog backfills widget ids + many default fields, so a deep
+equal would always report drift. `diffFields` only compares title/description/layout_type/reflow_type/
+template_variables and a `widgetSignature` (ordered type:title of each widget, recursing into groups).
